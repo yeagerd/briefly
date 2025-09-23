@@ -21,6 +21,7 @@ class BaseUserManagementTest:
         # This prevents models from other services (imported by pytest) from
         # interfering with the user service's test schema.
         from sqlmodel import SQLModel
+
         SQLModel.metadata.clear()
 
         # Reset database settings and connections before importing app
@@ -72,6 +73,7 @@ class BaseUserManagementTest:
 
         # Clear metadata again to avoid leaking state to other tests in the same worker
         from sqlmodel import SQLModel
+
         SQLModel.metadata.clear()
 
 

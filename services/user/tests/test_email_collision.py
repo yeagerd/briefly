@@ -206,7 +206,9 @@ class TestEmailCollisionDB(BaseUserManagementIntegrationTest):
             async def session_cm():
                 yield session
 
-            with patch.object(self.detector, "normalize_email", return_value=unique_email):
+            with patch.object(
+                self.detector, "normalize_email", return_value=unique_email
+            ):
                 with patch(
                     "services.user.utils.email_collision.get_async_session",
                     return_value=session_cm,
@@ -237,7 +239,9 @@ class TestEmailCollisionDB(BaseUserManagementIntegrationTest):
             normalized_email=unique_email,
         )
         with patch.object(self.detector, "check_collision", return_value=existing_user):
-            with patch.object(self.detector, "normalize_email", return_value=unique_email):
+            with patch.object(
+                self.detector, "normalize_email", return_value=unique_email
+            ):
                 result = await self.detector.get_collision_details(unique_email)
                 assert result["collision"] is True
                 assert result["existing_user_id"] == existing_user.external_auth_id
@@ -257,7 +261,9 @@ class TestEmailCollisionDB(BaseUserManagementIntegrationTest):
     async def test_get_email_info_invalid_email(self):
         # Test the fallback behavior by mocking the simple_email_normalize to fail
         with patch.object(
-            self.detector, "_simple_email_normalize", side_effect=Exception("Invalid email")
+            self.detector,
+            "_simple_email_normalize",
+            side_effect=Exception("Invalid email"),
         ):
             result = await self.detector.get_email_info("invalid-email")
             assert result["original_email"] == "invalid-email"

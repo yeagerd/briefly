@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { ContactPhone } from '../../office/models/ContactPhone';
+import type { ContactPhone } from './ContactPhone';
 /**
  * Update model for email contacts.
  */

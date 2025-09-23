@@ -26,8 +26,7 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
         error,
         refreshContacts,
         filterContacts,
-        availableSources,
-        sourceStats
+        availableSources
     } = useContacts();
     const [refreshing, setRefreshing] = useState(false);
     const [search, setSearch] = useState('');

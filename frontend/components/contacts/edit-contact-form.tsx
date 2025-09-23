@@ -197,8 +197,8 @@ const EditContactForm: React.FC<EditContactFormProps> = ({
                                         <span
                                             key={index}
                                             className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full border ${phone.primary
-                                                    ? 'bg-blue-100 text-blue-800 border-blue-200'
-                                                    : 'bg-gray-100 text-gray-800 border-gray-200'
+                                                ? 'bg-blue-100 text-blue-800 border-blue-200'
+                                                : 'bg-gray-100 text-gray-800 border-gray-200'
                                                 }`}
                                         >
                                             <Phone className="w-3 h-3" />

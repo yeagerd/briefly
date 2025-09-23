@@ -176,6 +176,21 @@ from services.user.tests.test_base import BaseUserManagementIntegrationTest
 class TestEmailCollisionDB(BaseUserManagementIntegrationTest):
     def setup_method(self):
         super().setup_method()
+        # Ensure database tables are created for testing
+        import asyncio
+
+        from services.user.database import create_all_tables_for_testing
+
+        try:
+            asyncio.run(create_all_tables_for_testing())
+        except RuntimeError:
+            # If we're already in an event loop, create a task
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, create_all_tables_for_testing())
+                future.result()
+
         self.detector = EmailCollisionDetector()
 
     @pytest.mark.asyncio

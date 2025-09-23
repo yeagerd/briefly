@@ -100,14 +100,12 @@ metadata = SQLModel.metadata
 
 async def create_all_tables_for_testing() -> None:
     """
-    Create all database tables for testing. Drops all tables first to ensure a clean state.
+    Create all database tables for testing. Creates tables if they don't exist.
     Use Alembic migrations in production.
     """
     engine = get_engine()
     async with engine.begin() as conn:
-        # Drop all tables to ensure a clean slate for each test, since the in-memory
-        # database can persist between test runs within the same worker process.
-        await conn.run_sync(SQLModel.metadata.drop_all)
+        # Just create tables - SQLAlchemy will skip if they already exist
         await conn.run_sync(SQLModel.metadata.create_all)
 
 

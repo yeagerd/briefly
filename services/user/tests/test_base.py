@@ -2,201 +2,88 @@
 Base classes for User Management tests.
 
 Provides common setup and teardown for all user management tests,
-including required environment variables and database setup.
+including required settings and HTTP call prevention.
 """
 
-import os
-import tempfile
-from unittest.mock import patch
-
-from fastapi.testclient import TestClient
+from services.common.test_utils import BaseSelectiveHTTPIntegrationTest
 
 
-class BaseUserManagementTest:
-    """Base class for all User Management tests (unit and integration)."""
+class BaseUserManagementTest(BaseSelectiveHTTPIntegrationTest):
+    """Base class for all User Management tests with HTTP call prevention."""
 
-    def setup_method(self):
-        """Set up User Management test environment with required variables."""
-        # Isolate model metadata by clearing the global SQLModel metadata object.
-        # This prevents models from other services (imported by pytest) from
-        # interfering with the user service's test schema.
-        from sqlmodel import SQLModel
+    def setup_method(self, method: object) -> None:
+        """Set up User Management test environment with required settings."""
+        # Call parent setup to enable HTTP call detection
+        super().setup_method(method)
 
-        SQLModel.metadata.clear()
+        # Import user settings module
+        import services.user.settings as user_settings
 
-        # Reset database settings and connections before importing app
-        from services.user.database import reset_db, reset_settings
+        # Store original settings singleton for cleanup
+        self._original_settings = user_settings._settings
 
-        reset_settings()
+        # Create test settings instance
+        from services.user.settings import Settings
 
-        # Use a shared in-memory SQLite database to avoid disk I/O errors.
-        # The `cache=shared` is crucial for sharing the DB between connections in the same process.
-        # Each pytest-xdist worker will have its own in-memory DB.
-        os.environ["DB_URL_USER"] = "sqlite+aiosqlite:///file::memory:?cache=shared"
-        self.db_path = None  # Ensure db_path is None to avoid os.unlink in teardown
-        os.environ["TOKEN_ENCRYPTION_SALT"] = "dGVzdC1zYWx0LTE2Ynl0ZQ=="
-        os.environ["API_FRONTEND_USER_KEY"] = "test-frontend-key"
-        os.environ["API_CHAT_USER_KEY"] = "test-chat-key"
-        os.environ["API_OFFICE_USER_KEY"] = "test-office-key"
-        os.environ["API_MEETINGS_USER_KEY"] = "test-meetings-key"
-        os.environ["PAGINATION_SECRET_KEY"] = "test-pagination-secret-key"
+        test_settings = Settings(
+            db_url_user="sqlite:///:memory:",
+            api_frontend_user_key="test-frontend-user-key",
+            api_chat_user_key="test-chat-user-key",
+            api_office_user_key="test-office-user-key",
+            api_meetings_user_key="test-meetings-user-key",
+            pagination_secret_key="test-pagination-secret-key",
+            token_encryption_salt="dGVzdC1zYWx0LTE2Ynl0ZQ==",
+            environment="test",
+            debug=False,
+        )
 
-        # Optional environment variables with test defaults
-        os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
-        os.environ.setdefault("ENVIRONMENT", "test")
+        # Set the test settings as the singleton
+        user_settings._settings = test_settings
 
-        # Import app after environment variables are set
-        from services.user.main import app
-
-        self.app = app
-
-    def teardown_method(self):
+    def teardown_method(self, method: object) -> None:
         """Clean up User Management test environment."""
-        # Reset database connections
-        import asyncio
+        # Call parent teardown to clean up HTTP patches
+        super().teardown_method(method)
 
-        from services.user.database import reset_db
+        # Restore original settings singleton
+        import services.user.settings as user_settings
 
-        try:
-            # Try to reset database asynchronously
-            asyncio.run(reset_db())
-        except RuntimeError:
-            # If we're already in an event loop, use ThreadPoolExecutor
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, reset_db())
-                future.result()
-
-        # No temporary database file to remove when using an in-memory database
-        pass
-
-        # Clear metadata again to avoid leaking state to other tests in the same worker
-        from sqlmodel import SQLModel
-
-        SQLModel.metadata.clear()
+        user_settings._settings = self._original_settings
 
 
 class BaseUserManagementIntegrationTest(BaseUserManagementTest):
     """Base class for User Management integration tests with full app setup."""
 
-    def setup_method(self):
+    def setup_method(self, method: object) -> None:
         """Set up User Management integration test environment."""
-        # Call parent setup for environment variables and database resets
-        super().setup_method()
+        # Call parent setup for settings and HTTP patches
+        super().setup_method(method)
 
-        # Use selective HTTP patches that don't interfere with TestClient
-        self.http_patches = [
-            # Patch httpx AsyncClient methods (most common for async HTTP calls)
-            patch(
-                "httpx.AsyncClient._send_single_request",
-                side_effect=AssertionError(
-                    "Real HTTP call detected! AsyncClient._send_single_request was called"
-                ),
-            ),
-            patch(
-                "httpx.AsyncClient.request",
-                side_effect=AssertionError(
-                    "Real HTTP call detected! AsyncClient.request was called"
-                ),
-            ),
-            # Patch requests (commonly used for external calls)
-            patch(
-                "requests.adapters.HTTPAdapter.send",
-                side_effect=AssertionError(
-                    "Real HTTP call detected! requests HTTPAdapter.send was called"
-                ),
-            ),
-            patch(
-                "requests.Session.request",
-                side_effect=AssertionError(
-                    "Real HTTP call detected! requests.Session.request was called"
-                ),
-            ),
-            # Patch urllib (basic HTTP library)
-            patch(
-                "urllib.request.urlopen",
-                side_effect=AssertionError(
-                    "Real HTTP call detected! urllib.request.urlopen was called"
-                ),
-            ),
-            patch(
-                "urllib3.poolmanager.PoolManager.urlopen",
-                side_effect=AssertionError(
-                    "Real HTTP call detected! urllib3.PoolManager.urlopen was called"
-                ),
-            ),
-            # Note: We don't patch httpx.Client.send because TestClient uses it internally
-        ]
+        # Import app after settings are configured
+        from fastapi.testclient import TestClient
 
-        # Start all HTTP detection patches
-        for http_patch in self.http_patches:
-            http_patch.start()
+        from services.user.main import app
 
-        # Database connections are already reset in parent setup_method
-        # No need to reload modules - just create tables
-
-        # Actually create the database tables
-        # Initialize database schema for testing
-        import asyncio
-
-        from services.user.database import create_all_tables_for_testing
-
-        try:
-            asyncio.run(create_all_tables_for_testing())
-        except RuntimeError:
-            # If we're already in an event loop, create a task
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, create_all_tables_for_testing())
-                future.result()
-
-        # Create test client using app from base class
-        self.client = TestClient(self.app)
+        self.app = app
+        self.client = TestClient(app)
 
         # Set up authentication overrides
         self._override_auth()
 
-    def teardown_method(self):
-        """Clean up User Management integration test environment."""
-        # Stop all patches
-        if hasattr(self, "http_patches"):
-            for http_patch in self.http_patches:
-                http_patch.stop()
-
-        # Clear app overrides
-        if hasattr(self, "app"):
-            self.app.dependency_overrides.clear()
-        if hasattr(self, "_patcher") and hasattr(self._patcher, "stop"):
-            self._patcher.stop()
-
-        # Call parent teardown
-        super().teardown_method()
-
     def _override_auth(self):
         """Override authentication for testing."""
-
-        from services.user.auth.nextauth import get_current_user  # Changed here
+        from services.user.auth.nextauth import get_current_user
 
         async def mock_get_current_user():
             return "user_123"
 
-        # This async def function can still be used as a side_effect if needed,
-        # but we'll create an AsyncMock instance directly for the patch.
-        # async def mock_verify_user_ownership_side_effect(
-        #     current_user_id: str, resource_user_id: str
-        # ):
-        #     return None
-
-        async def mock_verify_user_ownership(
-            current_user_id: str, resource_user_id: str
-        ):
-            pass
-
         self.app.dependency_overrides[get_current_user] = mock_get_current_user
-        self._patcher = patch(
-            "services.user.auth.nextauth.verify_user_ownership",  # Changed here
-            new=mock_verify_user_ownership,
-        )
-        self._patcher.start()
+
+    def teardown_method(self, method: object) -> None:
+        """Clean up User Management integration test environment."""
+        # Clear app overrides
+        if hasattr(self, "app"):
+            self.app.dependency_overrides.clear()
+
+        # Call parent teardown
+        super().teardown_method(method)

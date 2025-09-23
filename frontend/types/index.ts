@@ -8,8 +8,6 @@
 // Email types
 export * from './email-types';
 
-// Contact types
-export * from './contact-types';
 
 // Package/Shipment types
 export * from './package-types';

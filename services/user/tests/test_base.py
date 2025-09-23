@@ -24,17 +24,10 @@ class BaseUserManagementTest(BaseSelectiveHTTPIntegrationTest):
         # Store original settings singleton for cleanup
         self._original_settings = user_settings._settings
 
-        # Create temporary database file for tests that need file-based SQLite
-        # Use tempfile.mkstemp for better control over file creation
-        import os
-        import tempfile
-
-        # Create a unique temporary file in the system temp directory
-        fd, self.db_path = tempfile.mkstemp(suffix=".db", prefix="briefly_test_")
-        os.close(fd)  # Close the file descriptor immediately
-
-        # Get absolute path for database URL
-        db_path_abs = os.path.abspath(self.db_path)
+        # Use in-memory SQLite for testing to avoid disk I/O issues
+        # This is more reliable for parallel testing and faster
+        self.db_path = ":memory:"
+        db_path_abs = ":memory:"
 
         # Patch the common secrets settings to use test environment
         import services.common.config_secrets as common_secrets
@@ -76,7 +69,7 @@ class BaseUserManagementTest(BaseSelectiveHTTPIntegrationTest):
         from services.user.settings import Settings
 
         test_settings = Settings(
-            db_url_user=f"sqlite+aiosqlite:///{db_path_abs}",
+            db_url_user="sqlite+aiosqlite:///:memory:",
             api_frontend_user_key="test-frontend-user-key",
             api_chat_user_key="test-chat-user-key",
             api_office_user_key="test-office-user-key",
@@ -115,8 +108,12 @@ class BaseUserManagementTest(BaseSelectiveHTTPIntegrationTest):
         )
         common_secrets.get_secret = self._original_get_secret
 
-        # Clean up temporary database file
-        if hasattr(self, "db_path") and os.path.exists(self.db_path):
+        # Clean up temporary database file (only if using file-based database)
+        if (
+            hasattr(self, "db_path")
+            and self.db_path != ":memory:"
+            and os.path.exists(self.db_path)
+        ):
             try:
                 os.unlink(self.db_path)
             except OSError as e:

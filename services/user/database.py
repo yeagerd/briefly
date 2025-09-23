@@ -47,7 +47,7 @@ def get_engine() -> AsyncEngine:
         db_url = settings.db_url_user
 
         # Prepare engine configuration based on database type
-        connect_args: dict[str, float] = {}
+        connect_args: dict[str, Any] = {}
         engine_kwargs = {
             "echo": settings.debug,
             "connect_args": connect_args,

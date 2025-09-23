@@ -8,7 +8,7 @@ set -e
 VESPA_CONTAINER_NAME="vespa"
 VESPA_HOSTNAME="vespa-container"
 VESPA_IMAGE="vespaengine/vespa"
-VESPA_PORTS=("8080:8080" "19092:19092")
+VESPA_PORTS=("8080:8080" "19071:19071" "19092:19092")
 VESPA_ENDPOINT="http://localhost:8080"
 
 

@@ -51,6 +51,14 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
         }
     }, [refreshContacts]);
 
+    const handleCloseModals = useCallback(() => {
+        setIsContactDetailModalOpen(false);
+        setIsContactFormModalOpen(false);
+        setIsDiscoverySettingsModalOpen(false);
+        setIsAnalyticsModalOpen(false);
+        setSelectedContact(null);
+    }, []);
+
     // Modal handlers
     const handleContactClick = useCallback((contact: Contact) => {
         setSelectedContact(contact);
@@ -71,7 +79,7 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
 
             if (selectedContact) {
                 // Update existing contact
-                await contactsApi.updateContact(selectedContact.id!, contactData);
+                await contactsApi.updateContact(selectedContact.id!.toString(), contactData);
             } else {
                 // Create new contact
                 await contactsApi.createContact({
@@ -91,7 +99,7 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
         if (!contact.id) return;
         
         try {
-            await contactsApi.deleteContact(contact.id);
+            await contactsApi.deleteContact(contact.id.toString());
             handleCloseModals();
             await refreshContacts();
         } catch (error) {
@@ -116,14 +124,6 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
 
     const handleOpenAnalytics = useCallback(() => {
         setIsAnalyticsModalOpen(true);
-    }, []);
-
-    const handleCloseModals = useCallback(() => {
-        setIsContactDetailModalOpen(false);
-        setIsContactFormModalOpen(false);
-        setIsDiscoverySettingsModalOpen(false);
-        setIsAnalyticsModalOpen(false);
-        setSelectedContact(null);
     }, []);
 
     // Client-side filtering

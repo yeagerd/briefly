@@ -138,8 +138,7 @@ start_vespa_container() {
         docker run -d \
             --name "${VESPA_CONTAINER_NAME}" \
             --hostname "${VESPA_HOSTNAME}" \
-            -p "${VESPA_PORTS[0]}" \
-            -p "${VESPA_PORTS[1]}" \
+            $(printf -- '-p %s ' "${VESPA_PORTS[@]}") \
             -e VESPA_IGNORE_NOT_ENOUGH_MEMORY=true \
             "${VESPA_IMAGE}"
     fi

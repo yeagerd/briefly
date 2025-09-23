@@ -205,9 +205,6 @@ class TestContactServiceConversionExample(PostgresTestDB):
     #     assert updated_contact.display_name == "Updated Name"
 
     # AFTER: Real database test for updating contact
-    @pytest.mark.skip(
-        reason="Contact model requires first_seen and last_seen fields - service bug"
-    )
     @pytest.mark.asyncio
     async def test_update_contact_real_db(
         self, session: AsyncSession, contact_service: ContactService

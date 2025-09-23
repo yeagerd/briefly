@@ -50,6 +50,8 @@ class ContactService:
                 family_name=contact_data.family_name,
                 tags=contact_data.tags or [],
                 notes=contact_data.notes,
+                first_seen=datetime.now(timezone.utc),
+                last_seen=datetime.now(timezone.utc),
             )
 
             # Add to database

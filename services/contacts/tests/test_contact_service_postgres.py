@@ -262,6 +262,9 @@ class TestContactServicePostgres(PostgresTestDB):
         self, session: AsyncSession, contact_service: ContactService
     ):
         """Test searching contacts in the real database."""
+        # Clean up any existing test data first
+        await self.cleanup_test_data()
+
         # Create test data
         # Create multiple contacts
         contacts_data = [

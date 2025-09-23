@@ -34,27 +34,44 @@ class TestWorkingPrototype(PostgresTestDB):
         """Clean up test database after the entire test class."""
         super().teardown_class()
 
-    async def async_setup(self):
-        """Create tables before each test."""
-        await self.create_tables()
+    @pytest.fixture
+    async def test_engine(self):
+        """Create a fresh engine for each test."""
+        engine = create_async_engine(
+            self.database_url,
+            echo=False,
+            future=True,
+            pool_pre_ping=True,
+            pool_recycle=300,
+            pool_size=1,  # Single connection for tests
+            max_overflow=0,  # No overflow connections
+        )
 
-    async def async_teardown(self):
-        """Drop tables after each test."""
-        await self.drop_tables()
+        # Create tables
+        async with engine.begin() as conn:
+            await conn.run_sync(self.metadata.create_all, checkfirst=True)
+
+        yield engine
+
+        # Cleanup
+        await engine.dispose()
 
     @pytest.fixture
-    async def session(self):
+    async def session(self, test_engine):
         """Provide database session for tests."""
-        async with self.get_session() as session:
+        from sqlalchemy.orm import sessionmaker
+
+        # Create session factory with test engine
+        session_factory = sessionmaker(
+            test_engine, class_=AsyncSession, expire_on_commit=False
+        )
+
+        async with session_factory() as session:
             yield session
 
     @pytest.mark.asyncio
     async def test_create_contact_working(self, session: AsyncSession):
         """Test creating a contact - working version."""
-        # Create tables with checkfirst to avoid enum conflicts
-        async with self.engine.begin() as conn:
-            await conn.run_sync(metadata.create_all, checkfirst=True)
-
         # Create a simple contact with unique identifiers
         import uuid
 
@@ -80,16 +97,9 @@ class TestWorkingPrototype(PostgresTestDB):
 
         print(f"✅ Contact created successfully with ID: {contact.id}")
 
-        # Note: We skip table cleanup for now to avoid timeout issues
-        # In production, you'd want proper cleanup, but this demonstrates the core functionality
-
     @pytest.mark.asyncio
     async def test_query_contact_working(self, session: AsyncSession):
         """Test querying a contact - working version."""
-        # Create tables with checkfirst to avoid enum conflicts
-        async with self.engine.begin() as conn:
-            await conn.run_sync(metadata.create_all, checkfirst=True)
-
         # Create a contact with unique identifiers
         import uuid
 
@@ -124,5 +134,3 @@ class TestWorkingPrototype(PostgresTestDB):
         assert queried_contact.email_address == f"query_{unique_id}@example.com"
 
         print(f"✅ Contact queried successfully: {queried_contact.display_name}")
-
-        # Note: We skip table cleanup for now to avoid timeout issues

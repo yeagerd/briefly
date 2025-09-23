@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { Contact } from '@/types/api/contacts';
 import { Calendar, Edit, ExternalLink, FileText, Mail, Merge, Trash2, X } from 'lucide-react';
-import React from 'react';
+import React, { useEffect } from 'react';
 
 interface ContactDetailModalProps {
     contact: Contact;
@@ -21,6 +21,23 @@ const ContactDetailModal: React.FC<ContactDetailModalProps> = ({
     onDelete,
     onMerge,
 }) => {
+    // Handle escape key to close modal
+    useEffect(() => {
+        const handleEscapeKey = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                onClose();
+            }
+        };
+
+        if (isOpen) {
+            document.addEventListener('keydown', handleEscapeKey);
+        }
+
+        return () => {
+            document.removeEventListener('keydown', handleEscapeKey);
+        };
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     const getSourceServiceIcon = (service: string) => {

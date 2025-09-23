@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, X } from 'lucide-react';
 import React from 'react';
+import TagsFilter from './tags-filter';
 
 interface ContactFiltersProps {
     search: string;
@@ -11,11 +12,10 @@ interface ContactFiltersProps {
     onSourceFilterChange: (value: string) => void;
     providerFilter: string[];
     onProviderFilterChange: (providers: string[]) => void;
-
     eventTypeFilter: string[];
     onEventTypeFilterChange: (types: string[]) => void;
-    tagFilter: string[];
-    onTagFilterChange: (tags: string[]) => void;
+    tagFilter?: string[];
+    onTagFilterChange: (tags: string[] | undefined) => void;
     availableTags: string[];
     onClearAll: () => void;
 }
@@ -27,7 +27,6 @@ const ContactFilters: React.FC<ContactFiltersProps> = ({
     onSourceFilterChange,
     providerFilter,
     onProviderFilterChange,
-
     eventTypeFilter,
     onEventTypeFilterChange,
     tagFilter,
@@ -69,21 +68,12 @@ const ContactFilters: React.FC<ContactFiltersProps> = ({
         }
     };
 
-    const handleTagToggle = (tag: string) => {
-        if (tagFilter.includes(tag)) {
-            onTagFilterChange(tagFilter.filter(t => t !== tag));
-        } else {
-            onTagFilterChange([...tagFilter, tag]);
-        }
-    };
-
     const hasActiveFilters =
         search ||
         sourceFilter !== 'all' ||
         providerFilter.length > 0 ||
-
         eventTypeFilter.length > 0 ||
-        tagFilter.length > 0;
+        (tagFilter && tagFilter.length > 0);
 
     return (
         <div className="bg-white border rounded-lg p-4 space-y-4">
@@ -173,38 +163,11 @@ const ContactFilters: React.FC<ContactFiltersProps> = ({
             {/* Tags Filter */}
             <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Tags</label>
-                <div className="flex flex-wrap gap-2">
-                    {availableTags.map((tag) => (
-                        <Button
-                            key={tag}
-                            variant={tagFilter.includes(tag) ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => handleTagToggle(tag)}
-                        >
-                            {tag}
-                        </Button>
-                    ))}
-                </div>
-                {tagFilter.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                        <span className="text-xs text-gray-500">Selected:</span>
-                        {tagFilter.map((tag) => (
-                            <Badge
-                                key={tag}
-                                variant="secondary"
-                                className="text-xs"
-                            >
-                                {tag}
-                                <button
-                                    onClick={() => handleTagToggle(tag)}
-                                    className="ml-1 hover:text-red-500"
-                                >
-                                    <X className="w-3 h-3" />
-                                </button>
-                            </Badge>
-                        ))}
-                    </div>
-                )}
+                <TagsFilter
+                    tagFilter={tagFilter}
+                    onTagFilterChange={onTagFilterChange}
+                    availableTags={availableTags}
+                />
             </div>
 
             {/* Active Filters Summary */}
@@ -250,6 +213,21 @@ const ContactFilters: React.FC<ContactFiltersProps> = ({
                                 Event: {eventType}
                                 <button
                                     onClick={() => handleEventTypeToggle(eventType)}
+                                    className="ml-1 hover:text-red-500"
+                                >
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </Badge>
+                        ))}
+                        {tagFilter && tagFilter.map((tag) => (
+                            <Badge key={tag} variant="outline" className="text-xs">
+                                Tag: {tag}
+                                <button
+                                    onClick={() => {
+                                        const current = tagFilter ?? [];
+                                        const newFilter = current.filter(t => t !== tag);
+                                        onTagFilterChange(newFilter.length > 0 ? newFilter : undefined);
+                                    }}
                                     className="ml-1 hover:text-red-500"
                                 >
                                     <X className="w-3 h-3" />

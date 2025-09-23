@@ -4,6 +4,7 @@ import ContactForm from '@/components/contacts/contact-form';
 import ContactListItem from '@/components/contacts/contact-list-item';
 import DiscoverySettings from '@/components/contacts/discovery-settings';
 import SourceFilter from '@/components/contacts/source-filter';
+import TagsFilter from '@/components/contacts/tags-filter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useContacts } from '@/contexts/contacts-context';
@@ -30,7 +31,7 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
     const [refreshing, setRefreshing] = useState(false);
     const [search, setSearch] = useState('');
     const [sourceFilter, setSourceFilter] = useState<string[] | undefined>(undefined);
-    const [tagFilter, setTagFilter] = useState<string[]>([]);
+    const [tagFilter, setTagFilter] = useState<string[] | undefined>(undefined);
 
     // Modal state management
     const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -200,20 +201,11 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
                         />
 
                         {/* Tags Filter */}
-                        <select
-                            value={tagFilter}
-                            onChange={(e) => {
-                                const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
-                                setTagFilter(selectedOptions);
-                            }}
-                            className="border rounded px-2 py-1 text-sm"
-                            multiple
-                        >
-                            <option value="">All Tags</option>
-                            {allTags.map(tag => (
-                                <option key={tag} value={tag}>{tag}</option>
-                            ))}
-                        </select>
+                        <TagsFilter
+                            tagFilter={tagFilter}
+                            onTagFilterChange={setTagFilter}
+                            availableTags={allTags}
+                        />
 
 
 

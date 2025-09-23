@@ -11,5 +11,9 @@ export type ContactPhone = {
      * Phone number in E.164 or localized format
      */
     number: string;
+    /**
+     * Whether this is the primary phone number for the contact
+     */
+    primary?: (boolean | null);
 };
 

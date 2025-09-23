@@ -113,13 +113,17 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
 
     const handleContactDownload = useCallback((contact: Contact) => {
         // Create a vCard format for download
+        const fullName = contact.display_name ||
+            [contact.given_name, contact.family_name].filter(Boolean).join(' ') ||
+            contact.email_address;
+
         const vCard = [
             'BEGIN:VCARD',
             'VERSION:3.0',
-            `FN:${contact.display_name || [contact.given_name, contact.family_name].filter(Boolean).join(' ') || contact.email_address}`,
-            contact.given_name ? `N:${contact.family_name || ''};${contact.given_name};;;` : '',
+            `FN:${fullName}`,
+            contact.given_name || contact.family_name ? `N:${contact.family_name || ''};${contact.given_name || ''};;;` : '',
             `EMAIL:${contact.email_address}`,
-            contact.phone_numbers?.map(phone => `TEL:${phone.number}`).join('\n') || '',
+            ...(contact.phone_numbers?.map(phone => `TEL:${phone.number}`) || []),
             contact.notes ? `NOTE:${contact.notes}` : '',
             'END:VCARD'
         ].filter(line => line).join('\n');

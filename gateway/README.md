@@ -33,7 +33,15 @@ npm install
 ```
 
 ### 2. Environment Variables
-Create a `.env` file in the gateway directory:
+The gateway now uses environment-specific configuration files located in the repo root:
+
+- `.env.gateway.local` - Local development (default)
+- `.env.gateway.staging` - Staging environment  
+- `.env.gateway.production` - Production environment
+
+The environment is determined by the `ENVIRONMENT` environment variable. If not set, it defaults to `local`.
+
+Create the appropriate `.env.gateway.{environment}` file in the repo root:
 ```bash
 # Gateway Configuration
 PORT=3001
@@ -46,13 +54,31 @@ NEXTAUTH_SECRET=your-nextauth-secret-here
 USER_SERVICE_URL=http://localhost:8001
 CHAT_SERVICE_URL=http://localhost:8002
 OFFICE_SERVICE_URL=http://localhost:8003
+SHIPMENTS_SERVICE_URL=http://localhost:8004
+MEETINGS_SERVICE_URL=http://localhost:8005
+VESPA_QUERY_URL=http://localhost:8006
+CONTACTS_SERVICE_URL=http://127.0.0.1:8007
 FRONTEND_URL=http://localhost:3000
+
+# Service API Keys
+API_FRONTEND_USER_KEY=test-FRONTEND_USER_KEY
+API_FRONTEND_OFFICE_KEY=test-FRONTEND_OFFICE_KEY
+API_FRONTEND_CHAT_KEY=test-FRONTEND_CHAT_KEY
+API_FRONTEND_SHIPMENTS_KEY=test-FRONTEND_SHIPMENTS_KEY
+API_FRONTEND_MEETINGS_KEY=test-FRONTEND_MEETINGS_KEY
+API_FRONTEND_CONTACTS_KEY=test-FRONTEND_CONTACTS_KEY
 ```
 
 ### 3. Start the Gateway
 ```bash
-# Development mode with auto-restart
+# Development mode with auto-restart (uses .env.gateway.local by default)
 npm run dev
+
+# Use staging environment
+ENVIRONMENT=staging npm run dev
+
+# Use production environment
+ENVIRONMENT=production npm run dev
 
 # Production mode
 npm start

@@ -68,7 +68,7 @@ schema sheet_document {
     }
     
     fieldset sheet_search {
-        fields: title, content, search_text, sheets, named_ranges
+        fields: title, content, search_text
     }
     
     rank-profile sheet_hybrid inherits hybrid {
@@ -83,11 +83,11 @@ schema sheet_document {
     
     rank-profile sheet_formula inherits hybrid {
         first-phase {
-            expression: nativeRank(title, content, search_text, named_ranges)
+            expression: nativeRank(title, content, search_text)
         }
         second-phase {
-            expression: 0.3 * nativeRank(title, content, search_text, named_ranges) + 0.6 * closeness(field, embedding) + 0.1 * freshness(updated_at)
+            expression: 0.3 * nativeRank(title, content, search_text) + 0.6 * closeness(field, embedding) + 0.1 * freshness(updated_at)
         }
-        match-features: nativeRank(title, content, search_text, named_ranges) closeness(field, embedding) freshness(updated_at)
+        match-features: nativeRank(title, content, search_text) closeness(field, embedding) freshness(updated_at)
     }
 }

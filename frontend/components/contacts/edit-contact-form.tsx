@@ -50,8 +50,8 @@ const EditContactForm: React.FC<EditContactFormProps> = ({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (validateForm()) {
-            onSubmit(contact.id!.toString(), formData);
+        if (validateForm() && contact.id) {
+            onSubmit(contact.id.toString(), formData);
         }
     };
 

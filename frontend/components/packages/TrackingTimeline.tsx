@@ -38,7 +38,7 @@ export default function TrackingTimeline({ events, onDeleteEvent, deletingEventI
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => onDeleteEvent(event.id!)}
+                                onClick={() => onDeleteEvent(event.id)}
                                 disabled={deletingEventId === event.id}
                                 className="ml-2 h-8 w-8 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-50"
                                 aria-label="Delete tracking event"

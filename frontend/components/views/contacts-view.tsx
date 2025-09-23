@@ -75,9 +75,9 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
             const userId = session?.user?.id;
             if (!userId) throw new Error('No user id found in session');
 
-            if (selectedContact) {
+            if (selectedContact && selectedContact.id) {
                 // Update existing contact
-                await contactsApi.updateContact(selectedContact.id!.toString(), contactData as EmailContactUpdate);
+                await contactsApi.updateContact(selectedContact.id.toString(), contactData as EmailContactUpdate);
             } else {
                 // Create new contact
                 await contactsApi.createContact({

@@ -4,7 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { Contact, EmailContactUpdate } from '@/types/api/contacts';
-import { Calendar, Edit, ExternalLink, FileText, Mail, Merge, Plus, Tag, X } from 'lucide-react';
+import type { ContactPhone } from '@/types/api/office/models/ContactPhone';
+import { Calendar, Edit, ExternalLink, FileText, Mail, Merge, Phone, Plus, Tag, X } from 'lucide-react';
 import React, { useState } from 'react';
 
 interface EditContactFormProps {
@@ -26,6 +27,7 @@ const EditContactForm: React.FC<EditContactFormProps> = ({
         display_name: contact.display_name || '',
         given_name: contact.given_name || '',
         family_name: contact.family_name || '',
+        phone_numbers: contact.phone_numbers || [],
         tags: contact.tags || [],
         notes: contact.notes || '',
     });
@@ -53,7 +55,7 @@ const EditContactForm: React.FC<EditContactFormProps> = ({
         }
     };
 
-    const handleInputChange = (field: keyof EmailContactUpdate, value: string | string[]) => {
+    const handleInputChange = (field: keyof EmailContactUpdate, value: string | string[] | ContactPhone[]) => {
         setFormData(prev => ({ ...prev, [field]: value }));
 
         // Clear error when user starts typing
@@ -80,6 +82,37 @@ const EditContactForm: React.FC<EditContactFormProps> = ({
             e.preventDefault();
             addTag();
         }
+    };
+
+    // Phone number management functions
+    const addPhoneNumber = () => {
+        const newPhone: ContactPhone = {
+            type: 'mobile',
+            number: '',
+            primary: false
+        };
+        handleInputChange('phone_numbers', [...(formData.phone_numbers || []), newPhone]);
+    };
+
+    const updatePhoneNumber = (index: number, field: keyof ContactPhone, value: string | boolean) => {
+        const updatedPhones = [...(formData.phone_numbers || [])];
+        updatedPhones[index] = { ...updatedPhones[index], [field]: value };
+
+        // If setting primary to true, unset all other primary flags
+        if (field === 'primary' && value === true) {
+            updatedPhones.forEach((phone, i) => {
+                if (i !== index) {
+                    phone.primary = false;
+                }
+            });
+        }
+
+        handleInputChange('phone_numbers', updatedPhones);
+    };
+
+    const removePhoneNumber = (index: number) => {
+        const updatedPhones = (formData.phone_numbers || []).filter((_, i) => i !== index);
+        handleInputChange('phone_numbers', updatedPhones);
     };
 
     const getSourceServiceIcon = (service: string) => {
@@ -155,6 +188,32 @@ const EditContactForm: React.FC<EditContactFormProps> = ({
                             {contact.display_name || contact.email_address}
                         </h3>
                         <p className="text-gray-600">{contact.email_address}</p>
+
+                        {/* Phone Numbers */}
+                        {contact.phone_numbers && contact.phone_numbers.length > 0 && (
+                            <div className="mt-2">
+                                <div className="flex flex-wrap gap-2">
+                                    {contact.phone_numbers.map((phone, index) => (
+                                        <span
+                                            key={index}
+                                            className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full border ${phone.primary
+                                                    ? 'bg-blue-100 text-blue-800 border-blue-200'
+                                                    : 'bg-gray-100 text-gray-800 border-gray-200'
+                                                }`}
+                                        >
+                                            <Phone className="w-3 h-3" />
+                                            {phone.type && (
+                                                <span className="capitalize">{phone.type}:</span>
+                                            )}
+                                            {phone.number}
+                                            {phone.primary && (
+                                                <span className="text-blue-600 font-medium">(Primary)</span>
+                                            )}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Source Services */}
                         <div className="flex gap-2 mt-2">
@@ -263,6 +322,91 @@ const EditContactForm: React.FC<EditContactFormProps> = ({
                             disabled={isLoading}
                         />
                     </div>
+                </div>
+
+                {/* Phone Numbers */}
+                <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                        <Phone className="w-4 h-4" />
+                        Phone Numbers
+                    </Label>
+
+                    {/* Existing phone numbers */}
+                    {formData.phone_numbers && formData.phone_numbers.length > 0 && (
+                        <div className="space-y-3">
+                            {formData.phone_numbers.map((phone, index) => (
+                                <div key={index} className="flex gap-2 items-center p-3 border rounded-lg">
+                                    <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2">
+                                        <div>
+                                            <Label htmlFor={`phone-type-${index}`}>Type</Label>
+                                            <select
+                                                id={`phone-type-${index}`}
+                                                value={phone.type || ''}
+                                                onChange={(e) => updatePhoneNumber(index, 'type', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                disabled={isLoading}
+                                            >
+                                                <option value="">Select type</option>
+                                                <option value="mobile">Mobile</option>
+                                                <option value="home">Home</option>
+                                                <option value="work">Work</option>
+                                                <option value="other">Other</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <Label htmlFor={`phone-number-${index}`}>Number</Label>
+                                            <Input
+                                                id={`phone-number-${index}`}
+                                                placeholder="Phone number"
+                                                value={phone.number}
+                                                onChange={(e) => updatePhoneNumber(index, 'number', e.target.value)}
+                                                disabled={isLoading}
+                                            />
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            <Label htmlFor={`phone-primary-${index}`} className="flex items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    id={`phone-primary-${index}`}
+                                                    checked={phone.primary || false}
+                                                    onChange={(e) => updatePhoneNumber(index, 'primary', e.target.checked)}
+                                                    disabled={isLoading}
+                                                    className="rounded"
+                                                />
+                                                Primary
+                                            </Label>
+                                        </div>
+                                    </div>
+
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => removePhoneNumber(index)}
+                                        disabled={isLoading}
+                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Add phone number button */}
+                    <Button
+                        type="button"
+                        onClick={addPhoneNumber}
+                        disabled={isLoading}
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-2"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Add Phone Number
+                    </Button>
                 </div>
 
                 {/* Tags */}

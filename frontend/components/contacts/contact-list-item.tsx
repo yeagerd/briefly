@@ -29,9 +29,18 @@ const ContactListItem: React.FC<ContactListItemProps> = ({
     };
 
     const getPrimaryPhone = () => {
-        return contact.phone_numbers && contact.phone_numbers.length > 0
-            ? contact.phone_numbers[0]
-            : 'No phone';
+        if (!contact.phone_numbers || contact.phone_numbers.length === 0) {
+            return 'No phone';
+        }
+
+        // Find primary phone number
+        const primaryPhone = contact.phone_numbers.find(phone => phone.primary);
+        if (primaryPhone) {
+            return primaryPhone.number;
+        }
+
+        // If no primary, return first phone number
+        return contact.phone_numbers[0].number;
     };
 
     const getInitials = () => {

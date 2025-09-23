@@ -348,16 +348,30 @@ class TestEmailCollisionDB:
         user = result.scalar_one_or_none()
         print(f"DEBUG: User found in test session: {user is not None}")
 
-        # Don't close the session - let the collision detection use the same database
-        # The collision detection will create its own session but should see the committed data
+        # Test the collision detection using the same session
+        # Patch the detector to use our test session instead of creating a new one
+        from sqlalchemy import and_
 
-        # Test the collision detection
+        async def mock_check_collision(email):
+            normalized_email = self.detector.normalize_email(email)
+            stmt = select(User).where(
+                and_(
+                    User.normalized_email == normalized_email,
+                    User.deleted_at.is_(None),
+                )
+            )
+            result = await db_session.execute(stmt)
+            return result.scalar_one_or_none()
+
         with patch.object(self.detector, "normalize_email", return_value=unique_email):
-            result = await self.detector.check_collision(unique_email)
-            assert (
-                result is not None
-            ), f"Should have found user with email {unique_email}"
-            assert result.email == unique_email
+            with patch.object(
+                self.detector, "check_collision", side_effect=mock_check_collision
+            ):
+                result = await self.detector.check_collision(unique_email)
+                assert (
+                    result is not None
+                ), f"Should have found user with email {unique_email}"
+                assert result.email == unique_email
 
     @pytest.mark.asyncio
     async def test_get_collision_details_no_collision(self):

@@ -1,13 +1,12 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { BarChart3, Download, Filter, Plus, RefreshCw, Settings, Tag, Trash2, Upload } from 'lucide-react';
+import { Download, Filter, Plus, RefreshCw, Settings, Tag, Trash2, Upload } from 'lucide-react';
 import React, { useState } from 'react';
 
 interface ContactActionsProps {
     onAddContact: () => void;
     onRefresh: () => void;
     onDiscoverySettings: () => void;
-    onAnalytics: () => void;
     onBulkDelete: (contactIds: string[]) => void;
     onBulkTag: (contactIds: string[], tags: string[]) => void;
     onExport: () => void;
@@ -22,7 +21,6 @@ const ContactActions: React.FC<ContactActionsProps> = ({
     onAddContact,
     onRefresh,
     onDiscoverySettings,
-    onAnalytics,
     onBulkDelete,
     onBulkTag,
     onExport,
@@ -103,15 +101,6 @@ const ContactActions: React.FC<ContactActionsProps> = ({
                     Discovery Settings
                 </Button>
 
-                <Button
-                    onClick={onAnalytics}
-                    variant="outline"
-                    className="w-full"
-                    size="sm"
-                >
-                    <BarChart3 className="w-4 h-4 mr-2" />
-                    Analytics
-                </Button>
             </div>
 
             {/* Import/Export Actions */}

@@ -1,5 +1,4 @@
 import { contactsApi } from '@/api';
-import AnalyticsDashboard from '@/components/contacts/analytics-dashboard';
 import ContactDetailModal from '@/components/contacts/contact-detail-modal';
 import ContactForm from '@/components/contacts/contact-form';
 import ContactListItem from '@/components/contacts/contact-list-item';
@@ -9,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useContacts } from '@/contexts/contacts-context';
 import type { Contact, ContactCreate, EmailContactUpdate } from '@/types/api/contacts';
-import { BarChart3, Plus, RefreshCw, Settings } from 'lucide-react';
+import { Plus, RefreshCw, Settings } from 'lucide-react';
 import { getSession } from 'next-auth/react';
 import React, { useCallback, useMemo, useState } from 'react';
 
@@ -38,7 +37,6 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
     const [isContactDetailModalOpen, setIsContactDetailModalOpen] = useState(false);
     const [isContactFormModalOpen, setIsContactFormModalOpen] = useState(false);
     const [isDiscoverySettingsModalOpen, setIsDiscoverySettingsModalOpen] = useState(false);
-    const [isAnalyticsModalOpen, setIsAnalyticsModalOpen] = useState(false);
 
 
 
@@ -55,7 +53,6 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
         setIsContactDetailModalOpen(false);
         setIsContactFormModalOpen(false);
         setIsDiscoverySettingsModalOpen(false);
-        setIsAnalyticsModalOpen(false);
         setSelectedContact(null);
     }, []);
 
@@ -147,9 +144,6 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
         setIsDiscoverySettingsModalOpen(true);
     }, []);
 
-    const handleOpenAnalytics = useCallback(() => {
-        setIsAnalyticsModalOpen(true);
-    }, []);
 
     // Client-side filtering
     const filteredContacts = useMemo(() => {
@@ -235,9 +229,6 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
                             <Settings className="w-4 h-4" />
                         </Button>
 
-                        <Button variant="outline" size="sm" title="Analytics" onClick={handleOpenAnalytics}>
-                            <BarChart3 className="w-4 h-4" />
-                        </Button>
                     </div>
                 </div>
 
@@ -330,12 +321,6 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
                 />
             )}
 
-            {isAnalyticsModalOpen && (
-                <AnalyticsDashboard
-                    onClose={handleCloseModals}
-                    contacts={contacts}
-                />
-            )}
         </div>
     );
 };

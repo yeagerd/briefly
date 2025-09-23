@@ -111,10 +111,10 @@ generate_schemas() {
     print_status "info" "Generating OpenAPI schemas for all services..."
     
     if [[ "$VERBOSE" == "true" ]]; then
-        ./scripts/subscripts/generate-openapi-schemas.sh
+        ./scripts/subscripts/generate-openapi-schemas.sh || return 1
     else
         # Always show errors, even in quiet mode
-        ./scripts/subscripts/generate-openapi-schemas.sh > /dev/null
+        ./scripts/subscripts/generate-openapi-schemas.sh > /dev/null || return 1
     fi
     
     print_status "success" "OpenAPI schemas generated successfully"
@@ -177,10 +177,10 @@ validate_types() {
     print_status "info" "Validating generated types..."
     
     if [[ "$VERBOSE" == "true" ]]; then
-        ./scripts/subscripts/validate-types.sh
+        ./scripts/subscripts/validate-types.sh || return 1
     else
         # Always show errors, even in quiet mode
-        ./scripts/subscripts/validate-types.sh > /dev/null
+        ./scripts/subscripts/validate-types.sh > /dev/null || return 1
     fi
     
     print_status "success" "Type validation completed successfully"
@@ -191,10 +191,10 @@ generate_version_matrix() {
     print_status "info" "Generating version compatibility matrix..."
     
     if [[ "$VERBOSE" == "true" ]]; then
-        python3 ./scripts/subscripts/generate-version-matrix.py
+        python3 ./scripts/subscripts/generate-version-matrix.py || return 1
     else
         # Always show errors, even in quiet mode
-        python3 ./scripts/subscripts/generate-version-matrix.py > /dev/null
+        python3 ./scripts/subscripts/generate-version-matrix.py > /dev/null || return 1
     fi
     
     print_status "success" "Version compatibility matrix generated successfully"
@@ -205,16 +205,16 @@ run_full_workflow() {
     print_status "info" "Running complete type generation workflow..."
     
     # Step 1: Generate OpenAPI schemas
-    generate_schemas
+    generate_schemas || return 1
     
     # Step 2: Generate TypeScript types
-    generate_types
+    generate_types || return 1
     
     # Step 3: Validate types
-    validate_types
+    validate_types || return 1
     
     # Step 4: Generate version compatibility matrix
-    generate_version_matrix
+    generate_version_matrix || return 1
     
     print_status "success" "Complete workflow finished successfully!"
     print_status "info" "Generated files are ready for use"

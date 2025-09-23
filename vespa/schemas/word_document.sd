@@ -61,7 +61,6 @@ schema word_document {
         field content_type type string {
             indexing: attribute | summary
             attribute: fast-search
-            default: "word"
         }
     }
     

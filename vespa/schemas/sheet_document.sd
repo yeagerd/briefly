@@ -38,8 +38,7 @@ schema sheet_document {
         
         # Sheet structure
         field sheets type array<map<string, string>> {
-            indexing: index | summary
-            index: enable-bm25
+            indexing: summary
         }
         
         field named_ranges type array<map<string, string>> {
@@ -67,22 +66,21 @@ schema sheet_document {
         field content_type type string {
             indexing: attribute | summary
             attribute: fast-search
-            default: "sheet"
         }
     }
     
     fieldset sheet_search {
-        fields: title, content, search_text, formulas, sheets, named_ranges
+        fields: title, content, search_text, formulas, named_ranges
     }
     
     rank-profile sheet_hybrid inherits hybrid {
         first-phase {
-            expression: nativeRank(title, content, search_text, formulas)
+            expression: nativeRank(title, content, search_text)
         }
         second-phase {
-            expression: 0.25 * nativeRank(title, content, search_text, formulas) + 0.65 * closeness(field, embedding) + 0.1 * freshness(updated_at)
+            expression: 0.25 * nativeRank(title, content, search_text) + 0.65 * closeness(field, embedding) + 0.1 * freshness(updated_at)
         }
-        match-features: nativeRank(title, content, search_text, formulas) closeness(field, embedding) freshness(updated_at)
+        match-features: nativeRank(title, content, search_text) closeness(field, embedding) freshness(updated_at)
     }
     
     rank-profile sheet_formula inherits hybrid {

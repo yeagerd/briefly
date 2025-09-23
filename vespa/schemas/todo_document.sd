@@ -55,7 +55,6 @@ schema todo_document {
         field content_type type string {
             indexing: attribute | summary
             attribute: fast-search
-            default: "todo"
         }
         
         # Override title field to use todo title

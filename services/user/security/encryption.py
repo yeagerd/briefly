@@ -18,7 +18,7 @@ from services.common.config_secrets import (
 )
 from services.common.http_errors import ServiceError
 from services.common.logging_config import get_logger
-from services.user.settings import Settings
+from services.user.settings import Settings, get_settings
 
 # Set up logging
 logger = get_logger(__name__)
@@ -51,7 +51,7 @@ class TokenEncryption:
         Args:
             settings: Application settings for encryption configuration
         """
-        self.settings = settings or Settings()
+        self.settings = settings or get_settings()
         self._service_salt = self._get_service_salt()
         logger.info("Token encryption service initialized", key_version=KEY_VERSION)
 

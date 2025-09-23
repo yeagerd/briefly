@@ -18,6 +18,16 @@ class BaseUserManagementTest(BaseSelectiveHTTPIntegrationTest):
         # Call parent setup to enable HTTP call detection
         super().setup_method(method)
 
+        # Set up environment variables for CI compatibility
+        # This ensures that Settings() constructor can find required fields
+        os.environ.setdefault("API_FRONTEND_USER_KEY", "test-frontend-user-key")
+        os.environ.setdefault("API_CHAT_USER_KEY", "test-chat-user-key")
+        os.environ.setdefault("API_OFFICE_USER_KEY", "test-office-user-key")
+        os.environ.setdefault("API_MEETINGS_USER_KEY", "test-meetings-user-key")
+        os.environ.setdefault("PAGINATION_SECRET_KEY", "test-pagination-secret-key")
+        os.environ.setdefault("TOKEN_ENCRYPTION_SALT", "dGVzdC1zYWx0LTE2Ynl0ZQ==")
+        os.environ.setdefault("ENVIRONMENT", "test")
+
         # Import user settings module
         import services.user.settings as user_settings
 

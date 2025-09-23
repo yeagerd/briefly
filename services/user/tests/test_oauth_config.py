@@ -387,6 +387,7 @@ class TestOAuthConfig(BaseUserManagementTest):
                 token_encryption_salt="dGVzdC1zYWx0LTE2Ynl0ZQ==",
                 nextauth_jwt_key="test-nextauth-secret",
                 oauth_redirect_uri="https://example.com/oauth/callback",
+                pagination_secret_key="test-pagination-secret-key",
                 # Explicitly set OAuth credentials to empty to ensure no providers are available
                 google_client_id="",
                 google_client_secret="",
@@ -1106,6 +1107,7 @@ class TestGlobalOAuthConfig:
             token_encryption_salt="dGVzdC1zYWx0LTE2Ynl0ZQ==",
             nextauth_jwt_key="test-nextauth-secret",
             oauth_redirect_uri="https://example.com/oauth/callback",
+            pagination_secret_key="test-pagination-secret-key",
             google_client_id="custom-google-id",
             google_client_secret="custom-google-secret",
             environment="test",

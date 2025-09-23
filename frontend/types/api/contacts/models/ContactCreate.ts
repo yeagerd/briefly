@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { ContactPhone } from './ContactPhone';
 /**
  * Create model for contacts.
  */
@@ -26,6 +27,10 @@ export type ContactCreate = {
      * Contact's family/last name
      */
     family_name?: (string | null);
+    /**
+     * Contact phone numbers
+     */
+    phone_numbers?: (Array<ContactPhone> | null);
     /**
      * Contact tags
      */

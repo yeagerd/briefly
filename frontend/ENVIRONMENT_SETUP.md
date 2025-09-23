@@ -21,9 +21,19 @@
 
 This document describes the environment variables required for the frontend application.
 
+## Environment-Specific Configuration
+
+The frontend now uses environment-specific configuration files located in the repo root:
+
+- `.env.frontend.local` - Local development (default)
+- `.env.frontend.staging` - Staging environment  
+- `.env.frontend.production` - Production environment
+
+The environment is determined by the `ENVIRONMENT` environment variable. If not set, it defaults to `local`.
+
 ## Required Environment Variables
 
-Create a `.env.local` file in the frontend directory with the following variables:
+Create the appropriate `.env.frontend.{environment}` file in the repo root with the following variables:
 
 ### NextAuth Configuration
 ```bash
@@ -67,9 +77,24 @@ The frontend validates required environment variables at startup:
 ## Development Setup
 
 1. Copy the example environment variables above
-2. Create `.env.local` in the frontend directory
+2. Create `.env.frontend.local` in the repo root (not in the frontend directory)
 3. Fill in your actual values
 4. Run `npm run dev` to start the development server
+
+## Environment Switching
+
+To use a different environment:
+
+```bash
+# Use staging environment
+ENVIRONMENT=staging npm run dev
+
+# Use production environment  
+ENVIRONMENT=production npm run dev
+
+# Use local environment (default)
+npm run dev
+```
 
 ## Production Setup
 

@@ -1,3 +1,13 @@
+import { config } from 'dotenv';
+import path from 'path';
+
+// Load environment variables from environment-specific .env.frontend files
+const environment = process.env.ENVIRONMENT || 'local';
+const envFilePath = path.resolve(process.cwd(), `../.env.frontend.${environment}`);
+
+console.log(`Loading frontend environment variables from: .env.frontend.${environment}`);
+config({ path: envFilePath, override: true });
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     eslint: {

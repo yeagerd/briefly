@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { ContactPhone } from './ContactPhone';
 import type { EmailContactEventCount } from './EmailContactEventCount';
 /**
  * Contact database model with event type counters and last_seen tracking.
@@ -78,7 +79,7 @@ export type Contact = {
     /**
      * Contact phone numbers
      */
-    phone_numbers?: Array<string>;
+    phone_numbers?: Array<ContactPhone>;
     /**
      * Contact addresses
      */

@@ -8,7 +8,7 @@ set -e
 VESPA_CONTAINER_NAME="vespa"
 VESPA_HOSTNAME="vespa-container"
 VESPA_IMAGE="vespaengine/vespa"
-VESPA_PORTS=("8080:8080" "19092:19092")
+VESPA_PORTS=("8080:8080" "19071:19071" "19092:19092")
 VESPA_ENDPOINT="http://localhost:8080"
 
 
@@ -138,8 +138,7 @@ start_vespa_container() {
         docker run -d \
             --name "${VESPA_CONTAINER_NAME}" \
             --hostname "${VESPA_HOSTNAME}" \
-            -p "${VESPA_PORTS[0]}" \
-            -p "${VESPA_PORTS[1]}" \
+            $(printf -- '-p %s ' "${VESPA_PORTS[@]}") \
             -e VESPA_IGNORE_NOT_ENOUGH_MEMORY=true \
             "${VESPA_IMAGE}"
     fi

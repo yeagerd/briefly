@@ -6,6 +6,7 @@
 export type { Contact } from './models/Contact';
 export type { ContactCreate } from './models/ContactCreate';
 export type { ContactListResponse } from './models/ContactListResponse';
+export type { ContactPhone } from './models/ContactPhone';
 export type { ContactResponse } from './models/ContactResponse';
 export type { ContactStatsResponse } from './models/ContactStatsResponse';
 export type { EmailContactEventCount } from './models/EmailContactEventCount';

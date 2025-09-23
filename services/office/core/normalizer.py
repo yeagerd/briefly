@@ -1290,7 +1290,8 @@ def normalize_google_contact(
         if not isinstance(number, str) or not number:
             continue
         type_label = p.get("type") or p.get("formattedType")
-        phones.append(ContactPhone(type=type_label, number=number))
+        is_primary = p.get("metadata", {}).get("primary", False)
+        phones.append(ContactPhone(type=type_label, number=number, primary=is_primary))
 
     photos = raw.get("photos", []) or []
     primary_photo = next(
@@ -1345,15 +1346,23 @@ def normalize_microsoft_contact(
     job_title = raw.get("jobTitle")
 
     phones: List[ContactPhone] = []
+    # Microsoft doesn't have explicit primary flags, so we'll mark mobile as primary if available
+    has_mobile = False
+
     for number in raw.get("businessPhones") or []:
         if isinstance(number, str) and number:
-            phones.append(ContactPhone(type="work", number=number))
+            phones.append(ContactPhone(type="work", number=number, primary=False))
     mobile_phone = raw.get("mobilePhone")
     if isinstance(mobile_phone, str) and mobile_phone:
-        phones.append(ContactPhone(type="mobile", number=mobile_phone))
+        phones.append(ContactPhone(type="mobile", number=mobile_phone, primary=True))
+        has_mobile = True
     for number in raw.get("homePhones") or []:
         if isinstance(number, str) and number:
-            phones.append(ContactPhone(type="home", number=number))
+            phones.append(ContactPhone(type="home", number=number, primary=False))
+
+    # If no mobile phone, mark the first business phone as primary
+    if not has_mobile and phones:
+        phones[0].primary = True
 
     photo_url = None  # Could fetch via separate /photo endpoint if needed
 

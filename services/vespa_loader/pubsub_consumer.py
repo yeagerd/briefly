@@ -13,7 +13,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from services.api.v1.vespa.vespa_types import VespaDocumentType
+from services.api.v1.vespa_query.vespa_types import VespaDocumentType
 from services.common.config.subscription_config import SubscriptionConfig
 from services.common.logging_config import get_logger
 from services.vespa_loader.document_factory import process_message

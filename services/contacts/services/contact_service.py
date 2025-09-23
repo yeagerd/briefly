@@ -175,7 +175,7 @@ class ContactService:
             synced_contacts = []
             contacts_to_add = []
             contacts_to_update = []
-            
+
             for office_contact in office_contacts:
                 try:
                     # Extract email from Office Service contact structure
@@ -271,16 +271,22 @@ class ContactService:
                         f"Error processing office contact {office_contact.get('id', 'unknown')}: {e}"
                     )
                     continue
-            
+
             # Batch commit all changes
             try:
                 if contacts_to_add:
-                    logger.info(f"Adding {len(contacts_to_add)} new contacts to database for user {user_id}")
+                    logger.info(
+                        f"Adding {len(contacts_to_add)} new contacts to database for user {user_id}"
+                    )
                     session.add_all(contacts_to_add)
                 await session.commit()
-                logger.info(f"Successfully synced {len(synced_contacts)} contacts from Office Service for user {user_id}")
+                logger.info(
+                    f"Successfully synced {len(synced_contacts)} contacts from Office Service for user {user_id}"
+                )
             except Exception as e:
-                logger.error(f"Error committing synced contacts for user {user_id}: {e}")
+                logger.error(
+                    f"Error committing synced contacts for user {user_id}: {e}"
+                )
                 await session.rollback()
                 return []
 
@@ -317,11 +323,18 @@ class ContactService:
             # If no local contacts or force sync requested, sync from Office Service
             # Also sync if specifically requesting contacts but none exist
             should_sync = (
-                not local_contacts or 
-                force_sync or 
-                (source_services and "contacts" in source_services and not any(c.source_services and "contacts" in c.source_services for c in local_contacts))
+                not local_contacts
+                or force_sync
+                or (
+                    source_services
+                    and "contacts" in source_services
+                    and not any(
+                        c.source_services and "contacts" in c.source_services
+                        for c in local_contacts
+                    )
+                )
             )
-            
+
             if should_sync:
                 logger.info(f"Syncing contacts from Office Service for user {user_id}")
                 synced_contacts = await self.sync_office_contacts(session, user_id)

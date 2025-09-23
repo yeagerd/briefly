@@ -23,15 +23,19 @@ class BaseUserManagementTest:
         reset_settings()
 
         # Create temporary database file for tests that need file-based SQLite
-        # Use tempfile.NamedTemporaryFile with delete=False and close immediately
-        # so SQLite can open the file
-        temp_db = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-        self.db_path = temp_db.name
-        temp_db.close()  # Close immediately so SQLite can use it
+        # Use tempfile.mkstemp for better control over file creation
+        import tempfile
+        import os
+        
+        # Create a unique temporary file in the system temp directory
+        fd, self.db_path = tempfile.mkstemp(suffix=".db", prefix="briefly_test_")
+        os.close(fd)  # Close the file descriptor immediately
 
         # Set required environment variables for User Management service
         # Standardize to sqlite+aiosqlite:// everywhere for consistency
-        os.environ["DB_URL_USER"] = f"sqlite+aiosqlite:///{self.db_path}"
+        # Use absolute path and ensure proper URL encoding
+        db_path_abs = os.path.abspath(self.db_path)
+        os.environ["DB_URL_USER"] = f"sqlite+aiosqlite:///{db_path_abs}"
         os.environ["TOKEN_ENCRYPTION_SALT"] = "dGVzdC1zYWx0LTE2Ynl0ZQ=="
         os.environ["API_FRONTEND_USER_KEY"] = "test-frontend-key"
         os.environ["API_CHAT_USER_KEY"] = "test-chat-key"
@@ -68,7 +72,11 @@ class BaseUserManagementTest:
 
         # Remove temporary database file
         if hasattr(self, "db_path") and os.path.exists(self.db_path):
-            os.unlink(self.db_path)
+            try:
+                os.unlink(self.db_path)
+            except OSError as e:
+                # Log the error but don't fail the test
+                print(f"Warning: Could not remove temporary database file {self.db_path}: {e}")
 
 
 class BaseUserManagementIntegrationTest(BaseUserManagementTest):
@@ -145,6 +153,12 @@ class BaseUserManagementIntegrationTest(BaseUserManagementTest):
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(asyncio.run, create_all_tables_for_testing())
                 future.result()
+        except Exception as e:
+            # If database creation fails, provide more detailed error information
+            print(f"Database creation failed: {e}")
+            print(f"Database path: {self.db_path}")
+            print(f"Database URL: {os.environ.get('DB_URL_USER')}")
+            raise
 
         # Create test client using app from base class
         self.client = TestClient(self.app)

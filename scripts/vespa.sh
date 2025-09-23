@@ -1030,7 +1030,7 @@ upgrade_vespa() {
     local max_attempts=30
     
     while [ $attempts -lt $max_attempts ]; do
-        if curl -s http://localhost:19071/application/v2/tenant/default/session >/dev/null 2>&1; then
+        if curl -s http://localhost:8080/application/v2/tenant/default/session >/dev/null 2>&1; then
             config_ready=true
             break
         fi

@@ -47,13 +47,11 @@ schema llm_chat_document {
         }
         
         field tool_results type array<map<string, string>> {
-            indexing: index | summary
-            index: enable-bm25
+            indexing: summary
         }
         
         field conversation_context type array<map<string, string>> {
-            indexing: index | summary
-            index: enable-bm25
+            indexing: summary
         }
         
         field user_feedback type string {
@@ -69,7 +67,6 @@ schema llm_chat_document {
         field content_type type string {
             indexing: attribute | summary
             attribute: fast-search
-            default: "llm_chat"
         }
     }
     

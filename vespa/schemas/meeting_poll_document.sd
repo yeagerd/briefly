@@ -22,8 +22,7 @@ schema meeting_poll_document {
         }
         
         field options type array<string> {
-            indexing: index | summary
-            index: enable-bm25
+            indexing: summary
         }
         
         field responses type array<map<string, string>> {
@@ -78,7 +77,6 @@ schema meeting_poll_document {
         field content_type type string {
             indexing: attribute | summary
             attribute: fast-search
-            default: "meeting_poll"
         }
     }
     

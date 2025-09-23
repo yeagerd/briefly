@@ -72,7 +72,6 @@ schema contact_document {
         field content_type type string {
             indexing: attribute | summary
             attribute: fast-search
-            default: "contact"
         }
         
         # Override title to use display_name

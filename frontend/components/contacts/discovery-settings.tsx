@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Calendar, FileText, Mail, Play, RefreshCw, Settings, Stop, X } from 'lucide-react';
+import { Calendar, FileText, Mail, Play, RefreshCw, Settings, Square, X } from 'lucide-react';
 import React, { useState } from 'react';
 
 interface DiscoverySettingsProps {
@@ -254,7 +254,7 @@ const ContactDiscoverySettings: React.FC<DiscoverySettingsProps> = ({ onClose })
                                 variant="outline"
                                 className="flex-1"
                             >
-                                <Stop className="w-4 h-4 mr-2" />
+                                <Square className="w-4 h-4 mr-2" />
                                 Stop
                             </Button>
                         </div>

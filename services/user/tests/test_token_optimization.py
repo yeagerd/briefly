@@ -17,95 +17,24 @@ from services.user.services.token_service import TokenService
 from services.user.tests.test_base import BaseUserManagementTest
 
 
-@pytest.fixture(autouse=True)
-def patch_settings():
-    """Patch the _settings global variable to return test settings."""
-    import services.common.config_secrets as common_secrets
-    import services.user.settings as user_settings
-
-    test_settings = user_settings.Settings(
-        db_url_user="sqlite:///:memory:",
-        token_encryption_salt="dGVzdC1zYWx0LTE2Ynl0ZQ==",
-        api_frontend_user_key="test-frontend-key",
-        api_chat_user_key="test-chat-key",
-        api_office_user_key="test-office-key",
-        api_meetings_user_key="test-meetings-key",
-        redis_url="redis://localhost:6379/1",
-        environment="test",
-        pagination_secret_key="test-pagination-secret-key",
-    )
-
-    # Directly set the singleton instead of using monkeypatch
-    user_settings._settings = test_settings
-
-    # Patch the Settings class constructor to return our test settings
-    original_init = user_settings.Settings.__init__
-
-    def mock_init(self, **kwargs):
-        # Copy all attributes from test_settings
-        for attr, value in test_settings.__dict__.items():
-            setattr(self, attr, value)
-
-    user_settings.Settings.__init__ = mock_init
-
-    # Patch the common config_secrets module
-    test_secrets_settings = common_secrets.SecretsSettings(environment="test")
-    common_secrets._secrets_settings = test_secrets_settings
-
-    # Patch the get_token_encryption_salt function to return our test salt
-    original_get_salt = common_secrets.get_token_encryption_salt
-
-    def mock_get_salt():
-        return "dGVzdC1zYWx0LTE2Ynl0ZQ=="
-
-    common_secrets.get_token_encryption_salt = mock_get_salt
-
-    # Also patch the get_secret function to return our test salt when called with TOKEN_ENCRYPTION_SALT
-    original_get_secret = common_secrets.get_secret
-
-    def mock_get_secret(secret_id: str, default: str = ""):
-        if secret_id == "TOKEN_ENCRYPTION_SALT":
-            return "dGVzdC1zYWx0LTE2Ynl0ZQ=="
-        return original_get_secret(secret_id, default)
-
-    common_secrets.get_secret = mock_get_secret
-
-    yield
-
-    # Restore original functions
-    user_settings.Settings.__init__ = original_init
-    user_settings._settings = None
-    common_secrets._secrets_settings = None
-    common_secrets.get_token_encryption_salt = original_get_salt
-    common_secrets.get_secret = original_get_secret
-
-
 class TestTokenOptimization(BaseUserManagementTest):
     """Test token optimization features."""
 
     def setup_method(self, method):
         """Set up test environment."""
         super().setup_method(method)
-
-    @pytest.fixture
-    def token_service(self, patch_settings):
-        """Create a token service instance."""
-        return TokenService()
-
-    @pytest.fixture
-    def integration_service(self, patch_settings):
-        """Create an integration service instance."""
-        return IntegrationService()
+        self.token_service = TokenService()
+        self.integration_service = IntegrationService()
 
     @pytest.mark.asyncio
-    async def test_optimized_database_query(self, token_service):
+    async def test_optimized_database_query(self):
         """Test that the optimized database query reduces round trips."""
         user_id = "test_user"
         provider = IntegrationProvider.MICROSOFT
 
         # Mock the database operations
         with patch.object(
-            token_service, "_get_integration_and_tokens"
+            self.token_service, "_get_integration_and_tokens"
         ) as mock_get_tokens:
             mock_integration = AsyncMock()
             mock_integration.id = 1
@@ -129,7 +58,7 @@ class TestTokenOptimization(BaseUserManagementTest):
 
             # Mock token decryption
             with patch.object(
-                token_service.token_encryption, "decrypt_token"
+                self.token_service.token_encryption, "decrypt_token"
             ) as mock_decrypt:
                 mock_decrypt.side_effect = (
                     lambda *args, **kwargs: f"decrypted_{args[0] if args else kwargs.get('encrypted_token')}"
@@ -142,7 +71,7 @@ class TestTokenOptimization(BaseUserManagementTest):
                     mock_audit.log_user_action = AsyncMock()
 
                     # Call the optimized method
-                    result = await token_service.get_valid_token(
+                    result = await self.token_service.get_valid_token(
                         user_id=user_id, provider=provider, required_scopes=["scope1"]
                     )
 
@@ -155,7 +84,7 @@ class TestTokenOptimization(BaseUserManagementTest):
                     assert result.refresh_token == "decrypted_encrypted_refresh"
 
     @pytest.mark.asyncio
-    async def test_refresh_deduplication(self, integration_service):
+    async def test_refresh_deduplication(self):
         """Test that refresh operations are deduplicated."""
         user_id = "test_user"
         provider = IntegrationProvider.MICROSOFT
@@ -174,7 +103,7 @@ class TestTokenOptimization(BaseUserManagementTest):
 
             # Mock the integration retrieval
             with patch.object(
-                integration_service, "_get_user_integration_in_session"
+                self.integration_service, "_get_user_integration_in_session"
             ) as mock_get_integration:
                 mock_integration = AsyncMock()
                 mock_integration.id = 1
@@ -210,7 +139,7 @@ class TestTokenOptimization(BaseUserManagementTest):
 
                 # Mock token decryption
                 with patch.object(
-                    integration_service.token_encryption, "decrypt_token"
+                    self.integration_service.token_encryption, "decrypt_token"
                 ) as mock_decrypt:
                     mock_decrypt.side_effect = (
                         lambda *args, **kwargs: f"decrypted_{args[0] if args else kwargs.get('encrypted_token')}"
@@ -218,13 +147,14 @@ class TestTokenOptimization(BaseUserManagementTest):
 
                     # Mock token operations
                     with patch.object(
-                        integration_service, "_store_encrypted_tokens"
+                        self.integration_service, "_store_encrypted_tokens"
                     ) as mock_store:
                         mock_store.return_value = None
 
                         # Mock OAuth refresh
                         with patch.object(
-                            integration_service.oauth_config, "refresh_access_token"
+                            self.integration_service.oauth_config,
+                            "refresh_access_token",
                         ) as mock_refresh:
                             mock_refresh.return_value = {
                                 "access_token": "new_access_token",
@@ -240,7 +170,7 @@ class TestTokenOptimization(BaseUserManagementTest):
 
                                 # Start two concurrent refresh operations
                                 async def refresh_operation():
-                                    return await integration_service.refresh_integration_tokens(
+                                    return await self.integration_service.refresh_integration_tokens(
                                         user_id=user_id, provider=provider, force=True
                                     )
 
@@ -258,7 +188,7 @@ class TestTokenOptimization(BaseUserManagementTest):
                                 assert success_count >= 1
 
     @pytest.mark.asyncio
-    async def test_database_query_reduction(self, token_service):
+    async def test_database_query_reduction(self):
         """Test that database queries are reduced from 3+ to 1."""
         user_id = "test_user"
         provider = IntegrationProvider.MICROSOFT
@@ -272,7 +202,7 @@ class TestTokenOptimization(BaseUserManagementTest):
 
             # Mock the optimized query method
             with patch.object(
-                token_service, "_get_integration_and_tokens"
+                self.token_service, "_get_integration_and_tokens"
             ) as mock_get_tokens:
                 mock_integration = AsyncMock()
                 mock_integration.id = 1
@@ -293,7 +223,7 @@ class TestTokenOptimization(BaseUserManagementTest):
 
                 # Mock token decryption
                 with patch.object(
-                    token_service.token_encryption, "decrypt_token"
+                    self.token_service.token_encryption, "decrypt_token"
                 ) as mock_decrypt:
                     mock_decrypt.return_value = "decrypted_token"
 
@@ -304,7 +234,7 @@ class TestTokenOptimization(BaseUserManagementTest):
                         mock_audit.return_value = None
 
                         # Call the method
-                        result = await token_service.get_valid_token(
+                        result = await self.token_service.get_valid_token(
                             user_id=user_id, provider=provider
                         )
 

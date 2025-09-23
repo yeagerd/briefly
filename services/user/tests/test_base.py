@@ -33,23 +33,50 @@ class BaseUserManagementTest(BaseSelectiveHTTPIntegrationTest):
         fd, self.db_path = tempfile.mkstemp(suffix=".db", prefix="briefly_test_")
         os.close(fd)  # Close the file descriptor immediately
 
-        # Set required environment variables for User Management service
-        # Standardize to sqlite+aiosqlite:// everywhere for consistency
-        # Use absolute path and ensure proper URL encoding
+        # Get absolute path for database URL
         db_path_abs = os.path.abspath(self.db_path)
-        os.environ["DB_URL_USER"] = f"sqlite+aiosqlite:///{db_path_abs}"
-        os.environ["TOKEN_ENCRYPTION_SALT"] = "dGVzdC1zYWx0LTE2Ynl0ZQ=="
-        os.environ["API_FRONTEND_USER_KEY"] = "test-frontend-key"
-        os.environ["API_CHAT_USER_KEY"] = "test-chat-key"
-        os.environ["API_OFFICE_USER_KEY"] = "test-office-key"
-        os.environ["API_MEETINGS_USER_KEY"] = "test-meetings-key"
-        os.environ["PAGINATION_SECRET_KEY"] = "test-pagination-secret-key"
+
+        # Patch the common secrets settings to use test environment
+        import services.common.config_secrets as common_secrets
+        from services.common.settings import BaseSettings, Field, SettingsConfigDict
+
+        class TestSecretsSettings(BaseSettings):
+            """Test version of SecretsSettings."""
+
+            environment: str = Field(default="test", description="Environment mode")
+            model_config = SettingsConfigDict(
+                env_file=None,  # Don't load from .env file in tests
+                env_file_encoding="utf-8",
+                case_sensitive=False,
+                extra="ignore",
+            )
+
+        # Store original secrets settings for cleanup
+        self._original_secrets_settings = common_secrets._secrets_settings
+        # Set test secrets settings
+        common_secrets._secrets_settings = TestSecretsSettings()
+
+        # Patch the get_token_encryption_salt function to return our test salt
+        self._original_get_token_encryption_salt = (
+            common_secrets.get_token_encryption_salt
+        )
+        common_secrets.get_token_encryption_salt = lambda: "dGVzdC1zYWx0LTE2Ynl0ZQ=="
+
+        # Also patch the get_secret function to return our test salt when called with TOKEN_ENCRYPTION_SALT
+        self._original_get_secret = common_secrets.get_secret
+
+        def mock_get_secret(secret_id: str, default: str = ""):
+            if secret_id == "TOKEN_ENCRYPTION_SALT":
+                return "dGVzdC1zYWx0LTE2Ynl0ZQ=="
+            return self._original_get_secret(secret_id, default)
+
+        common_secrets.get_secret = mock_get_secret
 
         # Create test settings instance
         from services.user.settings import Settings
 
         test_settings = Settings(
-            db_url_user="sqlite:///:memory:",
+            db_url_user=f"sqlite+aiosqlite:///{db_path_abs}",
             api_frontend_user_key="test-frontend-user-key",
             api_chat_user_key="test-chat-user-key",
             api_office_user_key="test-office-user-key",
@@ -78,6 +105,15 @@ class BaseUserManagementTest(BaseSelectiveHTTPIntegrationTest):
         import services.user.settings as user_settings
 
         user_settings._settings = self._original_settings
+
+        # Restore original secrets settings
+        import services.common.config_secrets as common_secrets
+
+        common_secrets._secrets_settings = self._original_secrets_settings
+        common_secrets.get_token_encryption_salt = (
+            self._original_get_token_encryption_salt
+        )
+        common_secrets.get_secret = self._original_get_secret
 
         # Clean up temporary database file
         if hasattr(self, "db_path") and os.path.exists(self.db_path):

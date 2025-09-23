@@ -46,11 +46,15 @@ class TestInternalAPI(BaseUserManagementIntegrationTest):
         with patch("services.user.settings.get_settings") as mock_settings:
             from services.user.settings import Settings
 
-            test_settings = Settings(db_url_user="sqlite:///:memory:")
-            test_settings.api_frontend_user_key = "test-frontend-key"
-            test_settings.api_chat_user_key = "test-chat-key"
-            test_settings.api_office_user_key = "test-office-key"
-            test_settings.pagination_secret_key = "test-pagination-secret-key"
+            test_settings = Settings(
+                db_url_user="sqlite+aiosqlite:///:memory:",
+                api_frontend_user_key="test-frontend-key",
+                api_chat_user_key="test-chat-key",
+                api_office_user_key="test-office-key",
+                api_meetings_user_key="test-meetings-key",
+                pagination_secret_key="test-pagination-secret-key",
+                environment="test",
+            )
             mock_settings.return_value = test_settings
             client = TestClient(app)
             response = client.get(

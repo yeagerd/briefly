@@ -23,22 +23,10 @@ class TestTokenEncryption(BaseUserManagementTest):
         # Database should be initialized via Alembic migrations before running tests
         # Run: alembic upgrade head
 
-        # Mock the salt function and create encryption service
-        self.mock_get_token_encryption_salt_patcher = patch(
-            "services.user.security.encryption.get_token_encryption_salt"
-        )
-        self.mock_get_token_encryption_salt = (
-            self.mock_get_token_encryption_salt_patcher.start()
-        )
-        self.mock_get_token_encryption_salt.return_value = base64.b64encode(
-            b"test-salt-16byte"
-        ).decode("utf-8")
-
         self.encryption_service = TokenEncryption()
         self.sample_tokens = self._get_sample_tokens()
 
     def teardown_method(self, method):
-        self.mock_get_token_encryption_salt_patcher.stop()
         super().teardown_method(method)
 
     def _get_sample_tokens(self):
@@ -56,14 +44,12 @@ class TestTokenEncryption(BaseUserManagementTest):
         assert service.settings is not None
         assert service._service_salt is not None
         assert len(service._service_salt) == 16
-        self.mock_get_token_encryption_salt.assert_called()
 
     def test_initialization_without_settings(self):
         """Test encryption service initialization with default settings."""
         service = TokenEncryption()
         assert service.settings is not None
         assert service._service_salt is not None
-        self.mock_get_token_encryption_salt.assert_called()
 
     def test_service_salt_from_function(self):
         """Test service salt loading from centralized function."""

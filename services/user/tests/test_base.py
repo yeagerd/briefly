@@ -24,9 +24,9 @@ class BaseUserManagementTest:
 
         # Create temporary database file for tests that need file-based SQLite
         # Use tempfile.mkstemp for better control over file creation
-        import tempfile
         import os
-        
+        import tempfile
+
         # Create a unique temporary file in the system temp directory
         fd, self.db_path = tempfile.mkstemp(suffix=".db", prefix="briefly_test_")
         os.close(fd)  # Close the file descriptor immediately
@@ -76,7 +76,9 @@ class BaseUserManagementTest:
                 os.unlink(self.db_path)
             except OSError as e:
                 # Log the error but don't fail the test
-                print(f"Warning: Could not remove temporary database file {self.db_path}: {e}")
+                print(
+                    f"Warning: Could not remove temporary database file {self.db_path}: {e}"
+                )
 
 
 class BaseUserManagementIntegrationTest(BaseUserManagementTest):

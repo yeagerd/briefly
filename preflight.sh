@@ -58,7 +58,8 @@ success "Generating API Schema and Types"
 
 # 8. Check for uncommitted generated files
 step "Checking for uncommitted generated files"
-GENERATED_FILES=$(git diff --name-only | grep -E '\.(json|ts|tsx)$' | grep -E '(openapi/schema\.json|frontend/types/api)' || true)
+# Check for staged changes, unstaged changes, and untracked files
+GENERATED_FILES=$(git status --porcelain | grep -E '\.(json|ts|tsx)$' | grep -E '(openapi/schema\.json|frontend/types/api/)' | cut -c4- || true)
 
 if [[ -n "$GENERATED_FILES" ]]; then
   echo "❌ Generated files are out of date!"

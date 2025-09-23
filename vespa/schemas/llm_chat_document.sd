@@ -71,7 +71,7 @@ schema llm_chat_document {
     }
     
     fieldset llm_chat_search {
-        fields: title, content, search_text, tools_used, user_feedback, conversation_context
+        fields: title, content, search_text, tools_used, user_feedback
     }
     
     rank-profile llm_chat_hybrid inherits hybrid {

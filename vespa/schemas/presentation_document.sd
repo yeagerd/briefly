@@ -68,7 +68,7 @@ schema presentation_document {
     }
     
     fieldset presentation_search {
-        fields: title, content, search_text, slides, slide_notes, speaker_notes
+        fields: title, content, search_text
     }
     
     rank-profile presentation_hybrid inherits hybrid {
@@ -83,11 +83,11 @@ schema presentation_document {
     
     rank-profile presentation_content inherits hybrid {
         first-phase {
-            expression: nativeRank(title, content, search_text, slides, slide_notes, speaker_notes)
+            expression: nativeRank(title, content, search_text)
         }
         second-phase {
-            expression: 0.3 * nativeRank(title, content, search_text, slides, slide_notes, speaker_notes) + 0.6 * closeness(field, embedding) + 0.1 * freshness(updated_at)
+            expression: 0.3 * nativeRank(title, content, search_text) + 0.6 * closeness(field, embedding) + 0.1 * freshness(updated_at)
         }
-        match-features: nativeRank(title, content, search_text, slides, slide_notes, speaker_notes) closeness(field, embedding) freshness(updated_at)
+        match-features: nativeRank(title, content, search_text) closeness(field, embedding) freshness(updated_at)
     }
 }

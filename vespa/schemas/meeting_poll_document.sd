@@ -81,7 +81,7 @@ schema meeting_poll_document {
     }
     
     fieldset meeting_poll_search {
-        fields: title, content, search_text, question, options, created_by
+        fields: title, content, search_text, question, created_by
     }
     
     rank-profile meeting_poll_hybrid inherits hybrid {

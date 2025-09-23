@@ -7,7 +7,9 @@ import AnalyticsDashboard from '@/components/contacts/analytics-dashboard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useContacts } from '@/contexts/contacts-context';
+import { contactsApi } from '@/api';
 import type { Contact } from '@/types/api/contacts';
+import { getSession } from 'next-auth/react';
 import { BarChart3, Plus, RefreshCw, Settings } from 'lucide-react';
 import React, { useCallback, useMemo, useState } from 'react';
 
@@ -61,10 +63,42 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
         setIsContactFormModalOpen(true);
     }, []);
 
-    const handleContactDelete = useCallback((contact: Contact) => {
-        // TODO: Implement delete functionality
-        console.log('Delete contact:', contact);
-    }, []);
+    const handleContactFormSubmit = useCallback(async (contactData: any) => {
+        try {
+            const session = await getSession();
+            const userId = session?.user?.id;
+            if (!userId) throw new Error('No user id found in session');
+
+            if (selectedContact) {
+                // Update existing contact
+                await contactsApi.updateContact(selectedContact.id!, contactData);
+            } else {
+                // Create new contact
+                await contactsApi.createContact({
+                    ...contactData,
+                    user_id: userId
+                });
+            }
+            handleCloseModals();
+            await refreshContacts();
+        } catch (error) {
+            console.error('Failed to save contact:', error);
+            // TODO: Show error message to user
+        }
+    }, [selectedContact, refreshContacts, handleCloseModals]);
+
+    const handleContactDelete = useCallback(async (contact: Contact) => {
+        if (!contact.id) return;
+        
+        try {
+            await contactsApi.deleteContact(contact.id);
+            handleCloseModals();
+            await refreshContacts();
+        } catch (error) {
+            console.error('Failed to delete contact:', error);
+            // TODO: Show error message to user
+        }
+    }, [refreshContacts, handleCloseModals]);
 
     const handleContactMerge = useCallback((contact: Contact) => {
         // TODO: Implement merge functionality
@@ -229,12 +263,7 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
 
             {isContactFormModalOpen && (
                 <ContactForm
-                    onSubmit={(contactData) => {
-                        // TODO: Implement contact creation/update
-                        console.log('Contact form submitted:', contactData);
-                        handleCloseModals();
-                        refreshContacts();
-                    }}
+                    onSubmit={handleContactFormSubmit}
                     onCancel={handleCloseModals}
                     initialData={selectedContact ? {
                         email_address: selectedContact.email_address,

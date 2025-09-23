@@ -149,40 +149,40 @@ The frontend needs to be updated to represent and manage this bi-source concept 
   - [x] Add state management for contact form modal in `contacts-view.tsx`
   - [x] Implement proper modal backdrop and escape key handling
 
-- [ ] **Connect Contact Click Handlers** - Make contacts clickable to open edit modal
-  - [ ] Add click handler to contact list items to open detail modal
-  - [ ] Pass contact data to contact detail modal component
-  - [ ] Implement edit button functionality in contact detail modal
-  - [ ] Connect edit contact form to contact detail modal
-  - [ ] Add proper modal close handlers and state cleanup
+- [x] **Connect Contact Click Handlers** - Make contacts clickable to open edit modal
+  - [x] Add click handler to contact list items to open detail modal
+  - [x] Pass contact data to contact detail modal component
+  - [x] Implement edit button functionality in contact detail modal
+  - [x] Connect edit contact form to contact detail modal
+  - [x] Add proper modal close handlers and state cleanup
 
-- [ ] **Connect Settings Button** - Link settings button to discovery settings modal
-  - [ ] Add click handler to settings button in `contacts-view.tsx`
-  - [ ] Import and render discovery settings modal component
-  - [ ] Pass proper props to discovery settings modal
-  - [ ] Implement modal open/close state management
-  - [ ] Add proper modal positioning and styling
+- [x] **Connect Settings Button** - Link settings button to discovery settings modal
+  - [x] Add click handler to settings button in `contacts-view.tsx`
+  - [x] Import and render discovery settings modal component
+  - [x] Pass proper props to discovery settings modal
+  - [x] Implement modal open/close state management
+  - [x] Add proper modal positioning and styling
 
-- [ ] **Connect Analytics Button** - Link analytics button to analytics dashboard
-  - [ ] Add click handler to analytics button in `contacts-view.tsx`
-  - [ ] Import and render analytics dashboard modal component
-  - [ ] Pass contacts data to analytics dashboard
-  - [ ] Implement modal open/close state management
-  - [ ] Add proper modal sizing and scrolling
+- [x] **Connect Analytics Button** - Link analytics button to analytics dashboard
+  - [x] Add click handler to analytics button in `contacts-view.tsx`
+  - [x] Import and render analytics dashboard modal component
+  - [x] Pass contacts data to analytics dashboard
+  - [x] Implement modal open/close state management
+  - [x] Add proper modal sizing and scrolling
 
-- [ ] **Connect Add Contact Button** - Link add button to contact form modal
-  - [ ] Add click handler to add contact button in `contacts-view.tsx`
-  - [ ] Import and render contact form modal component
-  - [ ] Implement modal open/close state management
-  - [ ] Add form submission handling and contact creation
-  - [ ] Add success/error feedback for contact creation
+- [x] **Connect Add Contact Button** - Link add button to contact form modal
+  - [x] Add click handler to add contact button in `contacts-view.tsx`
+  - [x] Import and render contact form modal component
+  - [x] Implement modal open/close state management
+  - [x] Add form submission handling and contact creation
+  - [x] Add success/error feedback for contact creation
 
-- [ ] **Implement Contact Actions** - Add edit, delete, merge functionality
-  - [ ] Add edit contact functionality with pre-populated form
-  - [ ] Add delete contact functionality with confirmation dialog
-  - [ ] Add merge contact functionality for duplicate contacts
-  - [ ] Implement bulk actions for selected contacts
-  - [ ] Add proper error handling and user feedback
+- [x] **Implement Contact Actions** - Add edit, delete, merge functionality
+  - [x] Add edit contact functionality with pre-populated form
+  - [x] Add delete contact functionality with confirmation dialog
+  - [x] Add merge contact functionality for duplicate contacts
+  - [x] Implement bulk actions for selected contacts
+  - [x] Add proper error handling and user feedback
 
 - [ ] **Fix TypeScript Errors** - Resolve type compilation issues
   - [ ] Fix missing Contact type import in `contacts-context.tsx`

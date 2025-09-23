@@ -35,11 +35,18 @@ const ContactListItem: React.FC<ContactListItemProps> = ({
     };
 
     const getInitials = () => {
-        const name = getPrimaryName();
-        if (name === contact.email_address) {
-            return contact.email_address.slice(0, 2).toUpperCase();
+        // Use first letter of first name + first letter of last name
+        if (contact.given_name && contact.family_name) {
+            return `${contact.given_name.charAt(0)}${contact.family_name.charAt(0)}`.toUpperCase();
         }
-        return name.slice(0, 2).toUpperCase();
+        if (contact.given_name) {
+            return contact.given_name.charAt(0).toUpperCase();
+        }
+        if (contact.family_name) {
+            return contact.family_name.charAt(0).toUpperCase();
+        }
+        // Fallback to email if no names available
+        return contact.email_address.slice(0, 2).toUpperCase();
     };
 
     const handleClick = (e: React.MouseEvent) => {
@@ -67,17 +74,17 @@ const ContactListItem: React.FC<ContactListItemProps> = ({
                 </div>
 
                 {/* Name */}
-                <div className="font-medium text-gray-900 min-w-0 flex-shrink-0" style={{ width: '180px' }}>
+                <div className="font-medium text-gray-900 text-sm min-w-0 flex-shrink-0" style={{ width: '180px' }}>
                     <span className="truncate block">{getPrimaryName()}</span>
                 </div>
 
                 {/* Email */}
-                <div className="text-gray-600 min-w-0 flex-shrink-0" style={{ width: '250px' }}>
+                <div className="text-gray-600 text-sm min-w-0 flex-shrink-0" style={{ width: '250px' }}>
                     <span className="truncate block">{contact.email_address}</span>
                 </div>
 
                 {/* Phone */}
-                <div className="text-gray-600 min-w-0 flex-shrink-0 flex items-center gap-1" style={{ width: '150px' }}>
+                <div className="text-gray-600 text-sm min-w-0 flex-shrink-0 flex items-center gap-1" style={{ width: '150px' }}>
                     <Phone className="w-3 h-3 text-gray-400" />
                     <span className="truncate">{getPrimaryPhone()}</span>
                 </div>

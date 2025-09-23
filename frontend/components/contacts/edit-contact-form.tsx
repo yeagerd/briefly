@@ -134,7 +134,20 @@ const EditContactForm: React.FC<EditContactFormProps> = ({
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <div className="flex items-center gap-4">
                     <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-xl">
-                        {(contact.display_name || contact.email_address || '').slice(0, 2).toUpperCase()}
+                        {(() => {
+                            // Use first letter of first name + first letter of last name
+                            if (contact.given_name && contact.family_name) {
+                                return `${contact.given_name.charAt(0)}${contact.family_name.charAt(0)}`.toUpperCase();
+                            }
+                            if (contact.given_name) {
+                                return contact.given_name.charAt(0).toUpperCase();
+                            }
+                            if (contact.family_name) {
+                                return contact.family_name.charAt(0).toUpperCase();
+                            }
+                            // Fallback to email if no names available
+                            return contact.email_address.slice(0, 2).toUpperCase();
+                        })()}
                     </div>
 
                     <div className="flex-1">

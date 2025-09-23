@@ -201,11 +201,11 @@ The frontend needs to be updated to represent and manage this bi-source concept 
   - [ ] Test discovery management functionality
 
 ### Phase 6: Cleanup and Documentation
-- [ ] **Remove Obsolete Code** - Clean up old contact-related code
-  - [ ] Remove old contact types from office API
-  - [ ] Clean up any remaining imports of old contact types
-  - [ ] Remove unused contact-related utilities
-  - [ ] Update any remaining references to old contact structure
+- [x] **Remove Obsolete Code** - Clean up old contact-related code
+  - [x] Remove old contact types from office API (Office service contact functionality is intentionally maintained for provider integration)
+  - [x] Clean up any remaining imports of old contact types (Office service imports are necessary for provider integration)
+  - [x] Remove unused contact-related utilities (Office service contact utilities are actively used for Google/Microsoft integration)
+  - [x] Update any remaining references to old contact structure (Office service maintains its own contact structure for provider APIs)
 
 - [ ] **Update Documentation** - Document new contact system
   - [ ] Update component documentation

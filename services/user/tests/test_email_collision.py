@@ -170,61 +170,24 @@ class TestEmailNormalization:
 # ------------------- DB Collision Tests (with DB) -------------------
 
 
-@pytest_asyncio.fixture(scope="function")
-async def db_setup(monkeypatch):
-    # Create a temporary file using NamedTemporaryFile with delete=False
-    temp_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-    db_path = temp_file.name
-    temp_file.close()  # Close the file handle so SQLite can use it
-
-    os.environ["DB_URL_USER"] = f"sqlite+aiosqlite:///{db_path}"
-
-    # Patch the global _settings variable to include required API keys
-    import services.user.settings as user_settings
-
-    test_settings = user_settings.Settings(
-        db_url_user=f"sqlite+aiosqlite:///{db_path}",
-        api_frontend_user_key="test-frontend-key",
-        api_chat_user_key="test-chat-key",
-        api_office_user_key="test-office-key",
-        api_meetings_user_key="test-meetings-key",
-        token_encryption_salt="dGVzdC1zYWx0LTE2Ynl0ZQ==",
-        pagination_secret_key="test-pagination-secret-key",
-    )
-    monkeypatch.setattr("services.user.settings._settings", test_settings)
-
-    # Reset database connections to pick up new settings
-    from services.user.database import reset_db, reset_settings
-
-    reset_settings()
-    await reset_db()
-
-    # Initialize database schema for testing
-    from services.user.database import create_all_tables_for_testing
-
-    await create_all_tables_for_testing()
-    yield
-    # Clean up the temporary database file
-    if os.path.exists(db_path):
-        os.unlink(db_path)
+from services.user.tests.test_base import BaseUserManagementIntegrationTest
 
 
-@pytest_asyncio.fixture(scope="function")
-async def detector_fixture():
-    return EmailCollisionDetector()
+class TestEmailCollisionDB(BaseUserManagementIntegrationTest):
+    def setup_method(self):
+        super().setup_method()
+        self.detector = EmailCollisionDetector()
 
-
-class TestEmailCollisionDB:
     @pytest.mark.asyncio
-    async def test_check_collision_no_collision(self, db_setup, detector_fixture):
-        detector = detector_fixture
-        with patch.object(detector, "normalize_email", return_value="test@example.com"):
-            result = await detector.check_collision("test@example.com")
+    async def test_check_collision_no_collision(self):
+        with patch.object(
+            self.detector, "normalize_email", return_value="test@example.com"
+        ):
+            result = await self.detector.check_collision("test@example.com")
             assert result is None
 
     @pytest.mark.asyncio
-    async def test_check_collision_with_collision(self, db_setup, detector_fixture):
-        detector = detector_fixture
+    async def test_check_collision_with_collision(self):
         # Use unique email to avoid conflicts with other tests
         unique_email = f"existing_{id(self)}_{uuid.uuid4().hex}@example.com"
         existing_user = User(
@@ -243,32 +206,28 @@ class TestEmailCollisionDB:
             async def session_cm():
                 yield session
 
-            with patch.object(detector, "normalize_email", return_value=unique_email):
+            with patch.object(self.detector, "normalize_email", return_value=unique_email):
                 with patch(
                     "services.user.utils.email_collision.get_async_session",
                     return_value=session_cm,
                 ):
-                    result = await detector.check_collision(unique_email)
+                    result = await self.detector.check_collision(unique_email)
                     assert result is not None
                     assert result.email == unique_email
 
     @pytest.mark.asyncio
-    async def test_get_collision_details_no_collision(self, db_setup, detector_fixture):
-        detector = detector_fixture
-        with patch.object(detector, "check_collision", return_value=None):
+    async def test_get_collision_details_no_collision(self):
+        with patch.object(self.detector, "check_collision", return_value=None):
             with patch.object(
-                detector, "normalize_email", return_value="test@example.com"
+                self.detector, "normalize_email", return_value="test@example.com"
             ):
-                result = await detector.get_collision_details("test@example.com")
+                result = await self.detector.get_collision_details("test@example.com")
                 assert result["available"] is True
                 assert result["collision"] is False
                 assert result["normalized_email"] == "test@example.com"
 
     @pytest.mark.asyncio
-    async def test_get_collision_details_with_collision(
-        self, db_setup, detector_fixture
-    ):
-        detector = detector_fixture
+    async def test_get_collision_details_with_collision(self):
         unique_email = f"existing_{id(self)}_{uuid.uuid4().hex}@example.com"
         existing_user = User(
             id=1,
@@ -277,32 +236,30 @@ class TestEmailCollisionDB:
             email=unique_email,
             normalized_email=unique_email,
         )
-        with patch.object(detector, "check_collision", return_value=existing_user):
-            with patch.object(detector, "normalize_email", return_value=unique_email):
-                result = await detector.get_collision_details(unique_email)
+        with patch.object(self.detector, "check_collision", return_value=existing_user):
+            with patch.object(self.detector, "normalize_email", return_value=unique_email):
+                result = await self.detector.get_collision_details(unique_email)
                 assert result["collision"] is True
                 assert result["existing_user_id"] == existing_user.external_auth_id
                 assert result["existing_user_email"] == unique_email
                 assert result["normalized_email"] == unique_email
 
     @pytest.mark.asyncio
-    async def test_get_email_info_valid_email(self, db_setup, detector_fixture):
-        detector = detector_fixture
+    async def test_get_email_info_valid_email(self):
         # get_email_info now provides domain extraction instead of provider detection
-        result = await detector.get_email_info("user+work@gmail.com")
+        result = await self.detector.get_email_info("user+work@gmail.com")
         assert result["original_email"] == "user+work@gmail.com"
         assert result["normalized_email"] == "user@gmail.com"  # Gmail normalization
         assert result["mailbox_domain"] == "gmail.com"  # Domain extracted from email
         assert result["is_valid"] is True
 
     @pytest.mark.asyncio
-    async def test_get_email_info_invalid_email(self, db_setup, detector_fixture):
-        detector = detector_fixture
+    async def test_get_email_info_invalid_email(self):
         # Test the fallback behavior by mocking the simple_email_normalize to fail
         with patch.object(
-            detector, "_simple_email_normalize", side_effect=Exception("Invalid email")
+            self.detector, "_simple_email_normalize", side_effect=Exception("Invalid email")
         ):
-            result = await detector.get_email_info("invalid-email")
+            result = await self.detector.get_email_info("invalid-email")
             assert result["original_email"] == "invalid-email"
             assert (
                 result["normalized_email"] == "invalid-email"

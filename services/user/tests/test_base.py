@@ -17,21 +17,22 @@ class BaseUserManagementTest:
 
     def setup_method(self):
         """Set up User Management test environment with required variables."""
+        # Isolate model metadata by clearing the global SQLModel metadata object.
+        # This prevents models from other services (imported by pytest) from
+        # interfering with the user service's test schema.
+        from sqlmodel import SQLModel
+        SQLModel.metadata.clear()
+
         # Reset database settings and connections before importing app
         from services.user.database import reset_db, reset_settings
 
         reset_settings()
 
-        # Create temporary database file for tests that need file-based SQLite
-        # Use tempfile.NamedTemporaryFile with delete=False and close immediately
-        # so SQLite can open the file
-        temp_db = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-        self.db_path = temp_db.name
-        temp_db.close()  # Close immediately so SQLite can use it
-
-        # Set required environment variables for User Management service
-        # Standardize to sqlite+aiosqlite:// everywhere for consistency
-        os.environ["DB_URL_USER"] = f"sqlite+aiosqlite:///{self.db_path}"
+        # Use a shared in-memory SQLite database to avoid disk I/O errors.
+        # The `cache=shared` is crucial for sharing the DB between connections in the same process.
+        # Each pytest-xdist worker will have its own in-memory DB.
+        os.environ["DB_URL_USER"] = "sqlite+aiosqlite:///file::memory:?cache=shared"
+        self.db_path = None  # Ensure db_path is None to avoid os.unlink in teardown
         os.environ["TOKEN_ENCRYPTION_SALT"] = "dGVzdC1zYWx0LTE2Ynl0ZQ=="
         os.environ["API_FRONTEND_USER_KEY"] = "test-frontend-key"
         os.environ["API_CHAT_USER_KEY"] = "test-chat-key"
@@ -66,9 +67,12 @@ class BaseUserManagementTest:
                 future = executor.submit(asyncio.run, reset_db())
                 future.result()
 
-        # Remove temporary database file
-        if hasattr(self, "db_path") and os.path.exists(self.db_path):
-            os.unlink(self.db_path)
+        # No temporary database file to remove when using an in-memory database
+        pass
+
+        # Clear metadata again to avoid leaking state to other tests in the same worker
+        from sqlmodel import SQLModel
+        SQLModel.metadata.clear()
 
 
 class BaseUserManagementIntegrationTest(BaseUserManagementTest):

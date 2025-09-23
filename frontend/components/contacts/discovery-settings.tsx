@@ -39,7 +39,7 @@ const ContactDiscoverySettings: React.FC<DiscoverySettingsProps> = ({ onClose })
         maxConcurrent: 5,
     });
 
-    const [stats, setStats] = useState<DiscoveryStats>({
+    const [stats] = useState<DiscoveryStats>({
         lastRun: '2024-01-15T10:30:00Z',
         nextRun: '2024-01-15T11:30:00Z',
         totalContacts: 1247,
@@ -61,7 +61,7 @@ const ContactDiscoverySettings: React.FC<DiscoverySettingsProps> = ({ onClose })
         '2024-01-15 10:30:50 - Discovery completed successfully',
     ]);
 
-    const handleConfigChange = (field: keyof DiscoveryConfig, value: any) => {
+    const handleConfigChange = (field: keyof DiscoveryConfig, value: string | number | boolean) => {
         setConfig(prev => ({ ...prev, [field]: value }));
     };
 

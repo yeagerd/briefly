@@ -25,16 +25,15 @@ const ContactMerger: React.FC<ContactMergerProps> = ({ onClose, onMerge }) => {
             id: '1',
             contacts: [
                 {
-                    id: '1',
+                    id: 1,
                     user_id: 'user1',
                     email_address: 'john.doe@example.com',
                     display_name: 'John Doe',
                     given_name: 'John',
                     family_name: 'Doe',
                     source_services: ['office'],
-                    event_counts: { email: { count: 15, last_seen: '2024-01-15T10:00:00Z' } },
+                    event_counts: { email: { count: 15, last_seen: '2024-01-15T10:00:00Z', event_type: 'email', first_seen: '2024-01-01T00:00:00Z' } },
                     total_event_count: 15,
-
                     last_seen: '2024-01-15T10:00:00Z',
                     first_seen: '2024-01-01T00:00:00Z',
                     tags: ['work', 'important'],
@@ -43,16 +42,15 @@ const ContactMerger: React.FC<ContactMergerProps> = ({ onClose, onMerge }) => {
                     updated_at: '2024-01-15T10:00:00Z',
                 },
                 {
-                    id: '2',
+                    id: 2,
                     user_id: 'user1',
                     email_address: 'john.doe@example.com',
                     display_name: 'John Doe',
                     given_name: 'John',
                     family_name: 'Doe',
                     source_services: ['email'],
-                    event_counts: { email: { count: 8, last_seen: '2024-01-14T15:30:00Z' } },
+                    event_counts: { email: { count: 8, last_seen: '2024-01-14T15:30:00Z', event_type: 'email', first_seen: '2024-01-05T00:00:00Z' } },
                     total_event_count: 8,
-
                     last_seen: '2024-01-14T15:30:00Z',
                     first_seen: '2024-01-05T00:00:00Z',
                     tags: ['client'],
@@ -68,16 +66,15 @@ const ContactMerger: React.FC<ContactMergerProps> = ({ onClose, onMerge }) => {
             id: '2',
             contacts: [
                 {
-                    id: '3',
+                    id: 3,
                     user_id: 'user1',
                     email_address: 'jane.smith@company.com',
                     display_name: 'Jane Smith',
                     given_name: 'Jane',
                     family_name: 'Smith',
                     source_services: ['office'],
-                    event_counts: { calendar: { count: 3, last_seen: '2024-01-10T14:00:00Z' } },
+                    event_counts: { calendar: { count: 3, last_seen: '2024-01-10T14:00:00Z', event_type: 'calendar', first_seen: '2024-01-08T00:00:00Z' } },
                     total_event_count: 3,
-
                     last_seen: '2024-01-10T14:00:00Z',
                     first_seen: '2024-01-08T00:00:00Z',
                     tags: ['meeting'],
@@ -86,16 +83,15 @@ const ContactMerger: React.FC<ContactMergerProps> = ({ onClose, onMerge }) => {
                     updated_at: '2024-01-10T14:00:00Z',
                 },
                 {
-                    id: '4',
+                    id: 4,
                     user_id: 'user1',
                     email_address: 'jane.smith@company.com',
                     display_name: 'Jane Smith',
                     given_name: 'Jane',
                     family_name: 'Smith',
                     source_services: ['email'],
-                    event_counts: { email: { count: 12, last_seen: '2024-01-13T09:15:00Z' } },
+                    event_counts: { email: { count: 12, last_seen: '2024-01-13T09:15:00Z', event_type: 'email', first_seen: '2024-01-02T00:00:00Z' } },
                     total_event_count: 12,
-
                     last_seen: '2024-01-13T09:15:00Z',
                     first_seen: '2024-01-02T00:00:00Z',
                     tags: ['work', 'project'],
@@ -173,8 +169,8 @@ const ContactMerger: React.FC<ContactMergerProps> = ({ onClose, onMerge }) => {
                 const primaryContactId = primaryContacts[groupId];
                 if (!primaryContactId) continue;
 
-                const primaryContact = group.contacts.find(c => c.id === primaryContactId);
-                const secondaryContacts = group.contacts.filter(c => c.id !== primaryContactId);
+                const primaryContact = group.contacts.find(c => c.id === parseInt(primaryContactId));
+                const secondaryContacts = group.contacts.filter(c => c.id !== parseInt(primaryContactId));
 
                 if (primaryContact && secondaryContacts.length > 0) {
                     await onMerge(primaryContact, secondaryContacts);
@@ -278,10 +274,10 @@ const ContactMerger: React.FC<ContactMergerProps> = ({ onClose, onMerge }) => {
 
                         {/* Contact Comparison */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            {group.contacts.map((contact, index) => (
+                            {group.contacts.map((contact) => (
                                 <div
                                     key={contact.id}
-                                    className={`p-4 border rounded-lg ${primaryContacts[group.id] === contact.id
+                                    className={`p-4 border rounded-lg ${primaryContacts[group.id] === contact.id?.toString()
                                             ? 'border-green-500 bg-green-50'
                                             : 'border-gray-200 bg-white'
                                         }`}
@@ -291,9 +287,9 @@ const ContactMerger: React.FC<ContactMergerProps> = ({ onClose, onMerge }) => {
                                         <input
                                             type="radio"
                                             name={`primary-${group.id}`}
-                                            value={contact.id}
-                                            checked={primaryContacts[group.id] === contact.id}
-                                            onChange={() => handlePrimaryContactSelect(group.id, contact.id)}
+                                            value={contact.id || ''}
+                                            checked={primaryContacts[group.id] === contact.id?.toString()}
+                                            onChange={() => handlePrimaryContactSelect(group.id, contact.id?.toString() || '')}
                                             className="mt-1"
                                         />
 

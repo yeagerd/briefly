@@ -28,7 +28,7 @@ const SourceFilter: React.FC<SourceFilterProps> = ({
     const allSourcesSelected = sourceFilter === undefined;
 
     // Get the sources that are actually available in the data
-    const effectiveAvailableSources = allSources.filter(source => availableSources.includes(source));
+    // const effectiveAvailableSources = allSources.filter(source => availableSources.includes(source));
 
     const handleAllSourcesToggle = () => {
         if (allSourcesSelected) {

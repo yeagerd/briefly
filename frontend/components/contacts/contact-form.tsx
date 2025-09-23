@@ -68,14 +68,16 @@ const ContactForm: React.FC<ContactFormProps> = ({
     };
 
     const addTag = () => {
-        if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
+        if (newTag.trim() && formData.tags && !formData.tags.includes(newTag.trim())) {
             handleInputChange('tags', [...formData.tags, newTag.trim()]);
             setNewTag('');
         }
     };
 
     const removeTag = (tagToRemove: string) => {
-        handleInputChange('tags', formData.tags.filter(tag => tag !== tagToRemove));
+        if (formData.tags) {
+            handleInputChange('tags', formData.tags.filter(tag => tag !== tagToRemove));
+        }
     };
 
     const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -110,7 +112,7 @@ const ContactForm: React.FC<ContactFormProps> = ({
                         id="email_address"
                         type="email"
                         placeholder="contact@example.com"
-                        value={formData.email_address}
+                        value={formData.email_address || ''}
                         onChange={(e) => handleInputChange('email_address', e.target.value)}
                         className={errors.email_address ? 'border-red-500' : ''}
                         disabled={isLoading}
@@ -130,7 +132,7 @@ const ContactForm: React.FC<ContactFormProps> = ({
                         <Input
                             id="display_name"
                             placeholder="Full Name"
-                            value={formData.display_name}
+                            value={formData.display_name || ''}
                             onChange={(e) => handleInputChange('display_name', e.target.value)}
                             className={errors.display_name ? 'border-red-500' : ''}
                             disabled={isLoading}
@@ -145,7 +147,7 @@ const ContactForm: React.FC<ContactFormProps> = ({
                         <Input
                             id="given_name"
                             placeholder="First Name"
-                            value={formData.given_name}
+                            value={formData.given_name || ''}
                             onChange={(e) => handleInputChange('given_name', e.target.value)}
                             disabled={isLoading}
                         />
@@ -156,7 +158,7 @@ const ContactForm: React.FC<ContactFormProps> = ({
                         <Input
                             id="family_name"
                             placeholder="Last Name"
-                            value={formData.family_name}
+                            value={formData.family_name || ''}
                             onChange={(e) => handleInputChange('family_name', e.target.value)}
                             disabled={isLoading}
                         />
@@ -190,7 +192,7 @@ const ContactForm: React.FC<ContactFormProps> = ({
                     </div>
 
                     {/* Display existing tags */}
-                    {formData.tags.length > 0 && (
+                    {formData.tags && formData.tags.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-2">
                             {formData.tags.map((tag) => (
                                 <Badge
@@ -219,7 +221,7 @@ const ContactForm: React.FC<ContactFormProps> = ({
                     <Textarea
                         id="notes"
                         placeholder="Additional notes about this contact..."
-                        value={formData.notes}
+                        value={formData.notes || ''}
                         onChange={(e) => handleInputChange('notes', e.target.value)}
                         rows={3}
                         disabled={isLoading}

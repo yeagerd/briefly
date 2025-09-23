@@ -13,6 +13,7 @@ export type { CalendarEvent } from './models/CalendarEvent';
 export type { CalendarEventDetailResponse } from './models/CalendarEventDetailResponse';
 export type { CalendarEventResponse } from './models/CalendarEventResponse';
 export type { CreateCalendarEventRequest } from './models/CreateCalendarEventRequest';
+export type { EmailAddress } from './models/EmailAddress';
 export type { EmailDraftCreateRequest } from './models/EmailDraftCreateRequest';
 export type { EmailDraftResponse } from './models/EmailDraftResponse';
 export type { EmailDraftResult } from './models/EmailDraftResult';

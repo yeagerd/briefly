@@ -30,7 +30,7 @@ const ContactAnalyticsDashboard: React.FC<ContactAnalyticsProps> = ({ onClose, c
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
         const totalContacts = contacts.length;
-        const newThisMonth = contacts.filter(c => new Date(c.created_at) >= thirtyDaysAgo).length;
+        const newThisMonth = contacts.filter(c => c.created_at && new Date(c.created_at) >= thirtyDaysAgo).length;
         const growthRate = totalContacts > 0 ? (newThisMonth / totalContacts) * 100 : 0;
 
         // Source distribution

@@ -8,7 +8,7 @@ import SourceFilter from '@/components/contacts/source-filter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useContacts } from '@/contexts/contacts-context';
-import type { Contact } from '@/types/api/contacts';
+import type { Contact, ContactCreate, EmailContactUpdate } from '@/types/api/contacts';
 import { BarChart3, Plus, RefreshCw, Settings } from 'lucide-react';
 import { getSession } from 'next-auth/react';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -71,7 +71,7 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
         setIsContactFormModalOpen(true);
     }, []);
 
-    const handleContactFormSubmit = useCallback(async (contactData: any) => {
+    const handleContactFormSubmit = useCallback(async (contactData: ContactCreate | EmailContactUpdate) => {
         try {
             const session = await getSession();
             const userId = session?.user?.id;
@@ -79,13 +79,13 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
 
             if (selectedContact) {
                 // Update existing contact
-                await contactsApi.updateContact(selectedContact.id!.toString(), contactData);
+                await contactsApi.updateContact(selectedContact.id!.toString(), contactData as EmailContactUpdate);
             } else {
                 // Create new contact
                 await contactsApi.createContact({
                     ...contactData,
                     user_id: userId
-                });
+                } as ContactCreate);
             }
             handleCloseModals();
             await refreshContacts();

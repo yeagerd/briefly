@@ -3,6 +3,7 @@ import ContactDetailModal from '@/components/contacts/contact-detail-modal';
 import ContactForm from '@/components/contacts/contact-form';
 import ContactListItem from '@/components/contacts/contact-list-item';
 import DiscoverySettings from '@/components/contacts/discovery-settings';
+import EditContactForm from '@/components/contacts/edit-contact-form';
 import SourceFilter from '@/components/contacts/source-filter';
 import TagsFilter from '@/components/contacts/tags-filter';
 import { Button } from '@/components/ui/button';
@@ -224,13 +225,6 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
                     </div>
                 </div>
 
-                {/* Source Statistics */}
-                <div className="flex gap-4 mt-3 text-sm text-gray-600">
-                    <span>Total: {contacts.length}</span>
-                    <span>Contacts: {sourceStats.contacts}</span>
-                    <span>Discovered: {sourceStats.discovered}</span>
-                    <span>Both: {sourceStats.both}</span>
-                </div>
             </div>
 
             <div className="flex-1 overflow-auto">
@@ -293,18 +287,19 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
             )}
 
             {isContactFormModalOpen && (
-                <ContactForm
-                    onSubmit={handleContactFormSubmit}
-                    onCancel={handleCloseModals}
-                    initialData={selectedContact ? {
-                        email_address: selectedContact.email_address,
-                        display_name: selectedContact.display_name,
-                        given_name: selectedContact.given_name,
-                        family_name: selectedContact.family_name,
-                        tags: selectedContact.tags,
-                        notes: selectedContact.notes
-                    } : undefined}
-                />
+                selectedContact ? (
+                    <EditContactForm
+                        contact={selectedContact}
+                        onSubmit={(id, contactData) => handleContactFormSubmit(contactData)}
+                        onCancel={handleCloseModals}
+                        onMerge={handleContactMerge}
+                    />
+                ) : (
+                    <ContactForm
+                        onSubmit={handleContactFormSubmit}
+                        onCancel={handleCloseModals}
+                    />
+                )
             )}
 
             {isDiscoverySettingsModalOpen && (

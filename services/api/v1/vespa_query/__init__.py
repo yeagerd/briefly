@@ -21,7 +21,10 @@ from services.api.v1.vespa_query.search_models import (
     SearchResult,
     SearchSummary,
 )
-from services.api.v1.vespa_query.vespa_types import DocumentIngestionResult, VespaDocumentType
+from services.api.v1.vespa_query.vespa_types import (
+    DocumentIngestionResult,
+    VespaDocumentType,
+)
 
 __all__ = [
     "ChunkType",

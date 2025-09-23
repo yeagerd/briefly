@@ -12,7 +12,10 @@ from vespa_loader.content_normalizer import ContentNormalizer
 from vespa_loader.embeddings import EmbeddingGenerator
 from vespa_loader.vespa_client import VespaClient
 
-from services.api.v1.vespa_query.vespa_types import DocumentIngestionResult, VespaDocumentType
+from services.api.v1.vespa_query.vespa_types import (
+    DocumentIngestionResult,
+    VespaDocumentType,
+)
 from services.common.http_errors import (
     ErrorCode,
     ServiceError,

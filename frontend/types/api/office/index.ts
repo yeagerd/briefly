@@ -3,6 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 
+export type { _ContactCreatePayload } from './models/_ContactCreatePayload';
+export type { _ContactUpdatePayload } from './models/_ContactUpdatePayload';
 export type { AvailabilityResponse } from './models/AvailabilityResponse';
 export type { AvailableSlot } from './models/AvailableSlot';
 export type { BackfillRequest } from './models/BackfillRequest';
@@ -12,6 +14,12 @@ export { BackfillStatusEnum } from './models/BackfillStatusEnum';
 export type { CalendarEvent } from './models/CalendarEvent';
 export type { CalendarEventDetailResponse } from './models/CalendarEventDetailResponse';
 export type { CalendarEventResponse } from './models/CalendarEventResponse';
+export type { Contact } from './models/Contact';
+export type { ContactCreateResponse } from './models/ContactCreateResponse';
+export type { ContactDeleteResponse } from './models/ContactDeleteResponse';
+export type { ContactList } from './models/ContactList';
+export type { ContactPhone } from './models/ContactPhone';
+export type { ContactUpdateResponse } from './models/ContactUpdateResponse';
 export type { CreateCalendarEventRequest } from './models/CreateCalendarEventRequest';
 export type { EmailAddress } from './models/EmailAddress';
 export type { EmailDraftCreateRequest } from './models/EmailDraftCreateRequest';
@@ -41,4 +49,3 @@ export type { TypedApiResponse_AvailabilityResponse_ } from './models/TypedApiRe
 export type { TypedApiResponse_CalendarEventResponse_ } from './models/TypedApiResponse_CalendarEventResponse_';
 export type { TypedApiResponse_List_CalendarEvent__ } from './models/TypedApiResponse_List_CalendarEvent__';
 export type { ValidationError } from './models/ValidationError';
-

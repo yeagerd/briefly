@@ -338,7 +338,6 @@ class TestEmailCollisionDB:
 
         result_count = await db_session.execute(text("SELECT COUNT(*) FROM users"))
         count = result_count.scalar()
-        print(f"DEBUG: Users in test session: {count}")
 
         # Verify using the same session
         from sqlalchemy import select
@@ -346,7 +345,6 @@ class TestEmailCollisionDB:
         stmt = select(User).where(User.normalized_email == unique_email)
         result = await db_session.execute(stmt)
         user = result.scalar_one_or_none()
-        print(f"DEBUG: User found in test session: {user is not None}")
 
         # Test the collision detection using the same session
         # Patch the detector to use our test session instead of creating a new one

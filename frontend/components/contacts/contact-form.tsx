@@ -4,7 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { ContactCreate } from '@/types/api/contacts';
-import { Mail, Plus, Tag, User, X } from 'lucide-react';
+import type { ContactPhone } from '@/types/api/contacts/models/ContactPhone';
+import { Mail, Phone, Plus, Tag, User, X } from 'lucide-react';
 import React, { useState } from 'react';
 
 interface ContactFormProps {
@@ -26,6 +27,7 @@ const ContactForm: React.FC<ContactFormProps> = ({
         display_name: initialData?.display_name || '',
         given_name: initialData?.given_name || '',
         family_name: initialData?.family_name || '',
+        phone_numbers: initialData?.phone_numbers || [],
         tags: initialData?.tags || [],
         notes: initialData?.notes || '',
     });
@@ -58,7 +60,7 @@ const ContactForm: React.FC<ContactFormProps> = ({
         }
     };
 
-    const handleInputChange = (field: keyof ContactCreate, value: string | string[]) => {
+    const handleInputChange = (field: keyof ContactCreate, value: string | string[] | ContactPhone[]) => {
         setFormData(prev => ({ ...prev, [field]: value }));
 
         // Clear error when user starts typing
@@ -85,6 +87,37 @@ const ContactForm: React.FC<ContactFormProps> = ({
             e.preventDefault();
             addTag();
         }
+    };
+
+    // Phone number management functions
+    const addPhoneNumber = () => {
+        const newPhone: ContactPhone = {
+            type: 'mobile',
+            number: '',
+            primary: false
+        };
+        handleInputChange('phone_numbers', [...(formData.phone_numbers || []), newPhone]);
+    };
+
+    const updatePhoneNumber = (index: number, field: keyof ContactPhone, value: string | boolean) => {
+        const updatedPhones = [...(formData.phone_numbers || [])];
+        updatedPhones[index] = { ...updatedPhones[index], [field]: value };
+
+        // If setting primary to true, unset all other primary flags
+        if (field === 'primary' && value === true) {
+            updatedPhones.forEach((phone, i) => {
+                if (i !== index) {
+                    phone.primary = false;
+                }
+            });
+        }
+
+        handleInputChange('phone_numbers', updatedPhones);
+    };
+
+    const removePhoneNumber = (index: number) => {
+        const updatedPhones = (formData.phone_numbers || []).filter((_, i) => i !== index);
+        handleInputChange('phone_numbers', updatedPhones);
     };
 
     return (
@@ -163,6 +196,91 @@ const ContactForm: React.FC<ContactFormProps> = ({
                             disabled={isLoading}
                         />
                     </div>
+                </div>
+
+                {/* Phone Numbers */}
+                <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                        <Phone className="w-4 h-4" />
+                        Phone Numbers
+                    </Label>
+
+                    {/* Existing phone numbers */}
+                    {formData.phone_numbers && formData.phone_numbers.length > 0 && (
+                        <div className="space-y-3">
+                            {formData.phone_numbers.map((phone, index) => (
+                                <div key={index} className="flex gap-2 items-center p-3 border rounded-lg">
+                                    <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2">
+                                        <div>
+                                            <Label htmlFor={`phone-type-${index}`}>Type</Label>
+                                            <select
+                                                id={`phone-type-${index}`}
+                                                value={phone.type || ''}
+                                                onChange={(e) => updatePhoneNumber(index, 'type', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                disabled={isLoading}
+                                            >
+                                                <option value="">Select type</option>
+                                                <option value="mobile">Mobile</option>
+                                                <option value="home">Home</option>
+                                                <option value="work">Work</option>
+                                                <option value="other">Other</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <Label htmlFor={`phone-number-${index}`}>Number</Label>
+                                            <Input
+                                                id={`phone-number-${index}`}
+                                                placeholder="Phone number"
+                                                value={phone.number}
+                                                onChange={(e) => updatePhoneNumber(index, 'number', e.target.value)}
+                                                disabled={isLoading}
+                                            />
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            <Label htmlFor={`phone-primary-${index}`} className="flex items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    id={`phone-primary-${index}`}
+                                                    checked={phone.primary || false}
+                                                    onChange={(e) => updatePhoneNumber(index, 'primary', e.target.checked)}
+                                                    disabled={isLoading}
+                                                    className="rounded"
+                                                />
+                                                Primary
+                                            </Label>
+                                        </div>
+                                    </div>
+
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => removePhoneNumber(index)}
+                                        disabled={isLoading}
+                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Add phone number button */}
+                    <Button
+                        type="button"
+                        onClick={addPhoneNumber}
+                        disabled={isLoading}
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-2"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Add Phone Number
+                    </Button>
                 </div>
 
                 {/* Tags */}
@@ -256,6 +374,7 @@ const ContactForm: React.FC<ContactFormProps> = ({
                 <ul className="text-xs text-gray-600 space-y-1">
                     <li>• Email address is required and must be unique</li>
                     <li>• At least one name field should be filled</li>
+                    <li>• Phone numbers can be added with type and primary designation</li>
                     <li>• Tags help organize and find contacts later</li>
                     <li>• Notes can include any additional information</li>
                 </ul>

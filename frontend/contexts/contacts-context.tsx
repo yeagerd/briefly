@@ -1,7 +1,7 @@
 'use client';
 
 import { contactsApi } from '@/api';
-import { Contact } from '@/types/contacts';
+import { Contact } from '@/types/api/contacts';
 import { getSession } from 'next-auth/react';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
@@ -74,7 +74,7 @@ export const ContactsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const sourceSet = new Set<string>();
         contacts.forEach(contact => {
             if (contact.source_services) {
-                contact.source_services.forEach(service => {
+                contact.source_services.forEach((service: string) => {
                     // Map 'office' to 'contacts' for backward compatibility
                     const mappedService = service === 'office' ? 'contacts' : service;
                     sourceSet.add(mappedService);
@@ -88,8 +88,8 @@ export const ContactsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const sourceStats = React.useMemo(() => {
         const stats = { contacts: 0, discovered: 0, both: 0 };
         contacts.forEach(contact => {
-            const hasContacts = contact.source_services?.some(s => s === 'office' || s === 'contacts') || false;
-            const hasDiscovered = contact.source_services?.some(s => ['email', 'calendar', 'documents'].includes(s)) || false;
+            const hasContacts = contact.source_services?.some((s: string) => s === 'office' || s === 'contacts') || false;
+            const hasDiscovered = contact.source_services?.some((s: string) => ['email', 'calendar', 'documents'].includes(s)) || false;
 
             if (hasContacts && hasDiscovered) {
                 stats.both++;
@@ -130,7 +130,7 @@ export const ContactsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 return filters.sourceServices!.some(filterService => {
                     // Handle backward compatibility: 'contacts' should match both 'contacts' and 'office'
                     if (filterService === 'contacts') {
-                        return contact.source_services!.some(s => s === 'contacts' || s === 'office');
+                        return contact.source_services!.some((s: string) => s === 'contacts' || s === 'office');
                     }
                     return contact.source_services!.includes(filterService);
                 });

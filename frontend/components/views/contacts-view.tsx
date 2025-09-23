@@ -1,8 +1,13 @@
 import SourceFilter from '@/components/contacts/source-filter';
 import ContactListItem from '@/components/contacts/contact-list-item';
+import ContactDetailModal from '@/components/contacts/contact-detail-modal';
+import ContactForm from '@/components/contacts/contact-form';
+import DiscoverySettings from '@/components/contacts/discovery-settings';
+import AnalyticsDashboard from '@/components/contacts/analytics-dashboard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useContacts } from '@/contexts/contacts-context';
+import type { Contact } from '@/types/api/contacts';
 import { BarChart3, Plus, RefreshCw, Settings } from 'lucide-react';
 import React, { useCallback, useMemo, useState } from 'react';
 
@@ -26,6 +31,13 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
     const [sourceFilter, setSourceFilter] = useState<string[] | undefined>(undefined);
     const [tagFilter, setTagFilter] = useState<string[]>([]);
 
+    // Modal state management
+    const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+    const [isContactDetailModalOpen, setIsContactDetailModalOpen] = useState(false);
+    const [isContactFormModalOpen, setIsContactFormModalOpen] = useState(false);
+    const [isDiscoverySettingsModalOpen, setIsDiscoverySettingsModalOpen] = useState(false);
+    const [isAnalyticsModalOpen, setIsAnalyticsModalOpen] = useState(false);
+
 
 
     const handleRefresh = useCallback(async () => {
@@ -36,6 +48,49 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
             setRefreshing(false);
         }
     }, [refreshContacts]);
+
+    // Modal handlers
+    const handleContactClick = useCallback((contact: Contact) => {
+        setSelectedContact(contact);
+        setIsContactDetailModalOpen(true);
+    }, []);
+
+    const handleContactEdit = useCallback((contact: Contact) => {
+        setSelectedContact(contact);
+        setIsContactDetailModalOpen(false);
+        setIsContactFormModalOpen(true);
+    }, []);
+
+    const handleContactDelete = useCallback((contact: Contact) => {
+        // TODO: Implement delete functionality
+        console.log('Delete contact:', contact);
+    }, []);
+
+    const handleContactMerge = useCallback((contact: Contact) => {
+        // TODO: Implement merge functionality
+        console.log('Merge contact:', contact);
+    }, []);
+
+    const handleAddContact = useCallback(() => {
+        setSelectedContact(null);
+        setIsContactFormModalOpen(true);
+    }, []);
+
+    const handleOpenDiscoverySettings = useCallback(() => {
+        setIsDiscoverySettingsModalOpen(true);
+    }, []);
+
+    const handleOpenAnalytics = useCallback(() => {
+        setIsAnalyticsModalOpen(true);
+    }, []);
+
+    const handleCloseModals = useCallback(() => {
+        setIsContactDetailModalOpen(false);
+        setIsContactFormModalOpen(false);
+        setIsDiscoverySettingsModalOpen(false);
+        setIsAnalyticsModalOpen(false);
+        setSelectedContact(null);
+    }, []);
 
     // Client-side filtering
     const filteredContacts = useMemo(() => {
@@ -113,15 +168,15 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
                             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                         </Button>
 
-                        <Button variant="outline" size="sm" title="Add Contact">
+                        <Button variant="outline" size="sm" title="Add Contact" onClick={handleAddContact}>
                             <Plus className="w-4 h-4" />
                         </Button>
 
-                        <Button variant="outline" size="sm" title="Discovery Settings">
+                        <Button variant="outline" size="sm" title="Discovery Settings" onClick={handleOpenDiscoverySettings}>
                             <Settings className="w-4 h-4" />
                         </Button>
 
-                        <Button variant="outline" size="sm" title="Analytics">
+                        <Button variant="outline" size="sm" title="Analytics" onClick={handleOpenAnalytics}>
                             <BarChart3 className="w-4 h-4" />
                         </Button>
                     </div>
@@ -149,31 +204,61 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
                             <ContactListItem
                                 key={contact.id}
                                 contact={contact}
-                                onClick={(contact) => {
-                                    // TODO: Open contact detail modal
-                                    console.log('Contact clicked:', contact);
-                                }}
-                                onEdit={(contact) => {
-                                    // TODO: Open edit modal
-                                    console.log('Edit contact:', contact);
-                                }}
-                                onDelete={(contact) => {
-                                    // TODO: Implement delete functionality
-                                    console.log('Delete contact:', contact);
-                                }}
-                                onMerge={(contact) => {
-                                    // TODO: Open merge modal
-                                    console.log('Merge contact:', contact);
-                                }}
-                                onViewDetails={(contact) => {
-                                    // TODO: Open detail modal
-                                    console.log('View details:', contact);
-                                }}
+                                onClick={handleContactClick}
+                                onEdit={handleContactEdit}
+                                onDelete={handleContactDelete}
+                                onMerge={handleContactMerge}
+                                onViewDetails={handleContactClick}
                             />
                         ))}
                     </div>
                 )}
             </div>
+
+            {/* Modals */}
+            {selectedContact && isContactDetailModalOpen && (
+                <ContactDetailModal
+                    contact={selectedContact}
+                    isOpen={isContactDetailModalOpen}
+                    onClose={handleCloseModals}
+                    onEdit={handleContactEdit}
+                    onDelete={handleContactDelete}
+                    onMerge={handleContactMerge}
+                />
+            )}
+
+            {isContactFormModalOpen && (
+                <ContactForm
+                    onSubmit={(contactData) => {
+                        // TODO: Implement contact creation/update
+                        console.log('Contact form submitted:', contactData);
+                        handleCloseModals();
+                        refreshContacts();
+                    }}
+                    onCancel={handleCloseModals}
+                    initialData={selectedContact ? {
+                        email_address: selectedContact.email_address,
+                        display_name: selectedContact.display_name,
+                        given_name: selectedContact.given_name,
+                        family_name: selectedContact.family_name,
+                        tags: selectedContact.tags,
+                        notes: selectedContact.notes
+                    } : undefined}
+                />
+            )}
+
+            {isDiscoverySettingsModalOpen && (
+                <DiscoverySettings
+                    onClose={handleCloseModals}
+                />
+            )}
+
+            {isAnalyticsModalOpen && (
+                <AnalyticsDashboard
+                    onClose={handleCloseModals}
+                    contacts={contacts}
+                />
+            )}
         </div>
     );
 };

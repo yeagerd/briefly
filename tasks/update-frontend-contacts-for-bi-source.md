@@ -142,12 +142,12 @@ The frontend needs to be updated to represent and manage this bi-source concept 
   - [x] Add hover states and selection indicators
   - [x] Ensure responsive design for different screen sizes
 
-- [ ] **Implement Modal State Management** - Add modal opening/closing functionality
-  - [ ] Add state management for contact detail modal in `contacts-view.tsx`
-  - [ ] Add state management for discovery settings modal in `contacts-view.tsx`
-  - [ ] Add state management for analytics dashboard modal in `contacts-view.tsx`
-  - [ ] Add state management for contact form modal in `contacts-view.tsx`
-  - [ ] Implement proper modal backdrop and escape key handling
+- [x] **Implement Modal State Management** - Add modal opening/closing functionality
+  - [x] Add state management for contact detail modal in `contacts-view.tsx`
+  - [x] Add state management for discovery settings modal in `contacts-view.tsx`
+  - [x] Add state management for analytics dashboard modal in `contacts-view.tsx`
+  - [x] Add state management for contact form modal in `contacts-view.tsx`
+  - [x] Implement proper modal backdrop and escape key handling
 
 - [ ] **Connect Contact Click Handlers** - Make contacts clickable to open edit modal
   - [ ] Add click handler to contact list items to open detail modal

@@ -439,7 +439,7 @@ async def health_check() -> Any:
 
     # Configuration check
     config_issues = []
-    current_settings = Settings()
+    current_settings = get_settings()
     db_url = getattr(current_settings, "db_url_user", None)
     if not db_url:
         config_issues.append("DB_URL_USER not configured")
@@ -613,7 +613,7 @@ async def readiness_check() -> Any:
 
     # Configuration check
     config_issues = []
-    current_settings = Settings()
+    current_settings = get_settings()
     db_url = getattr(current_settings, "db_url_user", None)
     if not db_url:
         config_issues.append("DB_URL_USER not configured")

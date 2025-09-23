@@ -355,10 +355,10 @@ class TestOAuthProviderConfig:
 class TestOAuthConfig(BaseUserManagementTest):
     """Test OAuth configuration manager."""
 
-    def setup_method(self):
+    def setup_method(self, method):
         """Set up test environment."""
         # Call parent setup to prevent HTTP calls
-        super().setup_method()
+        super().setup_method(method)
 
         # Reset global config before each test
         reset_oauth_config()
@@ -373,7 +373,7 @@ class TestOAuthConfig(BaseUserManagementTest):
         self.settings = _settings
         self.oauth_config = OAuthConfig(self.settings)
 
-    def teardown_method(self):
+    def teardown_method(self, method):
         """Clean up test environment."""
         # Clean up temporary database file
         if hasattr(self, "temp_db") and os.path.exists(self.temp_db.name):
@@ -383,7 +383,7 @@ class TestOAuthConfig(BaseUserManagementTest):
         reset_oauth_config()
 
         # Call parent teardown
-        super().teardown_method()
+        super().teardown_method(method)
 
     def test_oauth_config_initialization(self):
         """Test OAuth configuration initialization."""

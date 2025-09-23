@@ -63,8 +63,8 @@ class TestResourceTypes:
 class TestAuditLogger(BaseUserManagementTest):
     """Test cases for AuditLogger class."""
 
-    def setup_method(self):
-        super().setup_method()
+    def setup_method(self, method):
+        super().setup_method(method)
         # Initialize database tables for testing
         import asyncio
 

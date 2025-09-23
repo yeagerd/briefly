@@ -26,7 +26,10 @@ from services.api.v1.user.preferences import (
 from services.common.http_errors import NotFoundError
 from services.user.auth.nextauth import get_current_user
 from services.user.services.preferences_service import PreferencesService
-from services.user.tests.test_base import BaseUserManagementTest
+from services.user.tests.test_base import (
+    BaseUserManagementIntegrationTest,
+    BaseUserManagementTest,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -188,8 +191,8 @@ class TestPreferencesSchemas:
 class TestPreferencesService(BaseUserManagementTest):
     """Test preferences service business logic."""
 
-    def setup_method(self):
-        super().setup_method()
+    def setup_method(self, method):
+        super().setup_method(method)
         # Database should be initialized via Alembic migrations before running tests
         # Run: alembic upgrade head
         self.preferences_service = PreferencesService()
@@ -378,14 +381,11 @@ class TestPreferencesService(BaseUserManagementTest):
         assert response.version == "1.0"
 
 
-class TestPreferencesEndpoints(BaseUserManagementTest):
+class TestPreferencesEndpoints(BaseUserManagementIntegrationTest):
     """Test preferences API endpoints."""
 
-    def setup_method(self):
-        super().setup_method()
-        # Database should be initialized via Alembic migrations before running tests
-        # Run: alembic upgrade head
-        self.client = TestClient(self.app)
+    def setup_method(self, method):
+        super().setup_method(method)
         self.mock_preferences = self._create_mock_preferences()
         self._setup_auth_mock()
 

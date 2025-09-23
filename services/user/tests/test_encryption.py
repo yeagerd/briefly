@@ -18,8 +18,8 @@ from services.user.tests.test_base import BaseUserManagementTest
 class TestTokenEncryption(BaseUserManagementTest):
     """Test cases for TokenEncryption class."""
 
-    def setup_method(self):
-        super().setup_method()
+    def setup_method(self, method):
+        super().setup_method(method)
         # Database should be initialized via Alembic migrations before running tests
         # Run: alembic upgrade head
 
@@ -37,9 +37,9 @@ class TestTokenEncryption(BaseUserManagementTest):
         self.encryption_service = TokenEncryption()
         self.sample_tokens = self._get_sample_tokens()
 
-    def teardown_method(self):
+    def teardown_method(self, method):
         self.mock_get_token_encryption_salt_patcher.stop()
-        super().teardown_method()
+        super().teardown_method(method)
 
     def _get_sample_tokens(self):
         """Sample tokens for testing."""

@@ -330,6 +330,9 @@ class TestEmailCollisionDB:
         db_session.add(existing_user)
         await db_session.commit()
 
+        # Flush the session to ensure the data is written to the database
+        await db_session.flush()
+
         # Verify the user was actually inserted
         from sqlalchemy import text
 
@@ -345,6 +348,10 @@ class TestEmailCollisionDB:
         user = result.scalar_one_or_none()
         print(f"DEBUG: User found in test session: {user is not None}")
 
+        # Don't close the session - let the collision detection use the same database
+        # The collision detection will create its own session but should see the committed data
+
+        # Test the collision detection
         with patch.object(self.detector, "normalize_email", return_value=unique_email):
             result = await self.detector.check_collision(unique_email)
             assert (

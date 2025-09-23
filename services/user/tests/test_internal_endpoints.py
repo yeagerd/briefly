@@ -9,30 +9,14 @@ from unittest.mock import patch
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from services.user.tests.test_base import BaseUserManagementTest
+from services.user.tests.test_base import BaseUserManagementIntegrationTest
 
 
-class TestInternalAPI(BaseUserManagementTest):
+class TestInternalAPI(BaseUserManagementIntegrationTest):
     """Test suite for internal API endpoints."""
 
-    def setup_method(self):
-        super().setup_method()
-        # Initialize database tables for testing
-        import asyncio
-
-        from services.user.database import create_all_tables_for_testing
-
-        try:
-            asyncio.run(create_all_tables_for_testing())
-        except RuntimeError:
-            # If we're already in an event loop, create a task
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, create_all_tables_for_testing())
-                future.result()
-
-        self.client = TestClient(self.app)
+    def setup_method(self, method):
+        super().setup_method(method)
         self.auth_headers = self._get_auth_headers()
 
     def _get_auth_headers(self):

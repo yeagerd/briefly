@@ -35,6 +35,12 @@ class BaseUserManagementTest(BaseSelectiveHTTPIntegrationTest):
             token_encryption_salt="dGVzdC1zYWx0LTE2Ynl0ZQ==",
             environment="test",
             debug=False,
+            # OAuth credentials for testing
+            google_client_id="test-google-client-id",
+            google_client_secret="test-google-client-secret",
+            azure_ad_client_id="test-microsoft-client-id",
+            azure_ad_client_secret="test-microsoft-client-secret",
+            oauth_redirect_uri="https://example.com/oauth/callback",
         )
 
         # Set the test settings as the singleton
@@ -58,6 +64,21 @@ class BaseUserManagementIntegrationTest(BaseUserManagementTest):
         """Set up User Management integration test environment."""
         # Call parent setup for settings and HTTP patches
         super().setup_method(method)
+
+        # Initialize database tables for testing
+        import asyncio
+
+        from services.user.database import create_all_tables_for_testing
+
+        try:
+            asyncio.run(create_all_tables_for_testing())
+        except RuntimeError:
+            # If we're already in an event loop, create a task
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, create_all_tables_for_testing())
+                future.result()
 
         # Import app after settings are configured
         from fastapi.testclient import TestClient

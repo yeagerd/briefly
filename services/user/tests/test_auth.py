@@ -37,10 +37,10 @@ def patch_settings(monkeypatch):
 
     test_settings = user_settings.Settings(
         db_url_user="sqlite:///:memory:",
-        api_frontend_user_key="test-frontend-key",
-        api_chat_user_key="test-chat-key",
-        api_office_user_key="test-office-key",
-        api_meetings_user_key="test-meetings-key",
+        api_frontend_user_key="test-frontend-user-key",
+        api_chat_user_key="test-chat-user-key",
+        api_office_user_key="test-office-user-key",
+        api_meetings_user_key="test-meetings-user-key",
         token_encryption_salt="dGVzdC1zYWx0LTE2Ynl0ZQ==",
         nextauth_jwt_key="test-nextauth-secret",
         oauth_redirect_uri="https://example.com/oauth/callback",
@@ -284,7 +284,7 @@ class TestServiceAuthentication(BaseUserManagementTest):
     async def test_verify_service_authentication_success(self):
         """Test successful service authentication."""
         request = MagicMock(spec=Request)
-        request.headers = {"Authorization": "Bearer test-frontend-key"}
+        request.headers = {"Authorization": "Bearer test-frontend-user-key"}
         request.state = Mock()
 
         service_name = verify_service_authentication(request)
@@ -316,7 +316,7 @@ class TestServiceAuthentication(BaseUserManagementTest):
     async def test_get_current_service_success(self):
         """Test successful current service extraction."""
         request = MagicMock(spec=Request)
-        request.headers = {"X-Service-Key": "test-frontend-key"}
+        request.headers = {"X-Service-Key": "test-frontend-user-key"}
         request.state = Mock()
 
         service_name = verify_service_authentication(request)
@@ -379,7 +379,7 @@ class TestServiceAuthentication(BaseUserManagementTest):
     async def test_require_service_auth_success(self):
         """Test require_service_auth decorator success."""
         request = MagicMock(spec=Request)
-        request.headers = {"Authorization": "Bearer test-frontend-key"}
+        request.headers = {"Authorization": "Bearer test-frontend-user-key"}
         request.state = Mock()
 
         auth_dep = service_permission_required(["read_users"])
@@ -404,7 +404,7 @@ class TestServiceAuthentication(BaseUserManagementTest):
 
         try:
             request = MagicMock(spec=Request)
-            request.headers = {"Authorization": "Bearer test-frontend-key"}
+            request.headers = {"Authorization": "Bearer test-frontend-user-key"}
             request.state = Mock()
             auth_dep = service_permission_required(["write_tokens"])
             with pytest.raises(AuthError) as exc_info:
@@ -442,9 +442,9 @@ class TestAuthenticationIntegration(BaseUserManagementTest):
     async def test_multiple_auth_header_formats(self):
         """Test different authentication header formats."""
         test_cases = [
-            {"Authorization": "Bearer test-frontend-key"},
-            {"X-API-Key": "test-frontend-key"},
-            {"X-Service-Key": "test-frontend-key"},
+            {"Authorization": "Bearer test-frontend-user-key"},
+            {"X-API-Key": "test-frontend-user-key"},
+            {"X-Service-Key": "test-frontend-user-key"},
         ]
         for headers in test_cases:
             request = MagicMock(spec=Request)

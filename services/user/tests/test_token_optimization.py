@@ -83,9 +83,9 @@ def patch_settings():
 class TestTokenOptimization(BaseUserManagementTest):
     """Test token optimization features."""
 
-    def setup_method(self):
+    def setup_method(self, method):
         """Set up test environment."""
-        super().setup_method()
+        super().setup_method(method)
 
     @pytest.fixture
     def token_service(self, patch_settings):

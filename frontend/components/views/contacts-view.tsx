@@ -116,10 +116,10 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
         const vCard = [
             'BEGIN:VCARD',
             'VERSION:3.0',
-            `FN:${contact.display_name || contact.given_name + ' ' + contact.family_name || contact.email_address}`,
+            `FN:${contact.display_name || [contact.given_name, contact.family_name].filter(Boolean).join(' ') || contact.email_address}`,
             contact.given_name ? `N:${contact.family_name || ''};${contact.given_name};;;` : '',
             `EMAIL:${contact.email_address}`,
-            contact.phone_numbers?.map(phone => `TEL:${phone}`).join('\n') || '',
+            contact.phone_numbers?.map(phone => `TEL:${phone.number}`).join('\n') || '',
             contact.notes ? `NOTE:${contact.notes}` : '',
             'END:VCARD'
         ].filter(line => line).join('\n');

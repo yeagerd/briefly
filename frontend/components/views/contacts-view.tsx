@@ -113,6 +113,31 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
         console.log('Merge contact:', contact);
     }, []);
 
+    const handleContactDownload = useCallback((contact: Contact) => {
+        // Create a vCard format for download
+        const vCard = [
+            'BEGIN:VCARD',
+            'VERSION:3.0',
+            `FN:${contact.display_name || contact.given_name + ' ' + contact.family_name || contact.email_address}`,
+            contact.given_name ? `N:${contact.family_name || ''};${contact.given_name};;;` : '',
+            `EMAIL:${contact.email_address}`,
+            contact.phone_numbers?.map(phone => `TEL:${phone}`).join('\n') || '',
+            contact.notes ? `NOTE:${contact.notes}` : '',
+            'END:VCARD'
+        ].filter(line => line).join('\n');
+
+        // Create and download the file
+        const blob = new Blob([vCard], { type: 'text/vcard' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${contact.display_name || contact.email_address}.vcf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }, []);
+
     const handleAddContact = useCallback(() => {
         setSelectedContact(null);
         setIsContactFormModalOpen(true);
@@ -233,18 +258,41 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
                 ) : filteredContacts.length === 0 ? (
                     <div className="p-8 text-center text-muted-foreground">No contacts found.</div>
                 ) : (
-                    <div className="p-4 space-y-2">
-                        {filteredContacts.map((contact) => (
-                            <ContactListItem
-                                key={contact.id}
-                                contact={contact}
-                                onClick={handleContactClick}
-                                onEdit={handleContactEdit}
-                                onDelete={handleContactDelete}
-                                onMerge={handleContactMerge}
-                                onViewDetails={handleContactClick}
-                            />
-                        ))}
+                    <div className="p-4">
+                        {/* Column Headers */}
+                        <div className="bg-gray-50 border rounded px-4 py-2 mb-2 flex items-center justify-between">
+                            <div className="flex items-center gap-4 flex-1">
+                                <div className="font-medium text-gray-700 text-sm" style={{ width: '32px' }}>
+                                    {/* Avatar space */}
+                                </div>
+                                <div className="font-medium text-gray-700 text-sm" style={{ width: '180px' }}>
+                                    Name
+                                </div>
+                                <div className="font-medium text-gray-700 text-sm" style={{ width: '250px' }}>
+                                    Email
+                                </div>
+                                <div className="font-medium text-gray-700 text-sm" style={{ width: '150px' }}>
+                                    Phone
+                                </div>
+                            </div>
+                            <div className="font-medium text-gray-700 text-sm">
+                                Actions
+                            </div>
+                        </div>
+
+                        {/* Contact List */}
+                        <div className="space-y-1">
+                            {filteredContacts.map((contact) => (
+                                <ContactListItem
+                                    key={contact.id}
+                                    contact={contact}
+                                    onClick={handleContactClick}
+                                    onEdit={handleContactEdit}
+                                    onDelete={handleContactDelete}
+                                    onDownload={handleContactDownload}
+                                />
+                            ))}
+                        </div>
                     </div>
                 )}
             </div>

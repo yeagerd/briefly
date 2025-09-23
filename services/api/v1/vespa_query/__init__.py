@@ -4,7 +4,7 @@ Vespa service API models.
 This module contains the consolidated Pydantic models for the vespa_loader and vespa_query services.
 """
 
-from services.api.v1.vespa.document_chunking import (
+from services.api.v1.vespa_query.document_chunking import (
     ChunkingResult,
     ChunkingRule,
     ChunkingStrategy,
@@ -12,7 +12,7 @@ from services.api.v1.vespa.document_chunking import (
     DocumentChunk,
     DocumentChunkingConfig,
 )
-from services.api.v1.vespa.search_models import (
+from services.api.v1.vespa_query.search_models import (
     SearchError,
     SearchFacets,
     SearchPerformance,
@@ -21,7 +21,7 @@ from services.api.v1.vespa.search_models import (
     SearchResult,
     SearchSummary,
 )
-from services.api.v1.vespa.vespa_types import DocumentIngestionResult, VespaDocumentType
+from services.api.v1.vespa_query.vespa_types import DocumentIngestionResult, VespaDocumentType
 
 __all__ = [
     "ChunkType",

@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from services.api.v1.vespa.vespa_types import VespaDocumentType
+from services.api.v1.vespa_query.vespa_types import VespaDocumentType
 from services.common.http_errors import ValidationError
 from services.vespa_loader.content_normalizer import ContentNormalizer
 from services.vespa_loader.embeddings import EmbeddingGenerator

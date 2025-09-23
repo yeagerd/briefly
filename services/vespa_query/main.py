@@ -11,7 +11,7 @@ import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
-from services.api.v1.vespa.search_models import SearchError, SearchResponse
+from services.api.v1.vespa_query.search_models import SearchError, SearchResponse
 from services.common.http_errors import (
     ErrorCode,
     NotFoundError,

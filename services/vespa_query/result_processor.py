@@ -6,7 +6,7 @@ Result processor for handling and formatting Vespa search results
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from services.api.v1.vespa.search_models import (
+from services.api.v1.vespa_query.search_models import (
     SearchError,
     SearchFacets,
     SearchPerformance,

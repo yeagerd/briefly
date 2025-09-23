@@ -14,7 +14,7 @@ can be added as optional parameters without changing the agent-side logic.
 import logging
 from typing import Any, Dict, List, Optional
 
-from services.api.v1.vespa.search_models import (
+from services.api.v1.vespa_query.search_models import (
     SearchResponse,
     SearchResult,
     SearchSummary,

@@ -70,7 +70,7 @@ class TestSimplePostgres:
                 # Check if database exists
                 result = await conn.execute(
                     text("SELECT 1 FROM pg_database WHERE datname = :db_name"),
-                    {"db_name": cls.db_name}
+                    {"db_name": cls.db_name},
                 )
                 if not result.scalar():
                     await conn.execute(text(f"CREATE DATABASE {cls.db_name}"))
@@ -98,6 +98,7 @@ class TestSimplePostgres:
         try:
             # Create a simple contact with unique identifiers
             import uuid
+
             unique_id = str(uuid.uuid4())[:8]
             contact = Contact(
                 user_id=f"test_user_{unique_id}",
@@ -125,7 +126,6 @@ class TestSimplePostgres:
             # The test database persists between tests, which is fine for development
             print("ℹ️  Skipping table cleanup to avoid timeouts")
 
-    @pytest.mark.skip(reason="PostgreSQL test isolation issues - needs proper cleanup")
     @pytest.mark.asyncio
     async def test_query_contact_simple(self, session: AsyncSession):
         """Test querying a contact from the real database."""
@@ -133,38 +133,38 @@ class TestSimplePostgres:
         async with self.engine.begin() as conn:
             await conn.run_sync(self.metadata.create_all, checkfirst=True)
 
-        try:
-            # Create a contact with unique identifier
-            unique_id = f"query_user_{id(self)}_{id(session)}"
-            contact = Contact(
-                user_id=unique_id,
-                email_address=f"query_{unique_id}@example.com",
-                display_name=f"Query Test User {unique_id}",
-                first_seen=datetime.now(timezone.utc),
-                last_seen=datetime.now(timezone.utc),
-                tags=["query", "test", unique_id],
+        # Create a simple contact with unique identifiers
+        import uuid
+
+        unique_id = str(uuid.uuid4())[:8]
+        contact = Contact(
+            user_id=f"test_user_{unique_id}",
+            email_address=f"simple_{unique_id}@example.com",
+            display_name=f"Simple Test User {unique_id}",
+            first_seen=datetime.now(timezone.utc),
+            last_seen=datetime.now(timezone.utc),
+            tags=["simple", "test"],
+        )
+
+        # Add to database
+        session.add(contact)
+        await session.commit()
+        await session.refresh(contact)
+
+        # Query the contact
+        from sqlmodel import select
+
+        result = await session.execute(
+            select(Contact).where(
+                Contact.email_address == f"simple_{unique_id}@example.com"
             )
+        )
+        queried_contact = result.scalar_one_or_none()
 
-            session.add(contact)
-            await session.commit()
-            await session.refresh(contact)
+        # Verify the query worked
+        assert queried_contact is not None
+        assert queried_contact.id == contact.id
+        assert queried_contact.email_address == f"simple_{unique_id}@example.com"
+        assert queried_contact.display_name == f"Simple Test User {unique_id}"
 
-            # Query the contact using the unique identifier
-            from sqlmodel import select
-
-            result = await session.execute(
-                select(Contact).where(Contact.user_id == unique_id)
-            )
-            queried_contact = result.scalar_one_or_none()
-
-            # Verify the query worked
-            assert queried_contact is not None
-            assert queried_contact.id == contact.id
-            assert queried_contact.user_id == unique_id
-
-            print(f"✅ Contact queried successfully: {queried_contact.display_name}")
-
-        finally:
-            # Skip table cleanup to avoid timeouts
-            # The test database persists between tests, which is fine for development
-            print("ℹ️  Skipping table cleanup to avoid timeouts")
+        print(f"✅ Contact queried successfully: {queried_contact.display_name}")

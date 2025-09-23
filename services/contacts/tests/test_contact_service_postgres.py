@@ -9,15 +9,13 @@ import asyncio
 from datetime import datetime, timezone
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlmodel import select
 
 from services.common.test_util import PostgresTestDB
 from services.contacts.database import metadata
 from services.contacts.models.contact import Contact
 from services.contacts.services.contact_service import ContactService
-
-
 
 
 class TestContactServicePostgres(PostgresTestDB):
@@ -36,18 +34,39 @@ class TestContactServicePostgres(PostgresTestDB):
         """Clean up test database after the entire test class."""
         super().teardown_class()
 
-    async def async_setup(self):
-        """Create tables before each test."""
-        await self.create_tables()
-        
-    async def async_teardown(self):
-        """Drop tables after each test."""
-        await self.drop_tables()
+    @pytest.fixture
+    async def test_engine(self):
+        """Create a fresh engine for each test."""
+        engine = create_async_engine(
+            self.database_url,
+            echo=False,
+            future=True,
+            pool_pre_ping=True,
+            pool_recycle=300,
+            pool_size=1,  # Single connection for tests
+            max_overflow=0,  # No overflow connections
+        )
+
+        # Create tables
+        async with engine.begin() as conn:
+            await conn.run_sync(self.metadata.create_all, checkfirst=True)
+
+        yield engine
+
+        # Cleanup
+        await engine.dispose()
 
     @pytest.fixture
-    async def session(self):
+    async def session(self, test_engine):
         """Provide database session for tests."""
-        async with self.get_session() as session:
+        from sqlalchemy.orm import sessionmaker
+
+        # Create session factory with test engine
+        session_factory = sessionmaker(
+            test_engine, class_=AsyncSession, expire_on_commit=False
+        )
+
+        async with session_factory() as session:
             yield session
 
     @pytest.fixture
@@ -59,6 +78,7 @@ class TestContactServicePostgres(PostgresTestDB):
     def sample_contact_data(self):
         """Sample contact data for testing."""
         import uuid
+
         unique_id = str(uuid.uuid4())[:8]
         return {
             "user_id": f"test_user_{unique_id}",
@@ -70,7 +90,6 @@ class TestContactServicePostgres(PostgresTestDB):
             "notes": "A test contact",
         }
 
-    @pytest.mark.skip(reason="PostgreSQL test isolation issues - needs proper cleanup")
     @pytest.mark.asyncio
     async def test_create_contact_real_database(
         self,
@@ -115,7 +134,6 @@ class TestContactServicePostgres(PostgresTestDB):
         assert db_contact.id == contact.id
         assert db_contact.email_address == sample_contact_data["email_address"]
 
-    @pytest.mark.skip(reason="PostgreSQL test isolation issues - needs proper cleanup")
     @pytest.mark.asyncio
     async def test_get_contact_by_email_real_database(
         self,
@@ -154,7 +172,6 @@ class TestContactServicePostgres(PostgresTestDB):
         assert retrieved_contact.email_address == sample_contact_data["email_address"]
         assert retrieved_contact.display_name == sample_contact_data["display_name"]
 
-    @pytest.mark.skip(reason="PostgreSQL test isolation issues - needs proper cleanup")
     @pytest.mark.asyncio
     async def test_update_contact_real_database(
         self,
@@ -201,7 +218,6 @@ class TestContactServicePostgres(PostgresTestDB):
         assert updated_contact.display_name == new_display_name
         assert updated_contact.notes == "Updated notes"
 
-    @pytest.mark.skip(reason="PostgreSQL test isolation issues - needs proper cleanup")
     @pytest.mark.asyncio
     async def test_delete_contact_real_database(
         self,
@@ -241,7 +257,6 @@ class TestContactServicePostgres(PostgresTestDB):
 
         assert deleted_contact is None
 
-    @pytest.mark.skip(reason="PostgreSQL test isolation issues - needs proper cleanup")
     @pytest.mark.asyncio
     async def test_contact_search_real_database(
         self, session: AsyncSession, contact_service: ContactService
@@ -293,8 +308,11 @@ class TestContactServicePostgres(PostgresTestDB):
 
         # Search for contacts with "work" tag using proper JSON query
         from sqlalchemy import text
+
         result = await session.execute(
-            text("SELECT * FROM contacts WHERE tags::text LIKE '%work%' AND user_id IN ('user1', 'user2', 'user3')")
+            text(
+                "SELECT * FROM contacts WHERE tags::text LIKE '%work%' AND user_id IN ('user1', 'user2', 'user3')"
+            )
         )
         work_contacts = result.fetchall()
 

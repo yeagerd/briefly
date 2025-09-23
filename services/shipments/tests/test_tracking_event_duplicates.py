@@ -94,7 +94,9 @@ async def db_session():
 class TestDeletePackage:
     """Test package deletion functionality including associated events."""
 
-    @pytest.mark.skip(reason="Test disabled due to datetime serialization issues - needs model validation fix")
+    @pytest.mark.skip(
+        reason="Test disabled due to datetime serialization issues - needs model validation fix"
+    )
     @pytest.mark.asyncio
     async def test_delete_package_with_events(self, client, auth_headers, db_session):
         """Test that deleting a package also deletes all its associated tracking events."""

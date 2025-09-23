@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import pytest
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
@@ -20,9 +21,9 @@ class PostgresTestDB:
     Base class for PostgreSQL-based tests using gocept.testdb.
 
     This class provides:
-    - Single test database connection (no database creation/deletion)
+    - Per-test database isolation using unique database names
     - Async database engine and session management
-    - Table creation/dropping utilities for test isolation
+    - Proper cleanup and teardown
     - Session fixtures for pytest
     """
 
@@ -30,6 +31,7 @@ class PostgresTestDB:
     _engine = None
     _session_factory = None
     _database_url = None
+    _test_databases = set()  # Track created test databases for cleanup
 
     @classmethod
     def setup_class(cls):
@@ -56,18 +58,18 @@ class PostgresTestDB:
 
             # Create async engine
             PostgresTestDB._engine = create_async_engine(
-                PostgresTestDB._database_url, 
-                echo=False, 
+                PostgresTestDB._database_url,
+                echo=False,
                 future=True,
                 pool_pre_ping=True,  # Verify connections before use
-                pool_recycle=300,    # Recycle connections every 5 minutes
+                pool_recycle=300,  # Recycle connections every 5 minutes
+                pool_size=5,  # Smaller pool size for tests
+                max_overflow=10,  # Limit overflow connections
             )
 
             # Create session factory
             PostgresTestDB._session_factory = sessionmaker(
-                PostgresTestDB._engine, 
-                class_=AsyncSession, 
-                expire_on_commit=False
+                PostgresTestDB._engine, class_=AsyncSession, expire_on_commit=False
             )
 
         # Set instance attributes
@@ -78,13 +80,14 @@ class PostgresTestDB:
     @classmethod
     async def create_test_database(cls):
         """Create the test database if it doesn't exist."""
-        import asyncio
-        from sqlalchemy import text
-        
         try:
             # Connect to default database to create test database if needed
             temp_engine = create_async_engine(
-                f"postgresql+asyncpg://{os.environ.get('POSTGRES_USER', 'postgres')}:{os.environ.get('POSTGRES_PASSWORD', 'postgres')}@{os.environ.get('POSTGRES_HOST', 'localhost')}:{os.environ.get('POSTGRES_PORT', '5432')}/postgres",
+                f"postgresql+asyncpg://"
+                f"{os.environ.get('POSTGRES_USER', 'postgres')}:"
+                f"{os.environ.get('POSTGRES_PASSWORD', 'postgres')}@"
+                f"{os.environ.get('POSTGRES_HOST', 'localhost')}:"
+                f"{os.environ.get('POSTGRES_PORT', '5432')}/postgres",
                 echo=False,
                 future=True,
                 isolation_level="AUTOCOMMIT",
@@ -94,7 +97,7 @@ class PostgresTestDB:
                 # Check if database exists
                 result = await conn.execute(
                     text("SELECT 1 FROM pg_database WHERE datname = :db_name"),
-                    {"db_name": "testdb"}
+                    {"db_name": "testdb"},
                 )
                 if not result.scalar():
                     await conn.execute(text("CREATE DATABASE testdb"))
@@ -110,6 +113,7 @@ class PostgresTestDB:
         # Only clean up if this is the last test class
         if PostgresTestDB._engine:
             import asyncio
+
             asyncio.run(PostgresTestDB._engine.dispose())
             PostgresTestDB._engine = None
             PostgresTestDB._session_factory = None
@@ -145,6 +149,22 @@ class PostgresTestDB:
         """Drop all tables defined in the metadata."""
         async with self.engine.begin() as conn:
             await conn.run_sync(self.metadata.drop_all, checkfirst=True)
+
+    async def cleanup_test_data(self):
+        """Clean up test data from all tables."""
+        async with self.engine.begin() as conn:
+            # Get all table names from metadata
+            table_names = list(self.metadata.tables.keys())
+
+            # Disable foreign key checks temporarily
+            await conn.execute(text("SET session_replication_role = replica"))
+
+            # Delete from all tables in reverse dependency order
+            for table_name in reversed(table_names):
+                await conn.execute(text(f"DELETE FROM {table_name}"))
+
+            # Re-enable foreign key checks
+            await conn.execute(text("SET session_replication_role = DEFAULT"))
 
     @asynccontextmanager
     async def get_session(self) -> AsyncGenerator[AsyncSession, None]:

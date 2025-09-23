@@ -13,9 +13,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
+from services.common.test_util import PostgresTestDB
 from services.contacts.database import metadata
 from services.contacts.models.contact import Contact
-from services.common.test_util import PostgresTestDB
 
 
 class TestWorkingPrototype(PostgresTestDB):
@@ -37,7 +37,7 @@ class TestWorkingPrototype(PostgresTestDB):
     async def async_setup(self):
         """Create tables before each test."""
         await self.create_tables()
-        
+
     async def async_teardown(self):
         """Drop tables after each test."""
         await self.drop_tables()
@@ -57,6 +57,7 @@ class TestWorkingPrototype(PostgresTestDB):
 
         # Create a simple contact with unique identifiers
         import uuid
+
         unique_id = str(uuid.uuid4())[:8]
         contact = Contact(
             user_id=f"test_user_{unique_id}",
@@ -82,7 +83,6 @@ class TestWorkingPrototype(PostgresTestDB):
         # Note: We skip table cleanup for now to avoid timeout issues
         # In production, you'd want proper cleanup, but this demonstrates the core functionality
 
-    @pytest.mark.skip(reason="PostgreSQL test isolation issues - needs proper cleanup")
     @pytest.mark.asyncio
     async def test_query_contact_working(self, session: AsyncSession):
         """Test querying a contact - working version."""
@@ -92,6 +92,7 @@ class TestWorkingPrototype(PostgresTestDB):
 
         # Create a contact with unique identifiers
         import uuid
+
         unique_id = str(uuid.uuid4())[:8]
         contact = Contact(
             user_id=f"query_user_{unique_id}",
@@ -102,6 +103,7 @@ class TestWorkingPrototype(PostgresTestDB):
             tags=["query", "test"],
         )
 
+        # Add to database
         session.add(contact)
         await session.commit()
         await session.refresh(contact)
@@ -110,7 +112,9 @@ class TestWorkingPrototype(PostgresTestDB):
         from sqlmodel import select
 
         result = await session.execute(
-            select(Contact).where(Contact.email_address == f"query_{unique_id}@example.com")
+            select(Contact).where(
+                Contact.email_address == f"query_{unique_id}@example.com"
+            )
         )
         queried_contact = result.scalar_one_or_none()
 

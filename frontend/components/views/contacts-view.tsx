@@ -1,16 +1,16 @@
-import SourceFilter from '@/components/contacts/source-filter';
-import ContactListItem from '@/components/contacts/contact-list-item';
+import { contactsApi } from '@/api';
+import AnalyticsDashboard from '@/components/contacts/analytics-dashboard';
 import ContactDetailModal from '@/components/contacts/contact-detail-modal';
 import ContactForm from '@/components/contacts/contact-form';
+import ContactListItem from '@/components/contacts/contact-list-item';
 import DiscoverySettings from '@/components/contacts/discovery-settings';
-import AnalyticsDashboard from '@/components/contacts/analytics-dashboard';
+import SourceFilter from '@/components/contacts/source-filter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useContacts } from '@/contexts/contacts-context';
-import { contactsApi } from '@/api';
 import type { Contact } from '@/types/api/contacts';
-import { getSession } from 'next-auth/react';
 import { BarChart3, Plus, RefreshCw, Settings } from 'lucide-react';
+import { getSession } from 'next-auth/react';
 import React, { useCallback, useMemo, useState } from 'react';
 
 interface ContactsViewProps {
@@ -97,7 +97,7 @@ const ContactsView: React.FC<ContactsViewProps> = () => {
 
     const handleContactDelete = useCallback(async (contact: Contact) => {
         if (!contact.id) return;
-        
+
         try {
             await contactsApi.deleteContact(contact.id.toString());
             handleCloseModals();

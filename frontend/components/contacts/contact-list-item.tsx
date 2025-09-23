@@ -84,7 +84,7 @@ const ContactListItem: React.FC<ContactListItemProps> = ({
     };
 
     return (
-        <div 
+        <div
             className="bg-white border rounded-lg p-3 hover:shadow-md transition-all cursor-pointer hover:border-gray-300"
             onClick={handleClick}
         >
@@ -100,7 +100,7 @@ const ContactListItem: React.FC<ContactListItemProps> = ({
                         <h3 className="font-medium text-gray-900 truncate">
                             {getPrimaryName()}
                         </h3>
-                        
+
                         {/* Source Services Badges */}
                         <div className="flex gap-1">
                             {contact.source_services?.map(service => (
@@ -114,7 +114,7 @@ const ContactListItem: React.FC<ContactListItemProps> = ({
                             ))}
                         </div>
                     </div>
-                    
+
                     <p className="text-sm text-gray-600 truncate">
                         {contact.email_address}
                     </p>

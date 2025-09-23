@@ -42,10 +42,8 @@ class TestMinimalPostgres(PostgresTestDB):
 
         try:
             # Database should already be created by setup_class
-            assert self.__class__._db_name is not None
-            assert self.__class__._database_url is not None
-            print(f"Database name: {self.__class__._db_name}")
-            print(f"Database URL: {self.__class__._database_url}")
+            assert self.database_url is not None
+            print(f"Database URL: {self.database_url}")
 
         finally:
             await self.async_teardown()

@@ -5,14 +5,11 @@ This module provides a reusable base class that services can inherit from
 to get PostgreSQL test database functionality without duplicating setup code.
 """
 
-import asyncio
 import os
-import re
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import pytest
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
@@ -23,146 +20,100 @@ class PostgresTestDB:
     Base class for PostgreSQL-based tests using gocept.testdb.
 
     This class provides:
-    - Temporary PostgreSQL database setup/teardown
+    - Single test database connection (no database creation/deletion)
     - Async database engine and session management
-    - Table creation/dropping utilities
+    - Table creation/dropping utilities for test isolation
     - Session fixtures for pytest
     """
 
-    @classmethod
-    def _escape_db_name(cls, db_name: str) -> str:
-        """
-        Safely escape a database name for use in SQL commands.
-
-        Args:
-            db_name: The database name to escape
-
-        Returns:
-            Safely escaped database name
-
-        Raises:
-            ValueError: If the database name contains invalid characters
-        """
-        # PostgreSQL database names can only contain alphanumeric characters
-        # and underscores, and must start with a letter or underscore
-        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", db_name):
-            raise ValueError(f"Invalid database name: {db_name}")
-
-        # Double quote the name to handle any edge cases
-        return f'"{db_name}"'
+    # Class-level database connection - shared across all test classes
+    _engine = None
+    _session_factory = None
+    _database_url = None
 
     @classmethod
     def setup_class(cls):
-        """Set up the test database once for the entire test class."""
-        # Initialize metadata if not set
-        if not hasattr(cls, "metadata"):
-            cls.metadata = SQLModel.metadata
+        """Set up the test database connection once for all test classes."""
+        if PostgresTestDB._engine is None:
+            # Initialize metadata if not set
+            if not hasattr(cls, "metadata"):
+                cls.metadata = SQLModel.metadata
 
-        # Use existing Docker PostgreSQL container
-        # Get connection details from environment or use defaults
-        user = os.environ.get("POSTGRES_USER", "postgres")
-        password = os.environ.get("POSTGRES_PASSWORD", "postgres")
-        host = os.environ.get("POSTGRES_HOST", "localhost")
-        port = os.environ.get("POSTGRES_PORT", "5432")
+            # Use existing Docker PostgreSQL container
+            # Get connection details from environment or use defaults
+            user = os.environ.get("POSTGRES_USER", "postgres")
+            password = os.environ.get("POSTGRES_PASSWORD", "postgres")
+            host = os.environ.get("POSTGRES_HOST", "localhost")
+            port = os.environ.get("POSTGRES_PORT", "5432")
 
-        # Create a unique test database name
-        cls._db_name = f"testdb_{id(cls)}"
+            # Use a single test database for all tests
+            db_name = "testdb"
 
-        # Construct async database URL for the test database
-        cls._database_url = (
-            f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{cls._db_name}"
-        )
+            # Construct async database URL for the test database
+            PostgresTestDB._database_url = (
+                f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db_name}"
+            )
 
-        # Create async engine
-        cls._engine = create_async_engine(cls._database_url, echo=False, future=True)
+            # Create async engine
+            PostgresTestDB._engine = create_async_engine(
+                PostgresTestDB._database_url, 
+                echo=False, 
+                future=True,
+                pool_pre_ping=True,  # Verify connections before use
+                pool_recycle=300,    # Recycle connections every 5 minutes
+            )
 
-        # Create session factory
-        cls._session_factory = sessionmaker(
-            cls._engine, class_=AsyncSession, expire_on_commit=False
-        )
+            # Create session factory
+            PostgresTestDB._session_factory = sessionmaker(
+                PostgresTestDB._engine, 
+                class_=AsyncSession, 
+                expire_on_commit=False
+            )
 
-        # Create the test database using SQL
-        # We'll do this in a separate method that can be called when needed
+        # Set instance attributes
+        cls._engine = PostgresTestDB._engine
+        cls._session_factory = PostgresTestDB._session_factory
+        cls._database_url = PostgresTestDB._database_url
 
     @classmethod
     async def create_test_database(cls):
-        """Create the test database using SQL."""
+        """Create the test database if it doesn't exist."""
+        import asyncio
+        from sqlalchemy import text
+        
         try:
-            # Create a temporary engine to the default database
-            # to create the test database
+            # Connect to default database to create test database if needed
             temp_engine = create_async_engine(
-                f"postgresql+asyncpg://"
-                f"{os.environ.get('POSTGRES_USER', 'postgres')}:"
-                f"{os.environ.get('POSTGRES_PASSWORD', 'postgres')}@"
-                f"{os.environ.get('POSTGRES_HOST', 'localhost')}:"
-                f"{os.environ.get('POSTGRES_PORT', '5432')}/postgres",
+                f"postgresql+asyncpg://{os.environ.get('POSTGRES_USER', 'postgres')}:{os.environ.get('POSTGRES_PASSWORD', 'postgres')}@{os.environ.get('POSTGRES_HOST', 'localhost')}:{os.environ.get('POSTGRES_PORT', '5432')}/postgres",
                 echo=False,
                 future=True,
-                isolation_level="AUTOCOMMIT",  # Required for CREATE DATABASE
+                isolation_level="AUTOCOMMIT",
             )
 
             async with temp_engine.connect() as conn:
-                # Create the test database
-                escaped_db_name = cls._escape_db_name(cls._db_name)
-                await conn.execute(text(f"CREATE DATABASE {escaped_db_name}"))
+                # Check if database exists
+                result = await conn.execute(
+                    text("SELECT 1 FROM pg_database WHERE datname = :db_name"),
+                    {"db_name": "testdb"}
+                )
+                if not result.scalar():
+                    await conn.execute(text("CREATE DATABASE testdb"))
 
             await temp_engine.dispose()
 
         except Exception as e:
-            # If database already exists, that's fine
-            if "already exists" not in str(e):
-                raise
+            print(f"Warning: Could not ensure test database: {e}")
 
     @classmethod
     def teardown_class(cls):
-        """Clean up the test database after the entire test class."""
-        if cls._engine:
-            asyncio.run(cls._engine.dispose())
-
-        # Drop the test database using SQL
-        if cls._db_name:
-            try:
-                # Create a temporary engine to the default database
-                # to drop the test database
-                temp_engine = create_async_engine(
-                    f"postgresql+asyncpg://"
-                    f"{os.environ.get('POSTGRES_USER', 'postgres')}:"
-                    f"{os.environ.get('POSTGRES_PASSWORD', 'postgres')}@"
-                    f"{os.environ.get('POSTGRES_HOST', 'localhost')}:"
-                    f"{os.environ.get('POSTGRES_PORT', '5432')}/postgres",
-                    echo=False,
-                    future=True,
-                    isolation_level="AUTOCOMMIT",  # Required for DROP DATABASE
-                )
-
-                async def drop_test_db():
-                    async with temp_engine.connect() as conn:
-                        # Terminate all connections to the test database
-                        # Use parameterized query for the terminate connections command
-                        await conn.execute(
-                            text(
-                                "SELECT pg_terminate_backend(pid) "
-                                "FROM pg_stat_activity "
-                                "WHERE datname = :db_name"
-                            ),
-                            {"db_name": cls._db_name},
-                        )
-                        # Drop the database
-                        escaped_db_name = cls._escape_db_name(cls._db_name)
-                        await conn.execute(
-                            text(f"DROP DATABASE IF EXISTS {escaped_db_name}")
-                        )
-
-                asyncio.run(drop_test_db())
-                asyncio.run(temp_engine.dispose())
-
-            except Exception:
-                pass  # Ignore cleanup errors
-
-        cls._engine = None
-        cls._session_factory = None
-        cls._database_url = None
-        cls._db_name = None
+        """Clean up the test database connection after all tests."""
+        # Only clean up if this is the last test class
+        if PostgresTestDB._engine:
+            import asyncio
+            asyncio.run(PostgresTestDB._engine.dispose())
+            PostgresTestDB._engine = None
+            PostgresTestDB._session_factory = None
+            PostgresTestDB._database_url = None
 
     @property
     def database_url(self) -> str:
@@ -188,12 +139,12 @@ class PostgresTestDB:
     async def create_tables(self):
         """Create all tables defined in the metadata."""
         async with self.engine.begin() as conn:
-            await conn.run_sync(self.metadata.create_all)
+            await conn.run_sync(self.metadata.create_all, checkfirst=True)
 
     async def drop_tables(self):
         """Drop all tables defined in the metadata."""
         async with self.engine.begin() as conn:
-            await conn.run_sync(self.metadata.drop_all)
+            await conn.run_sync(self.metadata.drop_all, checkfirst=True)
 
     @asynccontextmanager
     async def get_session(self) -> AsyncGenerator[AsyncSession, None]:

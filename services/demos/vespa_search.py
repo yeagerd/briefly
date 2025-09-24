@@ -109,6 +109,7 @@ class VespaSearchDemo:
                 "name": "Advanced Search Features",
                 "queries": ["complex query", "advanced search"],
                 "expected": "Advanced search responses",
+                "ranking_profile": "hybrid",  # Default ranking profile
             },
         ]
 

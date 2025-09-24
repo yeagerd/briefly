@@ -283,12 +283,32 @@ class VespaChatDemo:
             "quick_actions": [],
         }
 
-        # Process grouped results
-        grouped_results = search_results.get("grouped_results", {})
-        for result_type, results in grouped_results.items():
-            enhanced["grouped_results"][result_type] = self._format_results_for_chat(
-                results, result_type
-            )
+        # Process results - handle both flat results and grouped_results
+        if "grouped_results" in search_results:
+            # Legacy grouped results format
+            grouped_results = search_results.get("grouped_results", {})
+            for result_type, results in grouped_results.items():
+                enhanced["grouped_results"][result_type] = self._format_results_for_chat(
+                    results, result_type
+                )
+        else:
+            # New flat results format from UserDataSearchTool
+            flat_results = search_results.get("results", [])
+            if flat_results:
+                # Group results by source_type for chat display
+                grouped_by_type = {}
+                for result in flat_results:
+                    fields = result.get("fields", {})
+                    source_type = fields.get("source_type", "unknown")
+                    if source_type not in grouped_by_type:
+                        grouped_by_type[source_type] = []
+                    grouped_by_type[source_type].append(result)
+                
+                # Format each group for chat display
+                for result_type, results in grouped_by_type.items():
+                    enhanced["grouped_results"][result_type] = self._format_results_for_chat(
+                        results, result_type
+                    )
 
         # Generate chat suggestions
         enhanced["chat_suggestions"] = self._generate_chat_suggestions(

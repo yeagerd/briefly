@@ -154,9 +154,11 @@ describe('Package Pagination E2E', () => {
                 expect(screen.getByText('TRACK003')).toBeInTheDocument();
             });
 
-            // Verify previous packages are no longer visible
-            expect(screen.queryByText('TRACK001')).not.toBeInTheDocument();
-            expect(screen.queryByText('TRACK002')).not.toBeInTheDocument();
+            // Wait for previous packages to be removed from the DOM
+            await waitFor(() => {
+                expect(screen.queryByText('TRACK001')).not.toBeInTheDocument();
+                expect(screen.queryByText('TRACK002')).not.toBeInTheDocument();
+            });
         });
 
         it('should navigate to previous page when Previous button is clicked', async () => {

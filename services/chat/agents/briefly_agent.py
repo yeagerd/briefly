@@ -24,6 +24,7 @@ from services.chat import history_manager
 from services.chat.agents.llm_manager import get_llm_manager
 from services.chat.tools import DraftTools, GetTools, UserDataSearchTool, WebTools
 from services.chat.tools.draft_tools import _draft_storage
+from services.chat.tools.search_tools import DataType
 
 logger = logging.getLogger(__name__)
 
@@ -202,7 +203,7 @@ class BrieflyAgent(FunctionAgent):
         base_system_prompt = (
             "You are Briefly, a single-agent assistant with comprehensive tools.\n\n"
             "CORE TOOLS (always available):\n"
-            "- user_data_search: INTELLIGENT search across all your personal data (emails, calendar, contacts, files) - USE THIS FOR ALL SEARCHING EXISTING DATA\n"
+            "- search_user_data: Search user data by type and query - USE THIS FOR ALL SEARCHING EXISTING DATA\n"
             "- web_search: Search the public web for current information - USE THIS FOR EXTERNAL KNOWLEDGE\n"
             "- create_draft_*: Create and manage drafts for emails and calendar events\n\n"
             "SERVICE API TOOLS (invoked via get_tool):\n"
@@ -211,18 +212,19 @@ class BrieflyAgent(FunctionAgent):
             "AVAILABLE get_tool IDS AND DESCRIPTIONS:\n"
             f"{tool_catalog}\n\n"
             "CRITICAL TOOL SELECTION RULES - FOLLOW THESE EXACTLY:\n"
-            "1. ANY request to FIND, SEARCH, or GET existing data MUST use user_data_search\n"
+            "1. ANY request to FIND, SEARCH, or GET existing data MUST use search_user_data\n"
             "2. NEVER use get_tool('get_emails') or get_tool('get_calendar_events') for searching\n"
-            "3. The get_emails tool does NOT work - emails are in Vespa, use user_data_search instead\n"
-            "4. Examples of SEARCH requests (use user_data_search):\n"
-            "   - 'find my emails from lulu' → user_data_search('find my emails from lulu')\n"
+            "3. The get_emails tool does NOT work - emails are in Vespa, use search_user_data instead\n"
+            "4. Examples of SEARCH requests (use search_user_data):\n"
+            "   - 'find my emails from lulu' → search_user_data(query='find my emails from lulu', data_type='email')\n"
             "   - 'search my calendar', 'get my documents'\n"
             "   - 'what emails do I have', 'show my meetings', 'find my notes'\n"
             "   - 'search for emails from today', 'look for calendar events'\n"
             "5. Examples of MODIFICATION requests (use get_tool):\n"
             "   - 'create an email', 'update calendar event', 'delete note'\n"
             "   - 'send email', 'book meeting', 'remove appointment'\n\n"
-            "The user_data_search tool performs a unified hybrid search across your data.\n\n"
+            "The search_user_data tool performs a unified hybrid search across your data.\n"
+            "data_type options: 'any', 'email', 'calendar', 'document', 'meeting_poll', 'contact'\n\n"
             "Keep responses concise, helpful, and actionable.\n"
         )
 
@@ -561,21 +563,29 @@ def create_briefly_agent_tools(
     draft_tools = DraftTools(user_id)
 
     # Create wrapper functions for the tools to make them compatible with FunctionTool
-    async def combined_user_data_search_wrapper(
-        query: str, max_results: int = 20
+    async def search_user_data_wrapper(
+        query: str, data_type: str = "any", max_results: int = 20
     ) -> Any:
-        """Delegate user data search to the unified search tool (hybrid)."""
+        """Search user data with simple parameters."""
         try:
-            return await search_tools.search_all_data(
-                query=query, max_results=max_results
+            # Convert string to DataType enum
+            try:
+                data_type_enum = DataType(data_type)
+            except ValueError:
+                # If invalid data_type provided, default to ANY
+                data_type_enum = DataType.ANY
+
+            return await search_tools.search(
+                query=query, data_type=data_type_enum, max_results=max_results
             )
         except Exception as e:
             logger.error(f"Error in user data search: {e}")
             return {
                 "status": "error",
                 "query": query,
+                "data_type": data_type,
                 "error": str(e),
-                "grouped_results": {},
+                "results": [],
             }
 
     async def web_search_wrapper(query: str, max_results: int = 5) -> Any:
@@ -669,11 +679,12 @@ def create_briefly_agent_tools(
             description="Summarize findings and prepare a final response.",
         ),
         FunctionTool.from_defaults(
-            fn=combined_user_data_search_wrapper,
-            name="user_data_search",
+            fn=search_user_data_wrapper,
+            name="search_user_data",
             description=(
-                "Hybrid search across user emails, calendar events, contacts, and files. "
-                "Returns grouped results and a concise summary."
+                "Search user data by type and query. "
+                "data_type options: 'any', 'email', 'calendar', 'document', 'meeting_poll', 'contact'. "
+                "Returns raw search results from Vespa."
             ),
         ),
         FunctionTool.from_defaults(
@@ -693,7 +704,7 @@ def create_briefly_agent_tools(
                 "Execute a named tool (e.g., get_calendar_events, get_notes, get_documents) with parameters.\n"
                 "Available tool_ids (via get_tool):\n"
                 f"{tool_catalog}\n\n"
-                "Do NOT use for searching. For any find/search/get queries over existing data, use user_data_search."
+                "Do NOT use for searching. For any find/search/get queries over existing data, use search_user_data."
             ),
         ),
         FunctionTool.from_defaults(

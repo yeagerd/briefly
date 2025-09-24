@@ -64,11 +64,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from services.chat.tools.search_tools import (
-    SemanticSearchTool,
-    UserDataSearchTool,
-    VespaSearchTool,
-)
+from services.chat.tools.search_tools import DataType, UserDataSearchTool
 from services.vespa_query.search_engine import SearchEngine
 
 # Configure logging
@@ -89,18 +85,14 @@ class VespaSearchDemo:
         self.search_engine = SearchEngine(self.vespa_endpoint)
 
         # Search tools will be initialized after user_id is resolved
-        self.vespa_search: Optional[VespaSearchTool] = None
         self.user_data_search: Optional[UserDataSearchTool] = None
-        self.semantic_search: Optional[SemanticSearchTool] = None
 
     def _initialize_search_tools(self) -> None:
         """Initialize search tools after user_id is resolved"""
         if self.user_id:
-            self.vespa_search = VespaSearchTool(self.vespa_endpoint, self.user_id)
             self.user_data_search = UserDataSearchTool(
                 self.vespa_endpoint, self.user_id
             )
-            self.semantic_search = SemanticSearchTool(self.vespa_endpoint, self.user_id)
 
         # Comprehensive search test scenarios
         self.search_scenarios = [
@@ -176,16 +168,6 @@ class VespaSearchDemo:
             logger.info("Cleaning up resources...")
 
             # Close search engine sessions - handle all nested instances safely
-            if self.vespa_search and hasattr(self.vespa_search, "search_engine"):
-                try:
-                    if (
-                        self.vespa_search.search_engine
-                        and self.vespa_search.search_engine.session
-                    ):
-                        await self.vespa_search.search_engine.close()
-                except Exception as e:
-                    logger.warning(f"Error closing vespa_search engine: {e}")
-
             # UserDataSearchTool has its own SearchEngine
             if self.user_data_search and hasattr(
                 self.user_data_search, "search_engine"
@@ -198,16 +180,6 @@ class VespaSearchDemo:
                         await self.user_data_search.search_engine.close()
                 except Exception as e:
                     logger.warning(f"Error closing user_data_search engine: {e}")
-
-            if self.semantic_search and hasattr(self.semantic_search, "search_engine"):
-                try:
-                    if (
-                        self.semantic_search.search_engine
-                        and self.semantic_search.search_engine.session
-                    ):
-                        await self.semantic_search.search_engine.close()
-                except Exception as e:
-                    logger.warning(f"Error closing semantic_search engine: {e}")
 
             # Close our stats search engine
             if hasattr(self, "search_engine") and self.search_engine:
@@ -304,8 +276,8 @@ class VespaSearchDemo:
 
                 # Test with user data search
                 if self.user_data_search:
-                    results = await self.user_data_search.search_all_data(
-                        query, max_results=10
+                    results = await self.user_data_search.search(
+                        query=query, data_type=DataType.ANY, max_results=10
                     )
                 else:
                     results = {
@@ -372,16 +344,16 @@ class VespaSearchDemo:
                 start_time = time.time()
 
                 # Test with specific ranking profile
-                if self.vespa_search:
-                    results = await self.vespa_search.search(
+                if self.user_data_search:
+                    results = await self.user_data_search.search(
                         query=query,
+                        data_type=DataType.ANY,
                         max_results=10,
-                        ranking=scenario["ranking_profile"],
                     )
                 else:
                     results = {
                         "status": "error",
-                        "error": "Vespa search not initialized",
+                        "error": "User data search not initialized",
                     }
 
                 response_time = (time.time() - start_time) * 1000
@@ -548,8 +520,8 @@ class VespaSearchDemo:
 
             # Use user data search for comprehensive results
             if self.user_data_search:
-                search_results = await self.user_data_search.search_all_data(
-                    query, max_results=20
+                search_results = await self.user_data_search.search(
+                    query=query, data_type=DataType.ANY, max_results=20
                 )
             else:
                 search_results = {

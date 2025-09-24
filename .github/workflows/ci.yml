@@ -9,7 +9,7 @@ jobs:
   check-generated-files:
     name: Check Generated Files Are Up to Date
     if: ${{ github.event_name == 'pull_request' }}
-    runs-on: ubuntu-latest
+    runs-on: ubicloud-standard-2
     steps:
       - uses: actions/checkout@v4
         with:
@@ -145,7 +145,7 @@ jobs:
 
   lint:
     name: Python Linting & Formatting
-    runs-on: ubuntu-latest
+    runs-on: ubicloud-standard-2
     strategy:
       matrix:
         python-version: ["3.12"]
@@ -198,7 +198,7 @@ jobs:
 
   typecheck:
     name: Python Type Checking
-    runs-on: ubuntu-latest
+    runs-on: ubicloud-standard-2
     strategy:
       matrix:
         python-version: ["3.12"]
@@ -236,7 +236,7 @@ jobs:
 
   test:
     name: Python Tests
-    runs-on: ubuntu-latest
+    runs-on: ubicloud-standard-2
     strategy:
       matrix:
         python-version: ["3.12"]
@@ -273,7 +273,7 @@ jobs:
 
   coverage:
     name: Python Coverage
-    runs-on: ubuntu-latest
+    runs-on: ubicloud-standard-2
     strategy:
       matrix:
         python-version: ["3.12"]
@@ -317,7 +317,7 @@ jobs:
 
   frontend-quality:
     name: Frontend Code Quality
-    runs-on: ubuntu-latest
+    runs-on: ubicloud-standard-2
 
     steps:
     - uses: actions/checkout@v4

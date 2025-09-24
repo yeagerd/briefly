@@ -541,7 +541,7 @@ class ChatServiceClient(ServiceClient):
         """Retrieve the chat history for a specific thread."""
         try:
             response = requests.get(
-                f"{self.base_url}/threads/{thread_id}/history",
+                f"{self.base_url}/v1/chat/threads/{thread_id}/history",
                 headers={
                     "X-API-Key": get_settings().api_frontend_chat_key,
                     "X-User-Id": user_id,
@@ -571,7 +571,7 @@ class OfficeServiceClient(ServiceClient):
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    f"{self.base_url}/email/send",
+                    f"{self.base_url}/v1/email/send",
                     json={"user_id": user_id, **email_data},
                     headers={"X-API-Key": get_settings().api_frontend_office_key},
                 )
@@ -888,7 +888,7 @@ class FullDemo:
 
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    f"{self.user_client.base_url}/users/",
+                    f"{self.user_client.base_url}/v1/users/",
                     json=user_create_payload,
                     headers={
                         "Content-Type": "application/json",
@@ -963,7 +963,7 @@ class FullDemo:
             try:
                 async with httpx.AsyncClient(timeout=self.timeout) as client:
                     response = await client.post(
-                        f"{self.user_client.base_url}/users/",
+                        f"{self.user_client.base_url}/v1/users/",
                         json=user_create_payload,
                         headers={
                             "Content-Type": "application/json",

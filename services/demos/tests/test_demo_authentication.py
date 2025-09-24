@@ -96,7 +96,7 @@ class TestDemoAuthentication(BaseSelectiveHTTPIntegrationTest):
             call_args = mock_http_client.post.call_args
 
             # Check URL - call_args[0] contains positional args, call_args[1] contains keyword args
-            assert call_args[0][0] == f"{demo_instance.user_client.base_url}/users/"
+            assert call_args[0][0] == f"{demo_instance.user_client.base_url}/v1/users/"
 
             # Check payload structure for /users/ endpoint
             payload = call_args[1]["json"]

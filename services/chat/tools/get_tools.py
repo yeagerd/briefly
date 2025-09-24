@@ -97,13 +97,28 @@ class GetTools:
         self.draft_tools = DraftTools(user_id)
         self.web_tools = WebTools()
         self.utility_tools = UtilityTools()
+        
+        # Initialize search tools
+        from services.chat.tools.search_tools import VespaSearchTool, SemanticSearchTool, UserDataSearchTool
+        self.vespa_search_tool = VespaSearchTool(self.vespa_endpoint, user_id)
+        self.semantic_search_tool = SemanticSearchTool(self.vespa_endpoint, user_id)
+        self.user_data_search_tool = UserDataSearchTool(self.vespa_endpoint, user_id)
 
         # Register all tools with the enhanced registry
         self._register_all_tools()
 
     async def cleanup(self) -> None:
         """Clean up all search tool resources."""
-        pass
+        try:
+            # Clean up search tools
+            if hasattr(self, 'vespa_search_tool'):
+                await self.vespa_search_tool.cleanup()
+            if hasattr(self, 'semantic_search_tool'):
+                await self.semantic_search_tool.cleanup()
+            if hasattr(self, 'user_data_search_tool'):
+                await self.user_data_search_tool.cleanup()
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
 
     def _register_all_tools(self) -> None:
         """Register all tools with the enhanced registry."""
@@ -325,6 +340,9 @@ class GetTools:
 
         # Register web tools
         self._register_web_tools()
+
+        # Register search tools
+        self._register_search_tools()
 
         # Register utility tools
         self._register_utility_tools()
@@ -692,6 +710,143 @@ class GetTools:
         )
         self.registry.register_tool(
             web_search_metadata, self.web_tools.web_search.search
+        )
+
+    def _register_search_tools(self) -> None:
+        """Register Vespa search tools."""
+        # Register vespa_search
+        vespa_search_metadata = ToolMetadata(
+            tool_id="vespa_search",
+            description="Search user data using Vespa search engine",
+            category="search",
+            parameters={
+                "query": {
+                    "type": "str",
+                    "description": "Search query string",
+                    "required": True,
+                },
+                "max_results": {
+                    "type": "int",
+                    "description": "Maximum number of results to return",
+                    "required": False,
+                    "default": 20,
+                },
+            },
+            examples=[
+                {
+                    "description": "Search for emails about project",
+                    "params": {"query": "project planning"},
+                },
+                {
+                    "description": "Search with limited results",
+                    "params": {"query": "meeting notes", "max_results": 10},
+                },
+            ],
+            return_format={
+                "status": "success/error",
+                "query": "Original search query",
+                "results": "List of search results",
+                "total_found": "Total number of results found",
+            },
+            requires_auth=True,
+            service_dependency="vespa",
+        )
+        self.registry.register_tool(
+            vespa_search_metadata, self.vespa_search_tool.search
+        )
+
+        # Register semantic_search
+        semantic_search_metadata = ToolMetadata(
+            tool_id="semantic_search",
+            description="Perform semantic search on user data for better relevance",
+            category="search",
+            parameters={
+                "query": {
+                    "type": "str",
+                    "description": "Search query string",
+                    "required": True,
+                },
+                "max_results": {
+                    "type": "int",
+                    "description": "Maximum number of results to return",
+                    "required": False,
+                    "default": 20,
+                },
+            },
+            examples=[
+                {
+                    "description": "Semantic search for related documents",
+                    "params": {"query": "quarterly planning"},
+                },
+                {
+                    "description": "Find contextually similar content",
+                    "params": {"query": "budget discussion"},
+                },
+            ],
+            return_format={
+                "status": "success/error",
+                "query": "Original search query",
+                "results": "List of semantically relevant results",
+                "total_found": "Total number of results found",
+                "search_type": "semantic",
+            },
+            requires_auth=True,
+            service_dependency="vespa",
+        )
+        self.registry.register_tool(
+            semantic_search_metadata, self.semantic_search_tool.search
+        )
+
+        # Register user_data_search
+        user_data_search_metadata = ToolMetadata(
+            tool_id="user_data_search",
+            description="Comprehensive search across all user data types with grouped results",
+            category="search",
+            parameters={
+                "query": {
+                    "type": "str",
+                    "description": "Search query string",
+                    "required": True,
+                },
+                "data_type": {
+                    "type": "str",
+                    "description": "Type of data to search (any, email, calendar, document, meeting_poll, contact)",
+                    "required": False,
+                    "default": "any",
+                },
+                "max_results": {
+                    "type": "int",
+                    "description": "Maximum number of results to return",
+                    "required": False,
+                    "default": 20,
+                },
+            },
+            examples=[
+                {
+                    "description": "Search all data types",
+                    "params": {"query": "project planning"},
+                },
+                {
+                    "description": "Search only emails",
+                    "params": {"query": "budget", "data_type": "email"},
+                },
+                {
+                    "description": "Search calendar events",
+                    "params": {"query": "meeting", "data_type": "calendar"},
+                },
+            ],
+            return_format={
+                "status": "success/error",
+                "query": "Original search query",
+                "data_type": "Type of data searched",
+                "results": "List of search results",
+                "total_found": "Total number of results found",
+            },
+            requires_auth=True,
+            service_dependency="vespa",
+        )
+        self.registry.register_tool(
+            user_data_search_metadata, self.user_data_search_tool.search
         )
 
     def _register_utility_tools(self) -> None:

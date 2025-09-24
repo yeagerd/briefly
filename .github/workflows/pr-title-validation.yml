@@ -8,7 +8,7 @@ on:
 jobs:
   validate-pr-title:
     name: Validate PR Title
-    runs-on: ubuntu-latest
+    runs-on: arc-runner-set
     permissions:
       pull-requests: read
       contents: read

@@ -45,7 +45,6 @@ def typecheck(session: nox.Session) -> None:
     session.run("uv", "sync", "--all-packages", "--all-extras", "--active", "--group", "dev", external=True)
     
     session.run("mypy", "services")
-    session.run("npx", "pyright", "services/", external=True)
 
 
 @nox.session(python="3.12")

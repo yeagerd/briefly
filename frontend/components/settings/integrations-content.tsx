@@ -51,7 +51,6 @@ export function IntegrationsContent() {
     const [providerScopes, setProviderScopes] = useState<Record<string, IntegrationScopeResponse[]>>({});
     const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
     const [currentProvider, setCurrentProvider] = useState<string | null>(null);
-    const [availableScopes, setAvailableScopes] = useState<string[]>([]);
 
     const loadProviderScopes = async (provider: IntegrationProvider) => {
         try {
@@ -67,9 +66,6 @@ export function IntegrationsContent() {
                     [provider]: scopes
                 }));
 
-                // Extract scope names for display
-                const allScopeNames = scopes.map((scope: IntegrationScopeResponse) => scope.name);
-                setAvailableScopes(allScopeNames);
                 return scopes; // Return the scopes array
             }
             return []; // Return empty array if no response or not an array
@@ -118,8 +114,9 @@ export function IntegrationsContent() {
                 }
                 setSelectedScopes(mergedScopes);
             } else {
-                // For new/disconnected integrations, use all available scopes
-                setSelectedScopes(availableScopes);
+                // For new/disconnected integrations, select all scopes by default
+                const allScopeNames = scopes.map((scope: IntegrationScopeResponse) => scope.name);
+                setSelectedScopes(allScopeNames);
             }
         });
     };

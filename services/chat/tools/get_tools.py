@@ -100,13 +100,9 @@ class GetTools:
 
         # Initialize search tools
         from services.chat.tools.search_tools import (
-            SemanticSearchTool,
             UserDataSearchTool,
-            VespaSearchTool,
         )
 
-        self.vespa_search_tool = VespaSearchTool(self.vespa_endpoint, user_id)
-        self.semantic_search_tool = SemanticSearchTool(self.vespa_endpoint, user_id)
         self.user_data_search_tool = UserDataSearchTool(self.vespa_endpoint, user_id)
 
         # Register all tools with the enhanced registry
@@ -116,10 +112,6 @@ class GetTools:
         """Clean up all search tool resources."""
         try:
             # Clean up search tools
-            if hasattr(self, "vespa_search_tool"):
-                await self.vespa_search_tool.cleanup()
-            if hasattr(self, "semantic_search_tool"):
-                await self.semantic_search_tool.cleanup()
             if hasattr(self, "user_data_search_tool"):
                 await self.user_data_search_tool.cleanup()
         except Exception as e:
@@ -719,140 +711,6 @@ class GetTools:
 
     def _register_search_tools(self) -> None:
         """Register Vespa search tools."""
-        # Register vespa_search
-        vespa_search_metadata = ToolMetadata(
-            tool_id="vespa_search",
-            description="Search user data using Vespa search engine",
-            category="search",
-            parameters={
-                "query": {
-                    "type": "str",
-                    "description": "Search query string",
-                    "required": True,
-                },
-                "max_results": {
-                    "type": "int",
-                    "description": "Maximum number of results to return",
-                    "required": False,
-                    "default": 20,
-                },
-            },
-            examples=[
-                {
-                    "description": "Search for emails about project",
-                    "params": {"query": "project planning"},
-                },
-                {
-                    "description": "Search with limited results",
-                    "params": {"query": "meeting notes", "max_results": 10},
-                },
-            ],
-            return_format={
-                "status": "success/error",
-                "query": "Original search query",
-                "results": "List of search results",
-                "total_found": "Total number of results found",
-            },
-            requires_auth=True,
-            service_dependency="vespa",
-        )
-
-        # Create a synchronous wrapper for the async vespa search method
-        def vespa_search_wrapper(query: str, max_results: int = 20) -> Dict[str, Any]:
-            """Synchronous wrapper for vespa_search async method."""
-            import asyncio
-
-            # Run the async method in the current event loop or create a new one
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # If we're in an async context, we need to handle this differently
-                    import concurrent.futures
-
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(
-                            asyncio.run,
-                            self.vespa_search_tool.search(query, max_results),
-                        )
-                        return future.result()
-                else:
-                    return loop.run_until_complete(
-                        self.vespa_search_tool.search(query, max_results)
-                    )
-            except RuntimeError:
-                # No event loop exists, create a new one
-                return asyncio.run(self.vespa_search_tool.search(query, max_results))
-
-        self.registry.register_tool(vespa_search_metadata, vespa_search_wrapper)
-
-        # Register semantic_search
-        semantic_search_metadata = ToolMetadata(
-            tool_id="semantic_search",
-            description="Perform semantic search on user data for better relevance",
-            category="search",
-            parameters={
-                "query": {
-                    "type": "str",
-                    "description": "Search query string",
-                    "required": True,
-                },
-                "max_results": {
-                    "type": "int",
-                    "description": "Maximum number of results to return",
-                    "required": False,
-                    "default": 20,
-                },
-            },
-            examples=[
-                {
-                    "description": "Semantic search for related documents",
-                    "params": {"query": "quarterly planning"},
-                },
-                {
-                    "description": "Find contextually similar content",
-                    "params": {"query": "budget discussion"},
-                },
-            ],
-            return_format={
-                "status": "success/error",
-                "query": "Original search query",
-                "results": "List of semantically relevant results",
-                "total_found": "Total number of results found",
-                "search_type": "semantic",
-            },
-            requires_auth=True,
-            service_dependency="vespa",
-        )
-
-        # Create a synchronous wrapper for the async semantic search method
-        def semantic_search_wrapper(
-            query: str, max_results: int = 20
-        ) -> Dict[str, Any]:
-            """Synchronous wrapper for semantic_search async method."""
-            import asyncio
-
-            # Run the async method in the current event loop or create a new one
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # If we're in an async context, we need to handle this differently
-                    import concurrent.futures
-
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(
-                            asyncio.run,
-                            self.semantic_search_tool.search(query, max_results),
-                        )
-                        return future.result()
-                else:
-                    return loop.run_until_complete(
-                        self.semantic_search_tool.search(query, max_results)
-                    )
-            except RuntimeError:
-                # No event loop exists, create a new one
-                return asyncio.run(self.semantic_search_tool.search(query, max_results))
-
-        self.registry.register_tool(semantic_search_metadata, semantic_search_wrapper)
 
         # Register user_data_search
         user_data_search_metadata = ToolMetadata(

@@ -288,8 +288,8 @@ class VespaChatDemo:
             # Legacy grouped results format
             grouped_results = search_results.get("grouped_results", {})
             for result_type, results in grouped_results.items():
-                enhanced["grouped_results"][result_type] = self._format_results_for_chat(
-                    results, result_type
+                enhanced["grouped_results"][result_type] = (
+                    self._format_results_for_chat(results, result_type)
                 )
         else:
             # New flat results format from UserDataSearchTool
@@ -303,11 +303,11 @@ class VespaChatDemo:
                     if source_type not in grouped_by_type:
                         grouped_by_type[source_type] = []
                     grouped_by_type[source_type].append(result)
-                
+
                 # Format each group for chat display
                 for result_type, results in grouped_by_type.items():
-                    enhanced["grouped_results"][result_type] = self._format_results_for_chat(
-                        results, result_type
+                    enhanced["grouped_results"][result_type] = (
+                        self._format_results_for_chat(results, result_type)
                     )
 
         # Generate chat suggestions

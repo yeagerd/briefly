@@ -97,9 +97,14 @@ class GetTools:
         self.draft_tools = DraftTools(user_id)
         self.web_tools = WebTools()
         self.utility_tools = UtilityTools()
-        
+
         # Initialize search tools
-        from services.chat.tools.search_tools import VespaSearchTool, SemanticSearchTool, UserDataSearchTool
+        from services.chat.tools.search_tools import (
+            SemanticSearchTool,
+            UserDataSearchTool,
+            VespaSearchTool,
+        )
+
         self.vespa_search_tool = VespaSearchTool(self.vespa_endpoint, user_id)
         self.semantic_search_tool = SemanticSearchTool(self.vespa_endpoint, user_id)
         self.user_data_search_tool = UserDataSearchTool(self.vespa_endpoint, user_id)
@@ -111,11 +116,11 @@ class GetTools:
         """Clean up all search tool resources."""
         try:
             # Clean up search tools
-            if hasattr(self, 'vespa_search_tool'):
+            if hasattr(self, "vespa_search_tool"):
                 await self.vespa_search_tool.cleanup()
-            if hasattr(self, 'semantic_search_tool'):
+            if hasattr(self, "semantic_search_tool"):
                 await self.semantic_search_tool.cleanup()
-            if hasattr(self, 'user_data_search_tool'):
+            if hasattr(self, "user_data_search_tool"):
                 await self.user_data_search_tool.cleanup()
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")

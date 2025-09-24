@@ -38,7 +38,7 @@ class VespaSearchTool:
         """Search user data with basic parameters."""
         try:
             yql_query = f'select * from briefly_document where user_id contains "{self.user_id}" and (search_text contains "{query}" or content contains "{query}" or title contains "{query}")'
-            
+
             search_query = {
                 "yql": yql_query,
                 "hits": max_results,
@@ -92,7 +92,7 @@ class SemanticSearchTool:
         try:
             # Use semantic ranking for better relevance
             yql_query = f'select * from briefly_document where user_id contains "{self.user_id}" and (search_text contains "{query}" or content contains "{query}" or title contains "{query}")'
-            
+
             search_query = {
                 "yql": yql_query,
                 "hits": max_results,
@@ -243,20 +243,22 @@ class UserDataSearchTool:
                 "total_found": 0,
             }
 
-    async def search_all_data(self, query: str, max_results: int = 20) -> Dict[str, Any]:
+    async def search_all_data(
+        self, query: str, max_results: int = 20
+    ) -> Dict[str, Any]:
         """Search all user data types with comprehensive results.
-        
+
         Args:
             query: Search query string
             max_results: Maximum number of results to return
-            
+
         Returns:
             Dict containing search results grouped by type and metadata
         """
         try:
             # Search across all data types
             yql_query = f'select * from briefly_document where user_id contains "{self.user_id}" and (search_text contains "{query}" or content contains "{query}" or title contains "{query}")'
-            
+
             search_query = {
                 "yql": yql_query,
                 "hits": max_results,
@@ -291,8 +293,8 @@ class UserDataSearchTool:
                 "summary": {
                     "total_documents": total_count,
                     "types_found": list(grouped_results.keys()),
-                    "type_counts": {k: len(v) for k, v in grouped_results.items()}
-                }
+                    "type_counts": {k: len(v) for k, v in grouped_results.items()},
+                },
             }
 
         except Exception as e:
@@ -305,5 +307,5 @@ class UserDataSearchTool:
                 "grouped_results": {},
                 "total_found": 0,
                 "total_messages": 0,
-                "summary": {}
+                "summary": {},
             }

@@ -4,7 +4,7 @@ This directory contains comprehensive demonstration services for the Vespa-power
 
 ## 🚀 Quick Demo Flow
 
-**Complete end-to-end demo in 4 steps:**
+**Complete end-to-end demo in 6 steps:**
 
 ```bash
 # 1. Start foundation services
@@ -13,17 +13,24 @@ colima start
 ./scripts/vespa.sh
 ./scripts/postgres-start.sh
 
-# 2. Start Briefly services with human-readable logging
+# 2. Setup database
+./install.sh
+source .venv/bin/activate
+./scripts/run-migration.sh
+./install.sh
+
+# 3. Start Briefly services with human-readable logging
 ./scripts/start-dev-logs.sh
 
-# 3. Clear existing data from Vespa
-./scripts/vespa.sh --clear-data --email {email} --env-file {env_file} --force
+# 4. Clear existing data from Vespa
+EMAIL=trybriefly@outlook.com
+./scripts/vespa.sh --clear-data --email ${EMAIL} --env-file .env.local --force
 
-# 4. Backfill with fresh data
-python services/demos/vespa_backfill.py {email}
+# 5. Backfill with fresh data
+python services/demos/vespa_backfill.py ${EMAIL}
 
-# 5. Search and dump results
-python services/demos/vespa_search.py {email} --dump
+# 6. Search and dump results
+python services/demos/vespa_search.py ${EMAIL} --dump
 ```
 
 

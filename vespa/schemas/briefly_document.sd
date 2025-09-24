@@ -84,6 +84,49 @@ schema briefly_document {
                 distance-metric: angular
             }
         }
+        
+        # Presentation-specific fields (optional, for documents that contain presentation data)
+        field slides type array<map<string, string>> {
+            indexing: summary
+        }
+        
+        field slide_notes type array<map<string, string>> {
+            indexing: summary
+        }
+        
+        field speaker_notes type array<map<string, string>> {
+            indexing: summary
+        }
+        
+        field slide_count type int {
+            indexing: attribute | summary
+            attribute: fast-search
+        }
+        
+        field theme type string {
+            indexing: attribute | summary
+            attribute: fast-search
+        }
+        
+        field transition_effects type array<string> {
+            indexing: attribute | summary
+            attribute: fast-search
+        }
+        
+        field owner_email type string {
+            indexing: attribute | summary
+            attribute: fast-search
+        }
+        
+        field permissions type array<string> {
+            indexing: attribute | summary
+            attribute: fast-search
+        }
+        
+        field provider_document_id type string {
+            indexing: attribute | summary
+            attribute: fast-search
+        }
     }
     
     fieldset default {

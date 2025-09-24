@@ -3,4 +3,8 @@
     <!-- Allow changing indexing mode from indexed to streaming -->
     <!-- This is required when migrating existing data to streaming mode -->
     <allow until="2025-09-15">indexing-mode-change</allow>
+    
+    <!-- Allow changing field indexing settings for streaming search optimization -->
+    <!-- This is required when updating match settings for better streaming search -->
+    <allow until="2025-10-23">indexing-change</allow>
 </validation-overrides>

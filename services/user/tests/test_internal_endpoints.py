@@ -21,7 +21,7 @@ class TestInternalAPI(BaseUserManagementIntegrationTest):
 
     def _get_auth_headers(self):
         """Provide authentication headers for internal API calls."""
-        return {"X-API-Key": "test-api-key"}
+        return {"X-API-Key": "test-frontend-user-key"}
 
     def test_internal_endpoints_require_authentication(self):
         """Test that internal endpoints require authentication."""
@@ -48,7 +48,7 @@ class TestInternalAPI(BaseUserManagementIntegrationTest):
 
             test_settings = Settings(
                 db_url_user="sqlite+aiosqlite:///:memory:",
-                api_frontend_user_key="test-frontend-key",
+                api_frontend_user_key="test-frontend-user-key",
                 api_chat_user_key="test-chat-key",
                 api_office_user_key="test-office-key",
                 api_meetings_user_key="test-meetings-key",
@@ -59,6 +59,6 @@ class TestInternalAPI(BaseUserManagementIntegrationTest):
             client = TestClient(app)
             response = client.get(
                 "/v1/internal/users/nonexistent-user/status",
-                headers={"X-API-Key": "test-api-key"},
+                headers={"X-API-Key": "test-frontend-user-key"},
             )
             assert response.status_code in (404, 422, 400, 403)

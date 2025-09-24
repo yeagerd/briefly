@@ -32,7 +32,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
           uv sync --all-packages --all-extras --active
 
       - name: Install Node.js dependencies
@@ -173,7 +173,7 @@ jobs:
     - name: Install UV
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
 
     - name: Install dependencies with UV
       run: |
@@ -226,7 +226,8 @@ jobs:
     - name: Install UV
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
     - name: Install dependencies with UV
       run: |
         uv sync --all-packages --all-extras --active
@@ -263,7 +264,8 @@ jobs:
     - name: Install UV
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
     - name: Install dependencies with UV
       run: |
         uv sync --all-packages --all-extras --active
@@ -300,7 +302,8 @@ jobs:
     - name: Install UV
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
     - name: Install dependencies with UV
       run: |
         uv sync --all-packages --all-extras --active

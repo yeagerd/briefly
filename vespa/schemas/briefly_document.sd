@@ -23,21 +23,21 @@ schema briefly_document {
         field title type string {
             indexing: index | summary
             index: enable-bm25
-            match: word
+            match: substring
             stemming: best
         }
         
         field content type string {
             indexing: index | summary
             index: enable-bm25
-            match: word
+            match: substring
             stemming: best
         }
         
         field search_text type string {
             indexing: index | summary
             index: enable-bm25
-            match: word
+            match: substring
             stemming: best
         }
         

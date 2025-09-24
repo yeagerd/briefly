@@ -3019,12 +3019,21 @@ async def get_internal_email_messages(
                     if provider == "microsoft" and isinstance(
                         client, MicrosoftAPIClient
                     ):
-                        # Microsoft client uses top, filter, search, order_by
+                        # Microsoft client uses top, skip, filter, search, order_by
+                        # Convert page_token to skip value for pagination
+                        skip_value = 0
+                        if page_token:
+                            try:
+                                skip_value = int(page_token)
+                            except (ValueError, TypeError):
+                                skip_value = 0
+
                         logger.info(
-                            f"Fetching messages from Microsoft API for user {user_id}"
+                            f"Fetching messages from Microsoft API for user {user_id} with skip={skip_value}"
                         )
                         messages = await client.get_messages(
                             top=limit,
+                            skip=skip_value,
                             filter=filter_str,
                             search=q,
                             order_by="receivedDateTime desc",

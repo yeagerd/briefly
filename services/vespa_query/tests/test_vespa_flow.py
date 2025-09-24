@@ -370,8 +370,9 @@ class TestVespaDataFlow(BaseIntegrationTest):
             try:
                 # Check document count
                 search_query = {
-                    "yql": f'select * from briefly_document where user_id contains "{self.config["test_user_id"]}"',
+                    "yql": "select * from briefly_document",
                     "hits": 0,
+                    "streaming.groupname": self.config["test_user_id"],
                 }
 
                 results = await self.search_engine.search(search_query)
@@ -432,9 +433,10 @@ class TestVespaDataFlow(BaseIntegrationTest):
         try:
             # Test keyword search
             search_query = {
-                "yql": f'select * from briefly_document where user_id contains "{self.config["test_user_id"]}" and search_text contains "test"',
+                "yql": 'select * from briefly_document where search_text contains "test"',
                 "hits": 10,
                 "ranking": "hybrid",
+                "streaming.groupname": self.config["test_user_id"],
             }
 
             results = await self.search_engine.search(search_query)
@@ -455,8 +457,9 @@ class TestVespaDataFlow(BaseIntegrationTest):
         try:
             # Search for test user data
             test_user_query = {
-                "yql": f'select * from briefly_document where user_id contains "{self.config["test_user_id"]}"',
+                "yql": "select * from briefly_document",
                 "hits": 10,
+                "streaming.groupname": self.config["test_user_id"],
             }
 
             test_user_results = await self.search_engine.search(test_user_query)
@@ -466,8 +469,9 @@ class TestVespaDataFlow(BaseIntegrationTest):
 
             # Search for different user data
             other_user_query = {
-                "yql": 'select * from briefly_document where user_id contains "other_user"',
+                "yql": "select * from briefly_document",
                 "hits": 10,
+                "streaming.groupname": "other_user",
             }
 
             other_user_results = await self.search_engine.search(other_user_query)
@@ -605,8 +609,9 @@ class TestVespaDataFlow(BaseIntegrationTest):
         # Test 3: Recovery after errors
         # Verify that valid operations still work
         valid_query = {
-            "yql": f'select * from briefly_document where user_id contains "{self.config["test_user_id"]}"',
+            "yql": "select * from briefly_document",
             "hits": 5,
+            "streaming.groupname": self.config["test_user_id"],
         }
 
         try:
@@ -631,9 +636,10 @@ class TestVespaDataFlow(BaseIntegrationTest):
         start_time = time.time()
 
         search_query = {
-            "yql": f'select * from briefly_document where user_id contains "{self.config["test_user_id"]}"',
+            "yql": "select * from briefly_document",
             "hits": 10,
             "ranking": "hybrid",
+            "streaming.groupname": self.config["test_user_id"],
         }
 
         results = await self.search_engine.search(search_query)
@@ -650,8 +656,9 @@ class TestVespaDataFlow(BaseIntegrationTest):
         batch_queries = []
         for i in range(5):
             query = {
-                "yql": f'select * from briefly_document where user_id contains "{self.config["test_user_id"]}" and search_text contains "test{i}"',
+                "yql": f'select * from briefly_document where search_text contains "test{i}"',
                 "hits": 5,
+                "streaming.groupname": self.config["test_user_id"],
             }
             batch_queries.append(query)
 

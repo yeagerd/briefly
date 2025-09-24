@@ -64,11 +64,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from services.chat.tools.search_tools import (
-    SemanticSearchTool,
-    UserDataSearchTool,
-    VespaSearchTool,
-)
+from services.chat.tools.search_tools import DataType, RankingMode, UserDataSearchTool
 from services.vespa_query.search_engine import SearchEngine
 
 # Configure logging
@@ -89,18 +85,14 @@ class VespaSearchDemo:
         self.search_engine = SearchEngine(self.vespa_endpoint)
 
         # Search tools will be initialized after user_id is resolved
-        self.vespa_search: Optional[VespaSearchTool] = None
         self.user_data_search: Optional[UserDataSearchTool] = None
-        self.semantic_search: Optional[SemanticSearchTool] = None
 
     def _initialize_search_tools(self) -> None:
         """Initialize search tools after user_id is resolved"""
         if self.user_id:
-            self.vespa_search = VespaSearchTool(self.vespa_endpoint, self.user_id)
             self.user_data_search = UserDataSearchTool(
                 self.vespa_endpoint, self.user_id
             )
-            self.semantic_search = SemanticSearchTool(self.vespa_endpoint, self.user_id)
 
         # Comprehensive search test scenarios
         self.search_scenarios = [
@@ -111,12 +103,23 @@ class VespaSearchDemo:
             },
         ]
 
-        # Initialize advanced scenarios
+        # Initialize advanced scenarios with different ranking profiles
         self.advanced_scenarios = [
             {
-                "name": "Advanced Search Features",
-                "queries": ["complex query", "advanced search"],
-                "expected": "Advanced search responses",
+                "name": "Hybrid Ranking Profile",
+                "queries": ["complex query", "advanced search", "hybrid ranking test"],
+                "expected": "Hybrid ranking responses",
+                "ranking_profile": "hybrid",
+            },
+            {
+                "name": "Semantic Ranking Profile",
+                "queries": [
+                    "semantic search",
+                    "meaning-based query",
+                    "contextual search",
+                ],
+                "expected": "Semantic ranking responses",
+                "ranking_profile": "semantic",
             },
         ]
 
@@ -176,16 +179,6 @@ class VespaSearchDemo:
             logger.info("Cleaning up resources...")
 
             # Close search engine sessions - handle all nested instances safely
-            if self.vespa_search and hasattr(self.vespa_search, "search_engine"):
-                try:
-                    if (
-                        self.vespa_search.search_engine
-                        and self.vespa_search.search_engine.session
-                    ):
-                        await self.vespa_search.search_engine.close()
-                except Exception as e:
-                    logger.warning(f"Error closing vespa_search engine: {e}")
-
             # UserDataSearchTool has its own SearchEngine
             if self.user_data_search and hasattr(
                 self.user_data_search, "search_engine"
@@ -198,16 +191,6 @@ class VespaSearchDemo:
                         await self.user_data_search.search_engine.close()
                 except Exception as e:
                     logger.warning(f"Error closing user_data_search engine: {e}")
-
-            if self.semantic_search and hasattr(self.semantic_search, "search_engine"):
-                try:
-                    if (
-                        self.semantic_search.search_engine
-                        and self.semantic_search.search_engine.session
-                    ):
-                        await self.semantic_search.search_engine.close()
-                except Exception as e:
-                    logger.warning(f"Error closing semantic_search engine: {e}")
 
             # Close our stats search engine
             if hasattr(self, "search_engine") and self.search_engine:
@@ -304,8 +287,8 @@ class VespaSearchDemo:
 
                 # Test with user data search
                 if self.user_data_search:
-                    results = await self.user_data_search.search_all_data(
-                        query, max_results=10
+                    results = await self.user_data_search.search(
+                        query=query, data_type=DataType.ANY, max_results=10
                     )
                 else:
                     results = {
@@ -355,6 +338,30 @@ class VespaSearchDemo:
 
         return scenario_result
 
+    def _get_ranking_mode(self, ranking_profile: str) -> RankingMode:
+        """Convert ranking profile string to RankingMode enum.
+
+        Args:
+            ranking_profile: String representation of ranking profile
+
+        Returns:
+            RankingMode enum value
+
+        Raises:
+            ValueError: If ranking_profile is not supported
+        """
+        ranking_profile_lower = ranking_profile.lower()
+
+        if ranking_profile_lower == "hybrid":
+            return RankingMode.HYBRID
+        elif ranking_profile_lower == "semantic":
+            return RankingMode.SEMANTIC
+        else:
+            logger.warning(
+                f"Unknown ranking profile '{ranking_profile}', defaulting to hybrid"
+            )
+            return RankingMode.HYBRID
+
     async def _test_advanced_scenario(self, scenario: Dict[str, Any]) -> Dict[str, Any]:
         """Test an advanced search scenario with specific ranking profiles"""
         scenario_result = {
@@ -367,21 +374,26 @@ class VespaSearchDemo:
             "average_response_time": 0.0,
         }
 
+        # Map ranking profile string to RankingMode enum
+        ranking_profile = scenario.get("ranking_profile", "hybrid")
+        ranking_mode = self._get_ranking_mode(ranking_profile)
+
         for query in scenario["queries"]:
             try:
                 start_time = time.time()
 
                 # Test with specific ranking profile
-                if self.vespa_search:
-                    results = await self.vespa_search.search(
+                if self.user_data_search:
+                    results = await self.user_data_search.search(
                         query=query,
+                        data_type=DataType.ANY,
+                        ranking_mode=ranking_mode,
                         max_results=10,
-                        ranking=scenario["ranking_profile"],
                     )
                 else:
                     results = {
                         "status": "error",
-                        "error": "Vespa search not initialized",
+                        "error": "User data search not initialized",
                     }
 
                 response_time = (time.time() - start_time) * 1000
@@ -548,8 +560,8 @@ class VespaSearchDemo:
 
             # Use user data search for comprehensive results
             if self.user_data_search:
-                search_results = await self.user_data_search.search_all_data(
-                    query, max_results=20
+                search_results = await self.user_data_search.search(
+                    query=query, data_type=DataType.ANY, max_results=20
                 )
             else:
                 search_results = {
@@ -559,39 +571,38 @@ class VespaSearchDemo:
 
             response_time = (time.time() - start_time) * 1000
 
-            # Extract results from the grouped structure
+            # Extract results from the search response
             if search_results.get("status") == "success":
-                # Flatten grouped results into a single list for display
+                # Get results from the flat results array
+                raw_results: Any = search_results.get("results", [])
                 all_results = []
-                raw_grouped_results: Any = search_results.get("grouped_results", {})
-                if isinstance(raw_grouped_results, dict):
-                    grouped_results: Dict[str, Any] = raw_grouped_results
-                    for result_type, results in grouped_results.items():
-                        if isinstance(results, list):
-                            # Convert SearchResult objects to dictionaries
-                            dict_results = []
-                            for result in results:
-                                if hasattr(result, "model_dump"):
-                                    # Pydantic V2 model - convert to dict
-                                    dict_results.append(result.model_dump())
-                                elif hasattr(result, "dict"):
-                                    # Pydantic V1 model - convert to dict
-                                    dict_results.append(result.dict())
-                                elif hasattr(result, "__dict__"):
-                                    # Object with __dict__ - convert to dict
-                                    dict_results.append(result.__dict__)
-                                elif isinstance(result, dict):
-                                    # Already a dict
-                                    dict_results.append(result)
-                                else:
-                                    # Fallback - try to access as dict
-                                    dict_results.append(result)
-                            all_results.extend(dict_results)
+
+                if isinstance(raw_results, list):
+                    # Convert SearchResult objects to dictionaries
+                    for result in raw_results:
+                        if hasattr(result, "model_dump"):
+                            # Pydantic V2 model - convert to dict
+                            all_results.append(result.model_dump())
+                        elif hasattr(result, "dict"):
+                            # Pydantic V1 model - convert to dict
+                            all_results.append(result.dict())
+                        elif hasattr(result, "__dict__"):
+                            # Object with __dict__ - convert to dict
+                            all_results.append(result.__dict__)
+                        elif isinstance(result, dict):
+                            # Already a dict
+                            all_results.append(result)
+                        else:
+                            # Fallback - try to access as dict
+                            all_results.append(result)
 
                 # Sort by relevance score
                 all_results.sort(
                     key=lambda x: x.get("relevance_score", 0.0), reverse=True
                 )
+
+                # Create a grouped_results structure for backward compatibility
+                grouped_results = {"all": all_results} if all_results else {}
 
                 return {
                     "query": query,
@@ -747,33 +758,6 @@ class VespaSearchDemo:
                 remaining = len(results["results"]) - 10
                 print(f"\n📚 ... and {remaining} more results")
 
-            # Search insights for LLM RAG
-            print(f"\n🧠 SEARCH INSIGHTS FOR LLM RAG:")
-            print(
-                f"   • Primary Content Types: {self._get_content_type_summary(results['results'])}"
-            )
-            print(
-                f"   • Top Relevance Range: {self._get_relevance_range(results['results'])}"
-            )
-            print(
-                f"   • Content Freshness: {self._get_content_freshness(results['results'])}"
-            )
-            print(
-                f"   • Search Confidence: {self._get_search_confidence(results['results'])}"
-            )
-            print(
-                f"   • Search Methods: {self._get_search_methods_summary(results['results'])}"
-            )
-            print(
-                f"   • Vector vs Keyword: {self._get_vector_keyword_breakdown(results['results'])}"
-            )
-            print(
-                f"   • Content Quality: {self._get_content_quality_assessment(results['results'])}"
-            )
-            print(
-                f"   • RAG Readiness: {self._get_rag_readiness_assessment(results['results'])}"
-            )
-
         elif results.get("error"):
             print(f"❌ Error: {results['error']}")
 
@@ -803,210 +787,6 @@ class VespaSearchDemo:
             return dt.strftime("%Y-%m-%d %H:%M UTC")
         except:
             return str(timestamp)
-
-    def _get_content_type_summary(self, results: List[Dict[str, Any]]) -> str:
-        """Get summary of content types in results"""
-        type_counts: Dict[str, int] = {}
-        for result in results:
-            result_type = result.get("type", "Unknown")
-            type_counts[result_type] = type_counts.get(result_type, 0) + 1
-
-        if not type_counts:
-            return "No content types found"
-
-        summary_parts = []
-        for content_type, count in sorted(
-            type_counts.items(), key=lambda x: x[1], reverse=True
-        ):
-            summary_parts.append(f"{content_type.title()}: {count}")
-
-        return ", ".join(summary_parts)
-
-    def _get_relevance_range(self, results: List[Dict[str, Any]]) -> str:
-        """Get relevance score range for results"""
-        if not results:
-            return "No results"
-
-        relevances = [
-            r.get("relevance_score", 0.0)
-            for r in results
-            if r.get("relevance_score") is not None
-        ]
-        if not relevances:
-            return "No relevance scores"
-
-        min_rel = min(relevances)
-        max_rel = max(relevances)
-        avg_rel = sum(relevances) / len(relevances)
-
-        return f"{min_rel:.3f} - {max_rel:.3f} (avg: {avg_rel:.3f})"
-
-    def _get_content_freshness(self, results: List[Dict[str, Any]]) -> str:
-        """Get content freshness summary"""
-        if not results:
-            return "No results"
-
-        timestamps = []
-        for result in results:
-            if result.get("created_at"):
-                try:
-                    if isinstance(result["created_at"], (int, float)):
-                        ts = result["created_at"] / 1000
-                    else:
-                        ts = datetime.fromisoformat(
-                            str(result["created_at"]).replace("Z", "+00:00")
-                        ).timestamp()
-                    timestamps.append(ts)
-                except:
-                    continue
-
-        if not timestamps:
-            return "Unknown"
-
-        now = datetime.now(timezone.utc).timestamp()
-        oldest = min(timestamps)
-        newest = max(timestamps)
-
-        oldest_days = (now - oldest) / (24 * 3600)
-        newest_days = (now - newest) / (24 * 3600)
-
-        if oldest_days < 1:
-            return "All content from today"
-        elif oldest_days < 7:
-            return f"Content from last {int(oldest_days)} days"
-        elif oldest_days < 30:
-            return f"Content from last {int(oldest_days)} days"
-        else:
-            return f"Content from last {int(oldest_days)} days (some content may be outdated)"
-
-    def _get_search_confidence(self, results: List[Dict[str, Any]]) -> str:
-        """Get search confidence assessment"""
-        if not results:
-            return "No results"
-
-        high_relevance = sum(1 for r in results if r.get("relevance_score", 0) > 0.7)
-        medium_relevance = sum(
-            1 for r in results if 0.3 <= r.get("relevance_score", 0) <= 0.7
-        )
-        low_relevance = sum(1 for r in results if r.get("relevance_score", 0) < 0.3)
-
-        total = len(results)
-
-        if high_relevance / total > 0.6:
-            return "High confidence - Strong semantic matches found"
-        elif (high_relevance + medium_relevance) / total > 0.6:
-            return "Medium confidence - Good keyword and semantic matches"
-        else:
-            return (
-                "Low confidence - Limited semantic relevance, consider refining query"
-            )
-
-    def _get_search_methods_summary(self, results: List[Dict[str, Any]]) -> str:
-        """Get summary of search methods used"""
-        if not results:
-            return "No results"
-
-        method_counts: Dict[str, int] = {}
-        for result in results:
-            method = result.get("search_method", "Unknown")
-            method_counts[method] = method_counts.get(method, 0) + 1
-
-        if not method_counts:
-            return "Unknown search methods"
-
-        summary_parts = []
-        for method, count in sorted(
-            method_counts.items(), key=lambda x: x[1], reverse=True
-        ):
-            summary_parts.append(f"{method}: {count}")
-
-        return ", ".join(summary_parts)
-
-    def _get_vector_keyword_breakdown(self, results: List[Dict[str, Any]]) -> str:
-        """Get breakdown of vector vs keyword search results"""
-        if not results:
-            return "No results"
-
-        vector_count = sum(
-            1
-            for r in results
-            if r.get("search_method") and "Vector" in r.get("search_method", "")
-        )
-        keyword_count = sum(
-            1
-            for r in results
-            if r.get("search_method") and "Keyword" in r.get("search_method", "")
-        )
-        hybrid_count = sum(
-            1
-            for r in results
-            if r.get("search_method") and "Hybrid" in r.get("search_method", "")
-        )
-        other_count = len(results) - vector_count - keyword_count - hybrid_count
-
-        breakdown_parts = []
-        if vector_count > 0:
-            breakdown_parts.append(f"Vector: {vector_count}")
-        if keyword_count > 0:
-            breakdown_parts.append(f"Keyword: {keyword_count}")
-        if hybrid_count > 0:
-            breakdown_parts.append(f"Hybrid: {hybrid_count}")
-        if other_count > 0:
-            breakdown_parts.append(f"Other: {other_count}")
-
-        return ", ".join(breakdown_parts)
-
-    def _get_content_quality_assessment(self, results: List[Dict[str, Any]]) -> str:
-        """Assess content quality for RAG use"""
-        if not results:
-            return "No results"
-
-        # Analyze content length and completeness
-        short_content = sum(1 for r in results if r.get("content_length", 0) < 100)
-        medium_content = sum(
-            1 for r in results if 100 <= r.get("content_length", 0) < 500
-        )
-        long_content = sum(1 for r in results if r.get("content_length", 0) >= 500)
-
-        total = len(results)
-
-        if long_content / total > 0.6:
-            return "High quality - Most content is substantial (>500 chars)"
-        elif (medium_content + long_content) / total > 0.6:
-            return "Good quality - Mix of medium and long content"
-        else:
-            return "Variable quality - Many short content pieces, may need filtering"
-
-    def _get_rag_readiness_assessment(self, results: List[Dict[str, Any]]) -> str:
-        """Assess how ready the results are for RAG use"""
-        if not results:
-            return "Not ready - No results"
-
-        # Check for high-quality, relevant content
-        high_quality = sum(
-            1
-            for r in results
-            if r.get("relevance_score", 0) > 0.6
-            and r.get("content_length", 0) > 200
-            and r.get("match_confidence") in ["High", "Very High"]
-        )
-
-        medium_quality = sum(
-            1
-            for r in results
-            if r.get("relevance_score", 0) > 0.4 and r.get("content_length", 0) > 100
-        )
-
-        total = len(results)
-
-        if high_quality / total > 0.5:
-            return "Excellent - High-quality content ready for RAG"
-        elif (high_quality + medium_quality) / total > 0.7:
-            return "Good - Most content suitable for RAG with some filtering"
-        elif medium_quality / total > 0.5:
-            return "Fair - Moderate quality, may need content enhancement"
-        else:
-            return "Limited - Low-quality content, consider refining search or enhancing data"
 
     async def dump_all_user_content(self) -> None:
         """Dump all content stored in Vespa for the current user"""

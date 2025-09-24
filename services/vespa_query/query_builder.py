@@ -174,11 +174,10 @@ class QueryBuilder:
         """Build a similarity search query"""
         try:
             # Safely escape user inputs to prevent YQL injection
-            escaped_user_id = self._escape_yql_value(user_id)
             escaped_document_id = self._escape_yql_value(document_id)
 
             vespa_query = {
-                "yql": f'select * from briefly_document where user_id="{escaped_user_id}" and doc_id!="{escaped_document_id}"',
+                "yql": f'select * from briefly_document where doc_id!="{escaped_document_id}"',
                 "ranking": "similarity",
                 "hits": min(max_hits, 20),
                 "timeout": "5s",
@@ -197,11 +196,9 @@ class QueryBuilder:
     ) -> Dict[str, Any]:
         """Build a trending query"""
         try:
-            # Safely escape user inputs to prevent YQL injection
-            escaped_user_id = self._escape_yql_value(user_id)
 
             vespa_query = {
-                "yql": f'select * from briefly_document where user_id="{escaped_user_id}"',
+                "yql": "select * from briefly_document",
                 "ranking": "trending",
                 "hits": min(max_hits, 20),
                 "timeout": "5s",
@@ -221,11 +218,9 @@ class QueryBuilder:
     ) -> Dict[str, Any]:
         """Build an analytics query"""
         try:
-            # Safely escape user inputs to prevent YQL injection
-            escaped_user_id = self._escape_yql_value(user_id)
 
             vespa_query = {
-                "yql": f'select * from briefly_document where user_id="{escaped_user_id}"',
+                "yql": "select * from briefly_document",
                 "hits": 0,  # We only want analytics, not documents
                 "timeout": "10s",
                 "streaming.groupname": user_id,
@@ -276,12 +271,10 @@ class QueryBuilder:
         """Build the YQL query string"""
         # Safely escape user inputs to prevent YQL injection
         escaped_query = self._escape_yql_value(query)
-        escaped_user_id = self._escape_yql_value(user_id)
 
         # Build a more specific query that searches in search_text and content fields
-        # Add explicit user_id filtering for consistent user isolation
         yql_parts = [
-            f'select * from briefly_document where user_id="{escaped_user_id}" and (search_text contains "{escaped_query}" or content contains "{escaped_query}")'
+            f'select * from briefly_document where (search_text contains "{escaped_query}" or content contains "{escaped_query}")'
         ]
 
         # Add source type filter
@@ -325,11 +318,8 @@ class QueryBuilder:
     ) -> str:
         """Build YQL for autocomplete queries"""
         # Safely escape user inputs to prevent YQL injection
-        escaped_user_id = self._escape_yql_value(user_id)
 
-        yql_parts = [
-            f'select * from briefly_document where user_id="{escaped_user_id}" and userInput(@query)'
-        ]
+        yql_parts = ["select * from briefly_document where userInput(@query)"]
 
         # Add source type filter for autocomplete
         if source_types:
@@ -351,11 +341,8 @@ class QueryBuilder:
     ) -> str:
         """Build YQL for facets queries"""
         # Safely escape user inputs to prevent YQL injection
-        escaped_user_id = self._escape_yql_value(user_id)
 
-        yql_parts = [
-            f'select * from briefly_document where user_id="{escaped_user_id}"'
-        ]
+        yql_parts = ["select * from briefly_document"]
 
         # Add filters for facets
         filters = []

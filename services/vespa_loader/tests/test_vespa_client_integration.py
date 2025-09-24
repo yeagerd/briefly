@@ -61,10 +61,12 @@ class TestVespaClientIntegration(BaseSelectiveHTTPIntegrationTest):
                     # Return different results based on the search query
                     if json and "yql" in json:
                         query = json["yql"]
+                        search_term = json.get("query", "")
                         # Debug: print the query to see what we're matching against
                         print(f"Mock search query: {query}")
+                        print(f"Mock search term: {search_term}")
 
-                        if "consistency" in query:
+                        if "consistency" in search_term:
                             print("Mock: Returning 3 consistency documents")
                             # Return 3 documents for consistency test
                             for i in range(3):
@@ -80,7 +82,7 @@ class TestVespaClientIntegration(BaseSelectiveHTTPIntegrationTest):
                                         },
                                     }
                                 )
-                        elif "extraction" in query:
+                        elif "extraction" in search_term:
                             print("Mock: Returning 1 extraction document")
                             # Return 1 document for extraction test
                             children = [
@@ -97,7 +99,7 @@ class TestVespaClientIntegration(BaseSelectiveHTTPIntegrationTest):
                             ]
                         else:
                             print(
-                                f"Mock: No specific match, using default for query: {query}"
+                                f"Mock: No specific match, using default for search term: {search_term}"
                             )
                             # Default search result for any other query (including "test")
                             children = [

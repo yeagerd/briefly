@@ -131,15 +131,13 @@ class UserDataSearchTool:
         try:
             # Safely escape user inputs to prevent YQL injection
             escaped_query = self._escape_yql_value(query)
-            escaped_user_id = self._escape_yql_value(self.user_id)
             escaped_data_type = self._escape_yql_value(data_type.value)
 
-            # Build YQL query with explicit user_id filtering for security
-            # Use exact matching (=) instead of contains for user_id to prevent data leakage
+            # Build YQL query - user isolation handled by streaming.groupname
             if data_type == DataType.ANY:
-                yql_query = f'select * from briefly_document where user_id="{escaped_user_id}" and (search_text contains "{escaped_query}" or content contains "{escaped_query}" or title contains "{escaped_query}")'
+                yql_query = f'select * from briefly_document where (search_text contains "{escaped_query}" or content contains "{escaped_query}" or title contains "{escaped_query}")'
             else:
-                yql_query = f'select * from briefly_document where user_id="{escaped_user_id}" and source_type="{escaped_data_type}" and (search_text contains "{escaped_query}" or content contains "{escaped_query}" or title contains "{escaped_query}")'
+                yql_query = f'select * from briefly_document where source_type="{escaped_data_type}" and (search_text contains "{escaped_query}" or content contains "{escaped_query}" or title contains "{escaped_query}")'
 
             search_query = {
                 "yql": yql_query,

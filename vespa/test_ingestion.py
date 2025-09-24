@@ -74,8 +74,9 @@ def test_user_isolation():
     
     # Search for user1 documents
     query1 = {
-        "yql": "select * from briefly_document where user_id contains 'user1'",
-        "hits": 10
+        "yql": "select * from briefly_document",
+        "hits": 10,
+        "streaming.groupname": "user1"
     }
     
     response = requests.post(f"{VESPA_URL}/search/", json=query1)
@@ -96,8 +97,9 @@ def test_user_isolation():
     
     # Search for user2 documents
     query2 = {
-        "yql": "select * from briefly_document where user_id contains 'user2'",
-        "hits": 10
+        "yql": "select * from briefly_document",
+        "hits": 10,
+        "streaming.groupname": "user2"
     }
     
     response = requests.post(f"{VESPA_URL}/search/", json=query2)

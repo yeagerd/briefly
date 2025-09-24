@@ -82,18 +82,9 @@ class VespaChatDemo:
         try:
             logger.info("Cleaning up resources...")
 
-            # Close search engine sessions - handle all nested instances
-            if hasattr(self.vespa_search, "search_engine"):
-                await self.vespa_search.search_engine.close()
-
-            # UserDataSearchTool has a VespaSearchTool which has a SearchEngine
-            if hasattr(self.user_data_search, "vespa_search") and hasattr(
-                self.user_data_search.vespa_search, "search_engine"
-            ):
-                await self.user_data_search.vespa_search.search_engine.close()
-
-            if hasattr(self.semantic_search, "search_engine"):
-                await self.semantic_search.search_engine.close()
+            # UserDataSearchTool has a SearchEngine that needs cleanup
+            if hasattr(self.user_data_search, "search_engine"):
+                await self.user_data_search.search_engine.close()
 
             logger.info("Resource cleanup completed")
         except Exception as e:
@@ -254,9 +245,9 @@ class VespaChatDemo:
             # Combine original query context with follow-up
             contextual_query = f"{original_query} {follow_up}"
 
-            # Use semantic search for follow-up questions
-            semantic_results = await self.semantic_search.search(
-                contextual_query, max_results=10
+            # Use user data search for follow-up questions
+            semantic_results = await self.user_data_search.search(
+                query=contextual_query, max_results=10
             )
 
             # Enhance with context from initial search

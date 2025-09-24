@@ -232,12 +232,13 @@ class VespaClient:
                 await self.start()
 
             try:
-                # Prepare search query
+                # Prepare search query - user isolation handled by streaming.groupname
                 search_query = {
-                    "yql": f'select * from briefly_document where user_id="{user_id}" and userInput(@query)',
+                    "yql": "select * from briefly_document where userInput(@query)",
                     "query": query,
                     "hits": limit,
                     "timeout": "5.0s",
+                    "streaming.groupname": user_id,
                 }
 
                 url = f"{self.vespa_endpoint}/search/"
@@ -283,9 +284,9 @@ class VespaClient:
             try:
                 # Use streaming search query to get count for the specific user group
                 search_query = {
-                    "yql": f'select count() from briefly_document where user_id contains "{user_id}"',
+                    "yql": "select count() from briefly_document",
                     "timeout": "5.0s",
-                    "streaming.groupname": user_id,  # Add streaming group parameter
+                    "streaming.groupname": user_id,  # User isolation handled by streaming group
                 }
 
                 url = f"{self.vespa_endpoint}/search/"

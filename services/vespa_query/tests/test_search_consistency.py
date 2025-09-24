@@ -298,11 +298,12 @@ class TestSearchConsistency:
         # YQL should use escaped values for safety
         assert "streaming.groupname" in query
         assert "yql" in query
-        # Verify the YQL contains escaped values
-        escaped_user_id = query_builder._escape_yql_value(user_id)
+        # Verify the YQL contains escaped document_id (user_id is no longer in YQL)
         escaped_document_id = query_builder._escape_yql_value(document_id)
-        assert escaped_user_id in query["yql"]
         assert escaped_document_id in query["yql"]
+        # Verify user_id is NOT in YQL since we use streaming.groupname instead
+        escaped_user_id = query_builder._escape_yql_value(user_id)
+        assert escaped_user_id not in query["yql"]
 
     def test_trending_query_streaming_groupname(self, query_builder):
         """Test that build_trending_query uses raw user_id for streaming.groupname."""
@@ -316,9 +317,9 @@ class TestSearchConsistency:
         # YQL should use escaped values for safety
         assert "streaming.groupname" in query
         assert "yql" in query
-        # Verify the YQL contains escaped values
+        # Verify user_id is NOT in YQL since we use streaming.groupname instead
         escaped_user_id = query_builder._escape_yql_value(user_id)
-        assert escaped_user_id in query["yql"]
+        assert escaped_user_id not in query["yql"]
 
     def test_analytics_query_streaming_groupname(self, query_builder):
         """Test that build_analytics_query uses raw user_id for streaming.groupname."""
@@ -332,9 +333,9 @@ class TestSearchConsistency:
         # YQL should use escaped values for safety
         assert "streaming.groupname" in query
         assert "yql" in query
-        # Verify the YQL contains escaped values
+        # Verify user_id is NOT in YQL since we use streaming.groupname instead
         escaped_user_id = query_builder._escape_yql_value(user_id)
-        assert escaped_user_id in query["yql"]
+        assert escaped_user_id not in query["yql"]
 
 
 if __name__ == "__main__":

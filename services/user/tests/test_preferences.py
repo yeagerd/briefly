@@ -26,31 +26,10 @@ from services.api.v1.user.preferences import (
 from services.common.http_errors import NotFoundError
 from services.user.auth.nextauth import get_current_user
 from services.user.services.preferences_service import PreferencesService
-from services.user.tests.test_base import BaseUserManagementTest
-
-
-@pytest.fixture(autouse=True)
-def patch_settings(monkeypatch):
-    """Patch the _settings global variable to return test settings."""
-    import services.user.settings as user_settings
-
-    test_settings = user_settings.Settings(
-        db_url_user="sqlite:///:memory:",
-        api_frontend_user_key="test-frontend-key",
-        api_chat_user_key="test-chat-key",
-        api_office_user_key="test-office-key",
-        api_meetings_user_key="test-meetings-key",
-        token_encryption_salt="dGVzdC1zYWx0LTE2Ynl0ZQ==",
-        nextauth_jwt_key="test-nextauth-secret",
-        oauth_redirect_uri="https://example.com/oauth/callback",
-        google_client_id="test-google-client-id",
-        google_client_secret="test-google-client-secret",
-        azure_ad_client_id="test-microsoft-client-id",
-        azure_ad_client_secret="test-microsoft-client-secret",
-        pagination_secret_key="test-pagination-secret-key",
-    )
-
-    monkeypatch.setattr("services.user.settings._settings", test_settings)
+from services.user.tests.test_base import (
+    BaseUserManagementIntegrationTest,
+    BaseUserManagementTest,
+)
 
 
 class TestPreferencesSchemas:
@@ -188,8 +167,8 @@ class TestPreferencesSchemas:
 class TestPreferencesService(BaseUserManagementTest):
     """Test preferences service business logic."""
 
-    def setup_method(self):
-        super().setup_method()
+    def setup_method(self, method):
+        super().setup_method(method)
         # Database should be initialized via Alembic migrations before running tests
         # Run: alembic upgrade head
         self.preferences_service = PreferencesService()
@@ -378,14 +357,11 @@ class TestPreferencesService(BaseUserManagementTest):
         assert response.version == "1.0"
 
 
-class TestPreferencesEndpoints(BaseUserManagementTest):
+class TestPreferencesEndpoints(BaseUserManagementIntegrationTest):
     """Test preferences API endpoints."""
 
-    def setup_method(self):
-        super().setup_method()
-        # Database should be initialized via Alembic migrations before running tests
-        # Run: alembic upgrade head
-        self.client = TestClient(self.app)
+    def setup_method(self, method):
+        super().setup_method(method)
         self.mock_preferences = self._create_mock_preferences()
         self._setup_auth_mock()
 

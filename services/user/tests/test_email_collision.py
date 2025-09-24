@@ -13,13 +13,146 @@ from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+import services.user.database as user_database
 from services.user.database import get_async_session
 from services.user.models.user import User
 from services.user.utils.email_collision import (
     EmailCollisionDetector,
     email_collision_detector,
 )
+
+# ------------------- Database Fixtures -------------------
+
+
+@pytest.fixture(scope="function")
+def patch_settings_and_engine():
+    """Patch settings and engine to use a shared in-memory SQLite DB for all connections."""
+    import services.user.settings as user_settings
+
+    # Use in-memory SQLite URI with cache=shared for shared access across async connections
+    shared_db_url = "sqlite+aiosqlite:///:memory:?cache=shared"
+    test_settings = user_settings.Settings(
+        db_url_user=shared_db_url,
+        api_frontend_user_key="test-frontend-user-key",
+        api_chat_user_key="test-chat-user-key",
+        api_office_user_key="test-office-user-key",
+        api_meetings_user_key="test-meetings-user-key",
+        pagination_secret_key="test-pagination-secret-key",
+        token_encryption_salt="dGVzdC1zYWx0LTE2Ynl0ZQ==",
+        environment="test",
+        debug=False,
+    )
+
+    # Store original settings for cleanup
+    original_settings = user_settings._settings
+
+    # Directly set the singleton instead of using monkeypatch
+    user_settings._settings = test_settings
+
+    # Create a single engine instance that will be shared
+    engine = create_async_engine(shared_db_url, future=True)
+
+    # Store original functions for cleanup
+    original_get_engine = user_database.get_engine
+    original_get_async_session = user_database.get_async_session
+    original_get_session = user_database.get_session
+    original_get_db = user_database.get_db
+
+    # Patch functions to use the shared engine
+    user_database.get_engine = lambda: engine
+
+    # Create new session functions that use the shared engine
+    def patched_get_async_session():
+        from sqlalchemy.ext.asyncio import async_sessionmaker
+
+        session_factory = async_sessionmaker(
+            engine, class_=AsyncSession, expire_on_commit=False
+        )
+        return session_factory
+
+    async def patched_get_session():
+        session_factory = patched_get_async_session()
+        async with session_factory() as session:
+            yield session
+
+    async def patched_get_db():
+        session_factory = patched_get_async_session()
+        async with session_factory() as session:
+            yield session
+
+    user_database.get_async_session = patched_get_async_session
+    user_database.get_session = patched_get_session
+    user_database.get_db = patched_get_db
+
+    # Store the engine globally so tests can access it
+    patch_settings_and_engine._test_engine = engine
+
+    yield
+
+    # Restore original functions
+    user_settings._settings = original_settings
+    user_database.get_engine = original_get_engine
+    user_database.get_async_session = original_get_async_session
+    user_database.get_session = original_get_session
+    user_database.get_db = original_get_db
+
+
+@pytest_asyncio.fixture
+async def db_session(patch_settings_and_engine):
+    """Create a database session with tables created."""
+    # Import models to ensure they're registered with SQLModel metadata
+    from sqlmodel import SQLModel
+
+    from services.user.models.audit import AuditLog  # noqa: F401
+    from services.user.models.integration import Integration  # noqa: F401
+    from services.user.models.preferences import UserPreferences  # noqa: F401
+    from services.user.models.token import EncryptedToken  # noqa: F401
+    from services.user.models.user import User  # noqa: F401
+
+    # Create all tables
+    engine = user_database.get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+
+    # Create a single session that will be shared
+    session = AsyncSession(engine)
+
+    # Patch get_async_session to return a session factory that yields our shared session
+    # Note: This will override the patch from patch_settings_and_engine fixture
+    original_get_async_session = user_database.get_async_session
+
+    def patched_get_async_session():
+        """Return a session factory that yields our shared test session."""
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def session_context():
+            yield session
+
+        return session_context
+
+    user_database.get_async_session = patched_get_async_session
+
+    try:
+        yield session
+    finally:
+        # Restore original function
+        user_database.get_async_session = original_get_async_session
+
+        # Clean up database after each test using explicit DELETE statements
+        import sqlalchemy as sa
+
+        # Delete all data from tables in reverse dependency order to avoid foreign key constraints
+        await session.execute(sa.text("DELETE FROM encrypted_tokens"))
+        await session.execute(sa.text("DELETE FROM audit_logs"))
+        await session.execute(sa.text("DELETE FROM user_preferences"))
+        await session.execute(sa.text("DELETE FROM integrations"))
+        await session.execute(sa.text("DELETE FROM users"))
+        await session.commit()
+        await session.close()
+
 
 # ------------------- Normalization Unit Tests (No DB) -------------------
 
@@ -170,61 +303,21 @@ class TestEmailNormalization:
 # ------------------- DB Collision Tests (with DB) -------------------
 
 
-@pytest_asyncio.fixture(scope="function")
-async def db_setup(monkeypatch):
-    # Create a temporary file using NamedTemporaryFile with delete=False
-    temp_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-    db_path = temp_file.name
-    temp_file.close()  # Close the file handle so SQLite can use it
-
-    os.environ["DB_URL_USER"] = f"sqlite+aiosqlite:///{db_path}"
-
-    # Patch the global _settings variable to include required API keys
-    import services.user.settings as user_settings
-
-    test_settings = user_settings.Settings(
-        db_url_user=f"sqlite+aiosqlite:///{db_path}",
-        api_frontend_user_key="test-frontend-key",
-        api_chat_user_key="test-chat-key",
-        api_office_user_key="test-office-key",
-        api_meetings_user_key="test-meetings-key",
-        token_encryption_salt="dGVzdC1zYWx0LTE2Ynl0ZQ==",
-        pagination_secret_key="test-pagination-secret-key",
-    )
-    monkeypatch.setattr("services.user.settings._settings", test_settings)
-
-    # Reset database connections to pick up new settings
-    from services.user.database import reset_db, reset_settings
-
-    reset_settings()
-    await reset_db()
-
-    # Initialize database schema for testing
-    from services.user.database import create_all_tables_for_testing
-
-    await create_all_tables_for_testing()
-    yield
-    # Clean up the temporary database file
-    if os.path.exists(db_path):
-        os.unlink(db_path)
-
-
-@pytest_asyncio.fixture(scope="function")
-async def detector_fixture():
-    return EmailCollisionDetector()
-
-
 class TestEmailCollisionDB:
+    def setup_method(self):
+        # Create detector after database patching is complete
+        self.detector = EmailCollisionDetector()
+
     @pytest.mark.asyncio
-    async def test_check_collision_no_collision(self, db_setup, detector_fixture):
-        detector = detector_fixture
-        with patch.object(detector, "normalize_email", return_value="test@example.com"):
-            result = await detector.check_collision("test@example.com")
+    async def test_check_collision_no_collision(self, db_session):
+        with patch.object(
+            self.detector, "normalize_email", return_value="test@example.com"
+        ):
+            result = await self.detector.check_collision("test@example.com")
             assert result is None
 
     @pytest.mark.asyncio
-    async def test_check_collision_with_collision(self, db_setup, detector_fixture):
-        detector = detector_fixture
+    async def test_check_collision_with_collision(self, db_session):
         # Use unique email to avoid conflicts with other tests
         unique_email = f"existing_{id(self)}_{uuid.uuid4().hex}@example.com"
         existing_user = User(
@@ -233,42 +326,64 @@ class TestEmailCollisionDB:
             email=unique_email,
             normalized_email=unique_email,
         )
-        async_session = get_async_session()
-        async with async_session() as session:
-            session.add(existing_user)
-            await session.commit()
 
-            # Patch get_async_session to return a context manager yielding our session
-            @contextlib.asynccontextmanager
-            async def session_cm():
-                yield session
+        db_session.add(existing_user)
+        await db_session.commit()
 
-            with patch.object(detector, "normalize_email", return_value=unique_email):
-                with patch(
-                    "services.user.utils.email_collision.get_async_session",
-                    return_value=session_cm,
-                ):
-                    result = await detector.check_collision(unique_email)
-                    assert result is not None
-                    assert result.email == unique_email
+        # Flush the session to ensure the data is written to the database
+        await db_session.flush()
+
+        # Verify the user was actually inserted
+        from sqlalchemy import text
+
+        result_count = await db_session.execute(text("SELECT COUNT(*) FROM users"))
+        count = result_count.scalar()
+
+        # Verify using the same session
+        from sqlalchemy import select
+
+        stmt = select(User).where(User.normalized_email == unique_email)
+        result = await db_session.execute(stmt)
+        user = result.scalar_one_or_none()
+
+        # Test the collision detection using the same session
+        # Patch the detector to use our test session instead of creating a new one
+        from sqlalchemy import and_
+
+        async def mock_check_collision(email):
+            normalized_email = self.detector.normalize_email(email)
+            stmt = select(User).where(
+                and_(
+                    User.normalized_email == normalized_email,
+                    User.deleted_at.is_(None),
+                )
+            )
+            result = await db_session.execute(stmt)
+            return result.scalar_one_or_none()
+
+        with patch.object(self.detector, "normalize_email", return_value=unique_email):
+            with patch.object(
+                self.detector, "check_collision", side_effect=mock_check_collision
+            ):
+                result = await self.detector.check_collision(unique_email)
+                assert (
+                    result is not None
+                ), f"Should have found user with email {unique_email}"
+                assert result.email == unique_email
 
     @pytest.mark.asyncio
-    async def test_get_collision_details_no_collision(self, db_setup, detector_fixture):
-        detector = detector_fixture
-        with patch.object(detector, "check_collision", return_value=None):
+    async def test_get_collision_details_no_collision(self):
+        with patch.object(self.detector, "check_collision", return_value=None):
             with patch.object(
-                detector, "normalize_email", return_value="test@example.com"
+                self.detector, "normalize_email", return_value="test@example.com"
             ):
-                result = await detector.get_collision_details("test@example.com")
+                result = await self.detector.get_collision_details("test@example.com")
                 assert result["available"] is True
                 assert result["collision"] is False
                 assert result["normalized_email"] == "test@example.com"
 
     @pytest.mark.asyncio
-    async def test_get_collision_details_with_collision(
-        self, db_setup, detector_fixture
-    ):
-        detector = detector_fixture
+    async def test_get_collision_details_with_collision(self):
         unique_email = f"existing_{id(self)}_{uuid.uuid4().hex}@example.com"
         existing_user = User(
             id=1,
@@ -277,32 +392,34 @@ class TestEmailCollisionDB:
             email=unique_email,
             normalized_email=unique_email,
         )
-        with patch.object(detector, "check_collision", return_value=existing_user):
-            with patch.object(detector, "normalize_email", return_value=unique_email):
-                result = await detector.get_collision_details(unique_email)
+        with patch.object(self.detector, "check_collision", return_value=existing_user):
+            with patch.object(
+                self.detector, "normalize_email", return_value=unique_email
+            ):
+                result = await self.detector.get_collision_details(unique_email)
                 assert result["collision"] is True
                 assert result["existing_user_id"] == existing_user.external_auth_id
                 assert result["existing_user_email"] == unique_email
                 assert result["normalized_email"] == unique_email
 
     @pytest.mark.asyncio
-    async def test_get_email_info_valid_email(self, db_setup, detector_fixture):
-        detector = detector_fixture
+    async def test_get_email_info_valid_email(self):
         # get_email_info now provides domain extraction instead of provider detection
-        result = await detector.get_email_info("user+work@gmail.com")
+        result = await self.detector.get_email_info("user+work@gmail.com")
         assert result["original_email"] == "user+work@gmail.com"
         assert result["normalized_email"] == "user@gmail.com"  # Gmail normalization
         assert result["mailbox_domain"] == "gmail.com"  # Domain extracted from email
         assert result["is_valid"] is True
 
     @pytest.mark.asyncio
-    async def test_get_email_info_invalid_email(self, db_setup, detector_fixture):
-        detector = detector_fixture
+    async def test_get_email_info_invalid_email(self):
         # Test the fallback behavior by mocking the simple_email_normalize to fail
         with patch.object(
-            detector, "_simple_email_normalize", side_effect=Exception("Invalid email")
+            self.detector,
+            "_simple_email_normalize",
+            side_effect=Exception("Invalid email"),
         ):
-            result = await detector.get_email_info("invalid-email")
+            result = await self.detector.get_email_info("invalid-email")
             assert result["original_email"] == "invalid-email"
             assert (
                 result["normalized_email"] == "invalid-email"

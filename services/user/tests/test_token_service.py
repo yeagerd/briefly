@@ -23,8 +23,8 @@ from services.user.tests.test_base import BaseUserManagementTest
 class TestTokenService(BaseUserManagementTest):
     """Test suite for TokenService."""
 
-    def setup_method(self):
-        super().setup_method()
+    def setup_method(self, method):
+        super().setup_method(method)
         # Database should be initialized via Alembic migrations before running tests
         # Run: alembic upgrade head
         self.token_service = TokenService()

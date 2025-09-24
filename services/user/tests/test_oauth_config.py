@@ -32,30 +32,6 @@ from services.user.settings import Settings
 from services.user.tests.test_base import BaseUserManagementTest
 
 
-@pytest.fixture(autouse=True)
-def patch_settings(monkeypatch):
-    """Patch the _settings global variable to return test settings."""
-    import services.user.settings as user_settings
-
-    test_settings = user_settings.Settings(
-        db_url_user="sqlite+aiosqlite:///:memory:",
-        api_frontend_user_key="test-frontend-key",
-        api_chat_user_key="test-chat-key",
-        api_office_user_key="test-office-key",
-        api_meetings_user_key="test-meetings-key",
-        token_encryption_salt="dGVzdC1zYWx0LTE2Ynl0ZQ==",
-        nextauth_jwt_key="test-nextauth-secret",
-        oauth_redirect_uri="https://example.com/oauth/callback",
-        google_client_id="test-google-client-id",
-        google_client_secret="test-google-client-secret",
-        azure_ad_client_id="test-microsoft-client-id",
-        azure_ad_client_secret="test-microsoft-client-secret",
-        pagination_secret_key="test-pagination-secret-key",
-    )
-
-    monkeypatch.setattr("services.user.settings._settings", test_settings)
-
-
 class TestPKCEChallenge:
     """Test PKCE challenge generation and validation."""
 
@@ -355,10 +331,10 @@ class TestOAuthProviderConfig:
 class TestOAuthConfig(BaseUserManagementTest):
     """Test OAuth configuration manager."""
 
-    def setup_method(self):
+    def setup_method(self, method):
         """Set up test environment."""
         # Call parent setup to prevent HTTP calls
-        super().setup_method()
+        super().setup_method(method)
 
         # Reset global config before each test
         reset_oauth_config()
@@ -373,7 +349,7 @@ class TestOAuthConfig(BaseUserManagementTest):
         self.settings = _settings
         self.oauth_config = OAuthConfig(self.settings)
 
-    def teardown_method(self):
+    def teardown_method(self, method):
         """Clean up test environment."""
         # Clean up temporary database file
         if hasattr(self, "temp_db") and os.path.exists(self.temp_db.name):
@@ -383,7 +359,7 @@ class TestOAuthConfig(BaseUserManagementTest):
         reset_oauth_config()
 
         # Call parent teardown
-        super().teardown_method()
+        super().teardown_method(method)
 
     def test_oauth_config_initialization(self):
         """Test OAuth configuration initialization."""
@@ -411,11 +387,13 @@ class TestOAuthConfig(BaseUserManagementTest):
                 token_encryption_salt="dGVzdC1zYWx0LTE2Ynl0ZQ==",
                 nextauth_jwt_key="test-nextauth-secret",
                 oauth_redirect_uri="https://example.com/oauth/callback",
+                pagination_secret_key="test-pagination-secret-key",
                 # Explicitly set OAuth credentials to empty to ensure no providers are available
                 google_client_id="",
                 google_client_secret="",
                 azure_ad_client_id="",
                 azure_ad_client_secret="",
+                environment="test",
             )
             config = OAuthConfig(settings_no_creds)
 
@@ -1129,8 +1107,10 @@ class TestGlobalOAuthConfig:
             token_encryption_salt="dGVzdC1zYWx0LTE2Ynl0ZQ==",
             nextauth_jwt_key="test-nextauth-secret",
             oauth_redirect_uri="https://example.com/oauth/callback",
+            pagination_secret_key="test-pagination-secret-key",
             google_client_id="custom-google-id",
             google_client_secret="custom-google-secret",
+            environment="test",
         )
         config = get_oauth_config(custom_settings)
         assert config is not None

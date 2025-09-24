@@ -175,25 +175,47 @@ class VespaSearchDemo:
         try:
             logger.info("Cleaning up resources...")
 
-            # Close search engine sessions - handle all nested instances
+            # Close search engine sessions - handle all nested instances safely
             if self.vespa_search and hasattr(self.vespa_search, "search_engine"):
-                await self.vespa_search.search_engine.close()
+                try:
+                    if (
+                        self.vespa_search.search_engine
+                        and self.vespa_search.search_engine.session
+                    ):
+                        await self.vespa_search.search_engine.close()
+                except Exception as e:
+                    logger.warning(f"Error closing vespa_search engine: {e}")
 
-            # UserDataSearchTool has a VespaSearchTool which has a SearchEngine
-            if (
-                self.user_data_search
-                and hasattr(self.user_data_search, "vespa_search")
-                and self.user_data_search.vespa_search
-                and hasattr(self.user_data_search.vespa_search, "search_engine")
+            # UserDataSearchTool has its own SearchEngine
+            if self.user_data_search and hasattr(
+                self.user_data_search, "search_engine"
             ):
-                await self.user_data_search.vespa_search.search_engine.close()
+                try:
+                    if (
+                        self.user_data_search.search_engine
+                        and self.user_data_search.search_engine.session
+                    ):
+                        await self.user_data_search.search_engine.close()
+                except Exception as e:
+                    logger.warning(f"Error closing user_data_search engine: {e}")
 
             if self.semantic_search and hasattr(self.semantic_search, "search_engine"):
-                await self.semantic_search.search_engine.close()
+                try:
+                    if (
+                        self.semantic_search.search_engine
+                        and self.semantic_search.search_engine.session
+                    ):
+                        await self.semantic_search.search_engine.close()
+                except Exception as e:
+                    logger.warning(f"Error closing semantic_search engine: {e}")
 
             # Close our stats search engine
-            if hasattr(self, "search_engine"):
-                await self.search_engine.close()
+            if hasattr(self, "search_engine") and self.search_engine:
+                try:
+                    if self.search_engine.session:
+                        await self.search_engine.close()
+                except Exception as e:
+                    logger.warning(f"Error closing stats search engine: {e}")
 
             logger.info("Resource cleanup completed")
         except Exception as e:
@@ -546,7 +568,25 @@ class VespaSearchDemo:
                     grouped_results: Dict[str, Any] = raw_grouped_results
                     for result_type, results in grouped_results.items():
                         if isinstance(results, list):
-                            all_results.extend(results)
+                            # Convert SearchResult objects to dictionaries
+                            dict_results = []
+                            for result in results:
+                                if hasattr(result, "model_dump"):
+                                    # Pydantic V2 model - convert to dict
+                                    dict_results.append(result.model_dump())
+                                elif hasattr(result, "dict"):
+                                    # Pydantic V1 model - convert to dict
+                                    dict_results.append(result.dict())
+                                elif hasattr(result, "__dict__"):
+                                    # Object with __dict__ - convert to dict
+                                    dict_results.append(result.__dict__)
+                                elif isinstance(result, dict):
+                                    # Already a dict
+                                    dict_results.append(result)
+                                else:
+                                    # Fallback - try to access as dict
+                                    dict_results.append(result)
+                            all_results.extend(dict_results)
 
                 # Sort by relevance score
                 all_results.sort(
@@ -887,11 +927,21 @@ class VespaSearchDemo:
         if not results:
             return "No results"
 
-        vector_count = sum(1 for r in results if "Vector" in r.get("search_method", ""))
-        keyword_count = sum(
-            1 for r in results if "Keyword" in r.get("search_method", "")
+        vector_count = sum(
+            1
+            for r in results
+            if r.get("search_method") and "Vector" in r.get("search_method", "")
         )
-        hybrid_count = sum(1 for r in results if "Hybrid" in r.get("search_method", ""))
+        keyword_count = sum(
+            1
+            for r in results
+            if r.get("search_method") and "Keyword" in r.get("search_method", "")
+        )
+        hybrid_count = sum(
+            1
+            for r in results
+            if r.get("search_method") and "Hybrid" in r.get("search_method", "")
+        )
         other_count = len(results) - vector_count - keyword_count - hybrid_count
 
         breakdown_parts = []

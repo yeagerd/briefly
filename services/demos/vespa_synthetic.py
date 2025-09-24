@@ -11,9 +11,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from services.chat.tools.search_tools import (
-    SemanticSearchTool,
     UserDataSearchTool,
-    VespaSearchTool,
 )
 from services.vespa_query.search_engine import SearchEngine
 
@@ -31,11 +29,7 @@ class VespaChatDemo:
         self.demo_user_id = config.get("demo_user_id", "demo_user_1")
 
         # Initialize search tools
-        self.vespa_search = VespaSearchTool(self.vespa_endpoint, self.demo_user_id)
         self.user_data_search = UserDataSearchTool(
-            self.vespa_endpoint, self.demo_user_id
-        )
-        self.semantic_search = SemanticSearchTool(
             self.vespa_endpoint, self.demo_user_id
         )
 
@@ -222,8 +216,8 @@ class VespaChatDemo:
             start_time = time.time()
 
             # Use user data search for comprehensive results
-            search_results = await self.user_data_search.search_all_data(
-                query, max_results=20
+            search_results = await self.user_data_search.search(
+                query=query, max_results=20
             )
 
             search_time = (time.time() - start_time) * 1000

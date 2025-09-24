@@ -12,6 +12,7 @@ import requests
 from services.chat.settings import get_settings
 from services.chat.tools.data_tools import DataTools
 from services.chat.tools.draft_tools import DraftTools
+from services.chat.tools.search_tools import RankingMode
 from services.chat.tools.tool_registry import (
     ToolMetadata,
 )
@@ -99,9 +100,7 @@ class GetTools:
         self.utility_tools = UtilityTools()
 
         # Initialize search tools
-        from services.chat.tools.search_tools import (
-            UserDataSearchTool,
-        )
+        from services.chat.tools.search_tools import UserDataSearchTool
 
         self.user_data_search_tool = UserDataSearchTool(self.vespa_endpoint, user_id)
 
@@ -789,21 +788,21 @@ class GetTools:
                         future = executor.submit(
                             asyncio.run,
                             self.user_data_search_tool.search(
-                                query, data_type_enum, max_results
+                                query, data_type_enum, RankingMode.HYBRID, max_results
                             ),
                         )
                         return future.result()
                 else:
                     return loop.run_until_complete(
                         self.user_data_search_tool.search(
-                            query, data_type_enum, max_results
+                            query, data_type_enum, RankingMode.HYBRID, max_results
                         )
                     )
             except RuntimeError:
                 # No event loop exists, create a new one
                 return asyncio.run(
                     self.user_data_search_tool.search(
-                        query, data_type_enum, max_results
+                        query, data_type_enum, RankingMode.HYBRID, max_results
                     )
                 )
 

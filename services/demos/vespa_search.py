@@ -112,8 +112,12 @@ class VespaSearchDemo:
                 "ranking_profile": "hybrid",
             },
             {
-                "name": "Semantic Ranking Profile", 
-                "queries": ["semantic search", "meaning-based query", "contextual search"],
+                "name": "Semantic Ranking Profile",
+                "queries": [
+                    "semantic search",
+                    "meaning-based query",
+                    "contextual search",
+                ],
                 "expected": "Semantic ranking responses",
                 "ranking_profile": "semantic",
             },
@@ -336,24 +340,26 @@ class VespaSearchDemo:
 
     def _get_ranking_mode(self, ranking_profile: str) -> RankingMode:
         """Convert ranking profile string to RankingMode enum.
-        
+
         Args:
             ranking_profile: String representation of ranking profile
-            
+
         Returns:
             RankingMode enum value
-            
+
         Raises:
             ValueError: If ranking_profile is not supported
         """
         ranking_profile_lower = ranking_profile.lower()
-        
+
         if ranking_profile_lower == "hybrid":
             return RankingMode.HYBRID
         elif ranking_profile_lower == "semantic":
             return RankingMode.SEMANTIC
         else:
-            logger.warning(f"Unknown ranking profile '{ranking_profile}', defaulting to hybrid")
+            logger.warning(
+                f"Unknown ranking profile '{ranking_profile}', defaulting to hybrid"
+            )
             return RankingMode.HYBRID
 
     async def _test_advanced_scenario(self, scenario: Dict[str, Any]) -> Dict[str, Any]:
@@ -570,7 +576,7 @@ class VespaSearchDemo:
                 # Get results from the flat results array
                 raw_results: Any = search_results.get("results", [])
                 all_results = []
-                
+
                 if isinstance(raw_results, list):
                     # Convert SearchResult objects to dictionaries
                     for result in raw_results:

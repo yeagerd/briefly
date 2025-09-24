@@ -118,8 +118,9 @@ export function IntegrationsContent() {
                 }
                 setSelectedScopes(mergedScopes);
             } else {
-                // For new/disconnected integrations, use all available scopes
-                setSelectedScopes(availableScopes);
+                // For new/disconnected integrations, select all scopes by default
+                const allScopeNames = scopes.map((scope: IntegrationScopeResponse) => scope.name);
+                setSelectedScopes(allScopeNames);
             }
         });
     };

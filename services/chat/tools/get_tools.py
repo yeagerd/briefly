@@ -758,7 +758,7 @@ class GetTools:
         )
 
         # Create a synchronous wrapper for the async vespa search method
-        def vespa_search_wrapper(query: str, max_results: int = 20):
+        def vespa_search_wrapper(query: str, max_results: int = 20) -> Dict[str, Any]:
             """Synchronous wrapper for vespa_search async method."""
             import asyncio
 
@@ -825,7 +825,9 @@ class GetTools:
         )
 
         # Create a synchronous wrapper for the async semantic search method
-        def semantic_search_wrapper(query: str, max_results: int = 20):
+        def semantic_search_wrapper(
+            query: str, max_results: int = 20
+        ) -> Dict[str, Any]:
             """Synchronous wrapper for semantic_search async method."""
             import asyncio
 
@@ -904,7 +906,7 @@ class GetTools:
         # Create a synchronous wrapper for the async search method
         def user_data_search_wrapper(
             query: str, data_type: str = "any", max_results: int = 20
-        ):
+        ) -> Dict[str, Any]:
             """Synchronous wrapper for user_data_search async method."""
             import asyncio
 

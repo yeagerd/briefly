@@ -253,6 +253,7 @@ class EmailCrawler:
                     start_date,
                     end_date,
                     folders,
+                    original_batch_size=batch_size,  # Pass original batch size for skip calculation
                 )
 
                 # Update the count of emails processed
@@ -284,6 +285,7 @@ class EmailCrawler:
         start_date: Optional[datetime],
         end_date: Optional[datetime],
         folders: Optional[List[str]],
+        original_batch_size: Optional[int] = None,
     ) -> List[EmailMessage]:
         """Get a batch of emails from the specified provider using the office service's unified API
 
@@ -308,6 +310,17 @@ class EmailCrawler:
                 # It's already a string
                 provider_str = str(provider).lower()
 
+            # Calculate pagination offset (skip value for Microsoft API)
+            # Use original_batch_size for skip calculation to ensure proper pagination
+            calc_batch_size = (
+                original_batch_size if original_batch_size is not None else batch_size
+            )
+            skip_value = batch_num * calc_batch_size
+
+            logger.info(
+                f"EmailCrawler: Processing batch {batch_num} with skip_value={skip_value}, batch_size={batch_size}, original_batch_size={original_batch_size}"
+            )
+
             # Build query parameters
             params: Dict[str, Any] = {
                 "user_id": self.user_id,  # Pass user_id as query parameter for internal endpoint
@@ -316,6 +329,9 @@ class EmailCrawler:
                 "limit": batch_size,
                 "include_body": True,
                 "no_cache": True,  # Always get fresh data for backfill
+                "page_token": str(
+                    skip_value
+                ),  # For Microsoft, this becomes the skip value
             }
 
             # Add folder filtering if specified

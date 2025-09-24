@@ -73,8 +73,13 @@ class UserDataSearchTool:
 
     async def cleanup(self) -> None:
         """Clean up resources, including closing the search engine session."""
-        if hasattr(self, "search_engine") and self.search_engine:
-            await self.search_engine.close()
+        try:
+            if hasattr(self, "search_engine") and self.search_engine:
+                await self.search_engine.close()
+                logger.info("UserDataSearchTool cleanup completed successfully")
+        except Exception as e:
+            logger.error(f"Error during UserDataSearchTool cleanup: {e}")
+            # Don't re-raise the exception to avoid masking other cleanup issues
 
     async def __aenter__(self) -> "UserDataSearchTool":
         """Async context manager entry."""

@@ -85,6 +85,16 @@ check_vespa_container_health() {
     return 1
 }
 
+# Check if Vespa config server is ready
+check_vespa_config_server_ready() {
+    # Check if config server port is accessible
+    if curl -s http://localhost:19071/application/v2/tenant/default/session >/dev/null 2>&1; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 # Check if Vespa application is deployed and responding
 check_vespa_status() {
     log_info "Checking Vespa status..."
@@ -96,6 +106,14 @@ check_vespa_status() {
     fi
     
     log_success "Vespa container is running"
+    
+    # Check if config server is ready
+    if ! check_vespa_config_server_ready; then
+        log_info "Vespa config server is not ready yet"
+        return 1
+    fi
+    
+    log_success "Vespa config server is ready"
     
     # Check if HTTP is responding (this will fail until app is deployed)
     if curl -s "$VESPA_ENDPOINT/" > /dev/null 2>&1; then
@@ -149,14 +167,33 @@ start_vespa_container() {
     
     while [ $attempts -lt $max_attempts ]; do
         if check_vespa_container_health; then
-            log_success "Vespa container is ready!"
+            log_success "Vespa container is running!"
+            break
+        fi
+        attempts=$((attempts + 1))
+        sleep 2
+    done
+    
+    if [ $attempts -ge $max_attempts ]; then
+        log_error "Vespa container failed to start within ${max_attempts} seconds"
+        return 1
+    fi
+    
+    # Now wait for config server to be ready
+    log_info "Waiting for Vespa config server to be ready..."
+    attempts=0
+    max_attempts=60
+    
+    while [ $attempts -lt $max_attempts ]; do
+        if check_vespa_config_server_ready; then
+            log_success "Vespa config server is ready!"
             return 0
         fi
         attempts=$((attempts + 1))
         sleep 2
     done
     
-    log_error "Vespa container failed to start within ${max_attempts} seconds"
+    log_error "Vespa config server failed to become ready within ${max_attempts} seconds"
     return 1
 }
 
@@ -223,6 +260,14 @@ deploy_package() {
     # Use config server workflow (prepare -> activate)
     log_info "Using config server workflow (prepare -> activate)..."
     
+    # Ensure config server is ready before attempting deployment
+    log_info "Verifying config server is ready for deployment..."
+    if ! check_vespa_config_server_ready; then
+        log_error "Config server is not ready for deployment"
+        return 1
+    fi
+    log_success "Config server is ready for deployment"
+    
     # Start tailing logs in background to show deployment progress
     log_info "Starting real-time log monitoring..."
     docker logs "$VESPA_CONTAINER_NAME" --follow --tail 0 &
@@ -249,6 +294,13 @@ deploy_package() {
     else
         log_error "Failed to prepare application"
         log_info "Prepare output: $prepare_output"
+        
+        # Check if it's a connection issue
+        if [[ "$prepare_output" == *"Connection refused"* ]] || [[ "$prepare_output" == *"Failed to connect"* ]]; then
+            log_error "Config server connection failed - this usually means Vespa is still starting up"
+            log_info "Try running the script again in a few seconds"
+        fi
+        
         kill $LOG_TAIL_PID 2>/dev/null || true
         return 1
     fi

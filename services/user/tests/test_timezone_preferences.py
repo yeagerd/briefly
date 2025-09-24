@@ -87,7 +87,7 @@ class TestTimezonePreferencesAPI(BaseUserManagementIntegrationTest):
         """Set up test client and authentication."""
         super().setup_method(method)
         self.headers = {
-            "X-API-Key": "test-frontend-key",
+            "X-API-Key": "test-frontend-user-key",
             "Content-Type": "application/json",
         }
 

@@ -16,13 +16,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({ toolDataLoading = false, ac
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [noIntegrations, setNoIntegrations] = useState(false);
     const { loading: integrationsLoading, activeProviders } = useIntegrations();
     const { effectiveTimezone } = useUserPreferences();
 
     const fetchCalendarEvents = useCallback(async (noCache = false) => {
         if (!activeProviders || activeProviders.length === 0) {
+            setNoIntegrations(true);
+            setLoading(false);
             return;
         }
+        setNoIntegrations(false);
 
         try {
             const session = await getSession();
@@ -62,18 +66,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({ toolDataLoading = false, ac
     }, [fetchCalendarEvents]);
 
     useEffect(() => {
-        // Only fetch when the tab is actually activated
-        if (toolDataLoading) return;
-        if (integrationsLoading) return;
-        if ((!activeProviders || activeProviders.length === 0)) {
-            setError('No active calendar integrations found. Please connect your calendar account first.');
-            setEvents([]);
-            setLoading(false);
+        if (toolDataLoading || integrationsLoading) {
+            setLoading(true);
             return;
         }
+
         if (activeTool !== 'calendar') {
             setLoading(false);
             return;
+        }
+
+        if ((!activeProviders || activeProviders.length === 0)) {
+            setNoIntegrations(true);
+            setEvents([]);
+            setLoading(false);
+            setError(null);
+            return;
+        } else {
+            setNoIntegrations(false);
         }
 
         let isMounted = true;
@@ -88,8 +98,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ toolDataLoading = false, ac
         return () => { isMounted = false; };
     }, [activeProviders, integrationsLoading, toolDataLoading, activeTool, fetchCalendarEvents]);
 
-
-
     return (
         <div className="h-full flex flex-col">
             {/* Content */}
@@ -98,9 +106,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ toolDataLoading = false, ac
                     toolDataLoading={toolDataLoading}
                     activeTool={activeTool}
                     events={events}
-                    loading={loading}
+                    loading={loading || integrationsLoading}
                     refreshing={refreshing}
                     error={error}
+                    noIntegrations={noIntegrations}
                     onRefresh={handleRefresh}
                 />
             </div>

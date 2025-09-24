@@ -74,7 +74,7 @@ schema briefly_document {
         field quoted_content type string {
             indexing: index | summary
             index: enable-bm25
-            match: word
+            match: substring
             stemming: best
         }
         

@@ -15,25 +15,26 @@ FEATURES:
 
 USAGE EXAMPLES:
   # Interactive mode with user stats (default)
-  python3 vespa_search.py user@example.com
+  USER=trybriefly@outlook.com
+  python3 vespa_search.py ${USER}
 
   # Show statistics for all users
-  python3 vespa_search.py user@example.com --stats
+  python3 vespa_search.py ${USER} --stats
 
   # Only show statistics (no interactive mode)
-  python3 vespa_search.py user@example.com --stats-only
+  python3 vespa_search.py ${USER} --stats-only
 
   # Run comprehensive search demo
-  python3 vespa_search.py user@example.com --demo
+  python3 vespa_search.py ${USER} --demo
 
   # Execute single query non-interactively
-  python3 vespa_search.py user@example.com --query "meeting notes"
+  python3 vespa_search.py ${USER} --query "meeting notes"
 
   # Custom Vespa endpoint
-  python3 vespa_search.py user@example.com --vespa-endpoint http://localhost:8080
+  python3 vespa_search.py ${USER} --vespa-endpoint http://localhost:8080
 
   # Dump all content stored in Vespa for the user
-  python3 vespa_search.py user@example.com --dump
+  python3 vespa_search.py ${USER} --dump
 
 STATISTICS PROVIDED:
   • Current user document count and breakdowns
@@ -1655,60 +1656,7 @@ async def main() -> Optional[Dict[str, Any]]:
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="""Vespa Search Demo - Comprehensive search capabilities demonstration
-
-This demo focuses on testing and showcasing Vespa's search capabilities
-without the complexity of data ingestion and backfill functionality.
-
-FEATURES:
-  • Interactive search mode with real-time querying
-  • Comprehensive search demo with multiple test scenarios
-  • User statistics collection and display
-  • Multi-user database statistics and aggregations
-  • Performance benchmarking and metrics
-  • Support for different ranking profiles (hybrid, BM25, semantic)
-
-USAGE EXAMPLES:
-  # Interactive mode with user stats (default)
-  python3 vespa_search.py user@example.com
-
-  # Show statistics for all users
-  python3 vespa_search.py user@example.com --stats
-
-  # Only show statistics (no interactive mode)
-  python3 vespa_search.py user@example.com --stats-only
-
-  # Run comprehensive search demo
-  python3 vespa_search.py user@example.com --demo
-
-  # Execute single query non-interactively
-  python3 vespa_search.py user@example.com --query "meeting notes"
-
-  # Custom Vespa endpoint
-  python3 vespa_search.py user@example.com --vespa-endpoint http://localhost:8080
-
-  # Dump all content stored in Vespa for the user
-  python3 vespa_search.py user@example.com --dump
-
-STATISTICS PROVIDED:
-  • Current user document count and breakdowns
-  • Source type distribution (emails, calendar, contacts, etc.)
-  • Provider breakdown (Outlook, Gmail, etc.)
-  • All users aggregate statistics
-  • Query performance metrics and response times
-
-SEARCH CAPABILITIES:
-  • Full-text search across titles, content, and search text
-  • User-scoped data isolation
-  • Hybrid ranking (BM25 + vector similarity)
-  • Semantic search with embeddings
-  • Source type and provider filtering
-  • Real-time search with performance metrics
-
-REQUIREMENTS:
-  • Vespa instance running and accessible
-  • User data indexed in Vespa database
-  • Python dependencies: aiohttp, asyncio""",
+        description=__doc__,
         epilog="Example: python3 vespa_search.py trybriefly@outlook.com --demo",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

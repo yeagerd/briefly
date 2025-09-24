@@ -64,7 +64,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from services.chat.tools.search_tools import DataType, UserDataSearchTool
+from services.chat.tools.search_tools import DataType, RankingMode, UserDataSearchTool
 from services.vespa_query.search_engine import SearchEngine
 
 # Configure logging
@@ -103,13 +103,19 @@ class VespaSearchDemo:
             },
         ]
 
-        # Initialize advanced scenarios
+        # Initialize advanced scenarios with different ranking profiles
         self.advanced_scenarios = [
             {
-                "name": "Advanced Search Features",
-                "queries": ["complex query", "advanced search"],
-                "expected": "Advanced search responses",
-                "ranking_profile": "hybrid",  # Default ranking profile
+                "name": "Hybrid Ranking Profile",
+                "queries": ["complex query", "advanced search", "hybrid ranking test"],
+                "expected": "Hybrid ranking responses",
+                "ranking_profile": "hybrid",
+            },
+            {
+                "name": "Semantic Ranking Profile", 
+                "queries": ["semantic search", "meaning-based query", "contextual search"],
+                "expected": "Semantic ranking responses",
+                "ranking_profile": "semantic",
             },
         ]
 
@@ -328,6 +334,28 @@ class VespaSearchDemo:
 
         return scenario_result
 
+    def _get_ranking_mode(self, ranking_profile: str) -> RankingMode:
+        """Convert ranking profile string to RankingMode enum.
+        
+        Args:
+            ranking_profile: String representation of ranking profile
+            
+        Returns:
+            RankingMode enum value
+            
+        Raises:
+            ValueError: If ranking_profile is not supported
+        """
+        ranking_profile_lower = ranking_profile.lower()
+        
+        if ranking_profile_lower == "hybrid":
+            return RankingMode.HYBRID
+        elif ranking_profile_lower == "semantic":
+            return RankingMode.SEMANTIC
+        else:
+            logger.warning(f"Unknown ranking profile '{ranking_profile}', defaulting to hybrid")
+            return RankingMode.HYBRID
+
     async def _test_advanced_scenario(self, scenario: Dict[str, Any]) -> Dict[str, Any]:
         """Test an advanced search scenario with specific ranking profiles"""
         scenario_result = {
@@ -340,6 +368,10 @@ class VespaSearchDemo:
             "average_response_time": 0.0,
         }
 
+        # Map ranking profile string to RankingMode enum
+        ranking_profile = scenario.get("ranking_profile", "hybrid")
+        ranking_mode = self._get_ranking_mode(ranking_profile)
+
         for query in scenario["queries"]:
             try:
                 start_time = time.time()
@@ -349,6 +381,7 @@ class VespaSearchDemo:
                     results = await self.user_data_search.search(
                         query=query,
                         data_type=DataType.ANY,
+                        ranking_mode=ranking_mode,
                         max_results=10,
                     )
                 else:

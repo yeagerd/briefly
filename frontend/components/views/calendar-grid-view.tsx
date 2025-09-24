@@ -1,5 +1,6 @@
 "use client"
 
+import { officeApi } from '@/api';
 import { Button } from '@/components/ui/button';
 import { DateTimeRangePicker } from '@/components/ui/date-time-range-picker';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -11,14 +12,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { useIntegrations } from '@/contexts/integrations-context';
 import { useUserPreferences } from '@/contexts/settings-context';
-import { officeApi } from '@/api';
 import type { CalendarEvent } from '@/types/api/office';
-import { ChevronLeft, ChevronRight, RefreshCw, CalendarX } from 'lucide-react';
+import { CalendarX, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { DateTime } from 'luxon';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarEventItem } from '../calendar-event-item';
 import { CalendarGridEvent } from './calendar-grid-event';
-import { useRouter } from 'next/navigation';
 
 interface CalendarGridViewProps {
     toolDataLoading?: boolean;
@@ -352,26 +352,6 @@ export default function CalendarGridView({
 
     useEffect(() => {
         if (viewType !== 'list' && externalEvents !== undefined) return;
-        if (toolDataLoading) return;
-        if (integrationsLoading) return;
-        if (!activeProviders || activeProviders.length === 0) return;
-        if (activeTool !== 'calendar') return;
-
-        let isMounted = true;
-        setLoading(true);
-        (async () => {
-            try {
-                await fetchCalendarEvents(false);
-            } finally {
-                if (isMounted) setLoading(false);
-            }
-        })();
-        return () => { isMounted = false; };
-    }, [dateRange, viewType, externalEvents, toolDataLoading, integrationsLoading, activeProviders, activeTool, fetchCalendarEvents]);
-
-    // Fetch events when date range changes (for list view or when not using external events)
-    useEffect(() => {
-        if (viewType !== 'list' && externalEvents !== undefined) return; // Don't fetch if using external events (except for list view)
         if (toolDataLoading) return;
         if (integrationsLoading) return;
         if (!activeProviders || activeProviders.length === 0) return;

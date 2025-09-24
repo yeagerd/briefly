@@ -532,39 +532,38 @@ class VespaSearchDemo:
 
             response_time = (time.time() - start_time) * 1000
 
-            # Extract results from the grouped structure
+            # Extract results from the search response
             if search_results.get("status") == "success":
-                # Flatten grouped results into a single list for display
+                # Get results from the flat results array
+                raw_results: Any = search_results.get("results", [])
                 all_results = []
-                raw_grouped_results: Any = search_results.get("grouped_results", {})
-                if isinstance(raw_grouped_results, dict):
-                    grouped_results: Dict[str, Any] = raw_grouped_results
-                    for result_type, results in grouped_results.items():
-                        if isinstance(results, list):
-                            # Convert SearchResult objects to dictionaries
-                            dict_results = []
-                            for result in results:
-                                if hasattr(result, "model_dump"):
-                                    # Pydantic V2 model - convert to dict
-                                    dict_results.append(result.model_dump())
-                                elif hasattr(result, "dict"):
-                                    # Pydantic V1 model - convert to dict
-                                    dict_results.append(result.dict())
-                                elif hasattr(result, "__dict__"):
-                                    # Object with __dict__ - convert to dict
-                                    dict_results.append(result.__dict__)
-                                elif isinstance(result, dict):
-                                    # Already a dict
-                                    dict_results.append(result)
-                                else:
-                                    # Fallback - try to access as dict
-                                    dict_results.append(result)
-                            all_results.extend(dict_results)
+                
+                if isinstance(raw_results, list):
+                    # Convert SearchResult objects to dictionaries
+                    for result in raw_results:
+                        if hasattr(result, "model_dump"):
+                            # Pydantic V2 model - convert to dict
+                            all_results.append(result.model_dump())
+                        elif hasattr(result, "dict"):
+                            # Pydantic V1 model - convert to dict
+                            all_results.append(result.dict())
+                        elif hasattr(result, "__dict__"):
+                            # Object with __dict__ - convert to dict
+                            all_results.append(result.__dict__)
+                        elif isinstance(result, dict):
+                            # Already a dict
+                            all_results.append(result)
+                        else:
+                            # Fallback - try to access as dict
+                            all_results.append(result)
 
                 # Sort by relevance score
                 all_results.sort(
                     key=lambda x: x.get("relevance_score", 0.0), reverse=True
                 )
+
+                # Create a grouped_results structure for backward compatibility
+                grouped_results = {"all": all_results} if all_results else {}
 
                 return {
                     "query": query,

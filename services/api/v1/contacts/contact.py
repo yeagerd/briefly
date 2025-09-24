@@ -9,6 +9,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from services.api.v1.office.schemas import ContactPhone
 from services.contacts.models.contact import Contact
 
 
@@ -18,6 +19,7 @@ class EmailContactUpdate(BaseModel):
     display_name: Optional[str] = None
     given_name: Optional[str] = None
     family_name: Optional[str] = None
+    phone_numbers: Optional[List[ContactPhone]] = None
     tags: Optional[List[str]] = None
     notes: Optional[str] = None
 
@@ -38,6 +40,9 @@ class ContactCreate(BaseModel):
     display_name: Optional[str] = Field(None, description="Contact's display name")
     given_name: Optional[str] = Field(None, description="Contact's given/first name")
     family_name: Optional[str] = Field(None, description="Contact's family/last name")
+    phone_numbers: Optional[List[ContactPhone]] = Field(
+        default_factory=list, description="Contact phone numbers"
+    )
     tags: Optional[List[str]] = Field(default_factory=list, description="Contact tags")
     notes: Optional[str] = Field(None, description="Additional notes about the contact")
 

@@ -600,6 +600,9 @@ class ContactPhone(BaseModel):
         None, description="Type of phone number (work, mobile, home)"
     )
     number: str = Field(..., description="Phone number in E.164 or localized format")
+    primary: Optional[bool] = Field(
+        False, description="Whether this is the primary phone number for the contact"
+    )
 
 
 class Contact(BaseModel):

@@ -11,9 +11,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from services.chat.tools.search_tools import (
-    SemanticSearchTool,
     UserDataSearchTool,
-    VespaSearchTool,
 )
 from services.vespa_query.search_engine import SearchEngine
 
@@ -31,11 +29,7 @@ class VespaChatDemo:
         self.demo_user_id = config.get("demo_user_id", "demo_user_1")
 
         # Initialize search tools
-        self.vespa_search = VespaSearchTool(self.vespa_endpoint, self.demo_user_id)
         self.user_data_search = UserDataSearchTool(
-            self.vespa_endpoint, self.demo_user_id
-        )
-        self.semantic_search = SemanticSearchTool(
             self.vespa_endpoint, self.demo_user_id
         )
 
@@ -88,18 +82,9 @@ class VespaChatDemo:
         try:
             logger.info("Cleaning up resources...")
 
-            # Close search engine sessions - handle all nested instances
-            if hasattr(self.vespa_search, "search_engine"):
-                await self.vespa_search.search_engine.close()
-
-            # UserDataSearchTool has a VespaSearchTool which has a SearchEngine
-            if hasattr(self.user_data_search, "vespa_search") and hasattr(
-                self.user_data_search.vespa_search, "search_engine"
-            ):
-                await self.user_data_search.vespa_search.search_engine.close()
-
-            if hasattr(self.semantic_search, "search_engine"):
-                await self.semantic_search.search_engine.close()
+            # UserDataSearchTool has a SearchEngine that needs cleanup
+            if hasattr(self.user_data_search, "search_engine"):
+                await self.user_data_search.search_engine.close()
 
             logger.info("Resource cleanup completed")
         except Exception as e:
@@ -222,8 +207,8 @@ class VespaChatDemo:
             start_time = time.time()
 
             # Use user data search for comprehensive results
-            search_results = await self.user_data_search.search_all_data(
-                query, max_results=20
+            search_results = await self.user_data_search.search(
+                query=query, max_results=20
             )
 
             search_time = (time.time() - start_time) * 1000
@@ -260,9 +245,9 @@ class VespaChatDemo:
             # Combine original query context with follow-up
             contextual_query = f"{original_query} {follow_up}"
 
-            # Use semantic search for follow-up questions
-            semantic_results = await self.semantic_search.search(
-                contextual_query, max_results=10
+            # Use user data search for follow-up questions
+            semantic_results = await self.user_data_search.search(
+                query=contextual_query, max_results=10
             )
 
             # Enhance with context from initial search
@@ -298,12 +283,32 @@ class VespaChatDemo:
             "quick_actions": [],
         }
 
-        # Process grouped results
-        grouped_results = search_results.get("grouped_results", {})
-        for result_type, results in grouped_results.items():
-            enhanced["grouped_results"][result_type] = self._format_results_for_chat(
-                results, result_type
-            )
+        # Process results - handle both flat results and grouped_results
+        if "grouped_results" in search_results:
+            # Legacy grouped results format
+            grouped_results = search_results.get("grouped_results", {})
+            for result_type, results in grouped_results.items():
+                enhanced["grouped_results"][result_type] = (
+                    self._format_results_for_chat(results, result_type)
+                )
+        else:
+            # New flat results format from UserDataSearchTool
+            flat_results = search_results.get("results", [])
+            if flat_results:
+                # Group results by source_type for chat display
+                grouped_by_type: Dict[str, List[Dict[str, Any]]] = {}
+                for result in flat_results:
+                    fields = result.get("fields", {})
+                    source_type = fields.get("source_type", "unknown")
+                    if source_type not in grouped_by_type:
+                        grouped_by_type[source_type] = []
+                    grouped_by_type[source_type].append(result)
+
+                # Format each group for chat display
+                for result_type, results in grouped_by_type.items():
+                    enhanced["grouped_results"][result_type] = (
+                        self._format_results_for_chat(results, result_type)
+                    )
 
         # Generate chat suggestions
         enhanced["chat_suggestions"] = self._generate_chat_suggestions(

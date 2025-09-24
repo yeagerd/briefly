@@ -22,8 +22,7 @@ schema meeting_poll_document {
         }
         
         field options type array<string> {
-            indexing: index | summary
-            index: enable-bm25
+            indexing: summary
         }
         
         field responses type array<map<string, string>> {
@@ -78,12 +77,11 @@ schema meeting_poll_document {
         field content_type type string {
             indexing: attribute | summary
             attribute: fast-search
-            default: "meeting_poll"
         }
     }
     
     fieldset meeting_poll_search {
-        fields: title, content, search_text, question, options, created_by
+        fields: title, content, search_text, question, created_by
     }
     
     rank-profile meeting_poll_hybrid inherits hybrid {

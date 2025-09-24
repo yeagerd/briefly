@@ -46,8 +46,13 @@ def get_engine() -> AsyncEngine:
         settings = get_settings()
         db_url = settings.db_url_user
 
-        # Prepare connect_args based on database type
-        connect_args = {}
+        # Prepare engine configuration based on database type
+        connect_args: dict[str, Any] = {}
+        engine_kwargs = {
+            "echo": settings.debug,
+            "connect_args": connect_args,
+        }
+
         if db_url.startswith("postgresql"):
             # asyncpg supports these timeout parameters directly
             # command_timeout sets the default timeout for operations (equivalent to statement_timeout)
@@ -55,17 +60,17 @@ def get_engine() -> AsyncEngine:
             # timeout sets the connection timeout
             connect_args["timeout"] = 30.0  # 30 seconds
 
-        _engine = create_async_engine(
-            get_async_database_url(db_url),
-            echo=settings.debug,
-            # Add connection pool settings to prevent hangs
-            pool_size=10,
-            max_overflow=20,
-            pool_timeout=30,
-            pool_recycle=3600,
-            # Apply database-specific connect_args
-            connect_args=connect_args,
-        )
+            # Add connection pool settings for PostgreSQL
+            engine_kwargs.update(
+                {
+                    "pool_size": 10,
+                    "max_overflow": 20,
+                    "pool_timeout": 30,
+                    "pool_recycle": 3600,
+                }
+            )
+
+        _engine = create_async_engine(get_async_database_url(db_url), **engine_kwargs)
     return _engine
 
 
@@ -90,6 +95,14 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
+# FastAPI-compatible dependency (alias for consistency with other services)
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """Get async database session for FastAPI dependency injection."""
+    async_session = get_async_session()
+    async with async_session() as session:
+        yield session
+
+
 # Database initialization is now handled by Alembic migrations
 # Use 'alembic upgrade head' to initialize or update the database schema
 
@@ -99,9 +112,13 @@ metadata = SQLModel.metadata
 
 
 async def create_all_tables_for_testing() -> None:
-    """Create all database tables for testing only. Use Alembic migrations in production."""
+    """
+    Create all database tables for testing. Creates tables if they don't exist.
+    Use Alembic migrations in production.
+    """
     engine = get_engine()
     async with engine.begin() as conn:
+        # Just create tables - SQLAlchemy will skip if they already exist
         await conn.run_sync(SQLModel.metadata.create_all)
 
 

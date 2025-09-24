@@ -1,5 +1,6 @@
 "use client"
 
+import { officeApi } from '@/api';
 import { Button } from '@/components/ui/button';
 import { DateTimeRangePicker } from '@/components/ui/date-time-range-picker';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -11,10 +12,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { useIntegrations } from '@/contexts/integrations-context';
 import { useUserPreferences } from '@/contexts/settings-context';
-import { officeApi } from '@/api';
 import type { CalendarEvent } from '@/types/api/office';
-import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { CalendarX, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { DateTime } from 'luxon';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarEventItem } from '../calendar-event-item';
 import { CalendarGridEvent } from './calendar-grid-event';
@@ -26,6 +27,7 @@ interface CalendarGridViewProps {
     loading?: boolean;
     refreshing?: boolean;
     error?: string | null;
+    noIntegrations?: boolean;
     onRefresh?: () => void;
 }
 
@@ -44,6 +46,7 @@ export default function CalendarGridView({
     loading: externalLoading,
     refreshing: externalRefreshing,
     error: externalError,
+    noIntegrations,
     onRefresh
 }: CalendarGridViewProps) {
     const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -68,7 +71,7 @@ export default function CalendarGridView({
     const [formEndTime, setFormEndTime] = useState<Date | null>(null);
     const [formAttendees, setFormAttendees] = useState<Array<{ id: string; email: string; name: string }>>([]);
     const [attendeeQuery, setAttendeeQuery] = useState('');
-
+    const router = useRouter();
     const { loading: integrationsLoading, activeProviders } = useIntegrations();
     const { effectiveTimezone } = useUserPreferences();
 
@@ -348,34 +351,7 @@ export default function CalendarGridView({
     }, []);
 
     useEffect(() => {
-        if (toolDataLoading) return;
-        if (integrationsLoading) return;
-        if (!activeProviders || activeProviders.length === 0) {
-            setError('No active calendar integrations found. Please connect your calendar account first.');
-            setEvents([]);
-            setLoading(false);
-            return;
-        }
-        if (activeTool !== 'calendar') {
-            setLoading(false);
-            return;
-        }
-
-        let isMounted = true;
-        setLoading(true);
-        (async () => {
-            try {
-                await fetchCalendarEvents(false);
-            } finally {
-                if (isMounted) setLoading(false);
-            }
-        })();
-        return () => { isMounted = false; };
-    }, [activeProviders, integrationsLoading, toolDataLoading, activeTool, fetchCalendarEvents]);
-
-    // Fetch events when date range changes (for list view or when not using external events)
-    useEffect(() => {
-        if (viewType !== 'list' && externalEvents !== undefined) return; // Don't fetch if using external events (except for list view)
+        if (viewType !== 'list' && externalEvents !== undefined) return;
         if (toolDataLoading) return;
         if (integrationsLoading) return;
         if (!activeProviders || activeProviders.length === 0) return;
@@ -514,33 +490,35 @@ export default function CalendarGridView({
         );
     };
 
-    // Check for integration status
-    const hasActiveCalendarIntegration = activeProviders.length > 0;
-
-    if (loading) {
+    if (finalLoading) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <span className="ml-3">Loading calendar...</span>
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+                <p className="text-lg">Loading your calendar...</p>
+                <p className="text-sm">This may take a moment.</p>
             </div>
         );
     }
 
-    if (error) {
+    if (noIntegrations) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full text-center p-4">
+                <CalendarX className="w-16 h-16 text-muted-foreground mb-4" />
+                <h2 className="text-xl font-semibold mb-2">No Calendar Connected</h2>
+                <p className="text-muted-foreground mb-6 max-w-sm">
+                    To get started, connect your Google or Outlook calendar. Once connected, your events will appear here.
+                </p>
+                <Button onClick={() => router.push('/settings?tab=integrations')}>
+                    Connect Calendar
+                </Button>
+            </div>
+        );
+    }
+
+    if (finalError) {
         return (
             <div className="p-4 text-red-600">
-                Error: {error}
-            </div>
-        );
-    }
-
-    if (!hasActiveCalendarIntegration) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <div className="text-center">
-                    <p className="text-gray-600 mb-4">No active calendar integration found.</p>
-                    <p className="text-sm text-gray-500">Connect your Google Calendar or Microsoft Outlook to view your events.</p>
-                </div>
+                Error: {finalError}
             </div>
         );
     }

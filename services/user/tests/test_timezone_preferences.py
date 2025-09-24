@@ -83,11 +83,11 @@ class TestTimezonePreferences(BaseUserManagementIntegrationTest):
 class TestTimezonePreferencesAPI(BaseUserManagementIntegrationTest):
     """Test timezone preferences through the API endpoints."""
 
-    def setup_method(self):
+    def setup_method(self, method):
         """Set up test client and authentication."""
-        super().setup_method()
+        super().setup_method(method)
         self.headers = {
-            "X-API-Key": "test-frontend-key",
+            "X-API-Key": "test-frontend-user-key",
             "Content-Type": "application/json",
         }
 

@@ -9,35 +9,19 @@ from unittest.mock import patch
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from services.user.tests.test_base import BaseUserManagementTest
+from services.user.tests.test_base import BaseUserManagementIntegrationTest
 
 
-class TestInternalAPI(BaseUserManagementTest):
+class TestInternalAPI(BaseUserManagementIntegrationTest):
     """Test suite for internal API endpoints."""
 
-    def setup_method(self):
-        super().setup_method()
-        # Initialize database tables for testing
-        import asyncio
-
-        from services.user.database import create_all_tables_for_testing
-
-        try:
-            asyncio.run(create_all_tables_for_testing())
-        except RuntimeError:
-            # If we're already in an event loop, create a task
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, create_all_tables_for_testing())
-                future.result()
-
-        self.client = TestClient(self.app)
+    def setup_method(self, method):
+        super().setup_method(method)
         self.auth_headers = self._get_auth_headers()
 
     def _get_auth_headers(self):
         """Provide authentication headers for internal API calls."""
-        return {"X-API-Key": "test-api-key"}
+        return {"X-API-Key": "test-frontend-user-key"}
 
     def test_internal_endpoints_require_authentication(self):
         """Test that internal endpoints require authentication."""
@@ -62,15 +46,19 @@ class TestInternalAPI(BaseUserManagementTest):
         with patch("services.user.settings.get_settings") as mock_settings:
             from services.user.settings import Settings
 
-            test_settings = Settings(db_url_user="sqlite:///:memory:")
-            test_settings.api_frontend_user_key = "test-frontend-key"
-            test_settings.api_chat_user_key = "test-chat-key"
-            test_settings.api_office_user_key = "test-office-key"
-            test_settings.pagination_secret_key = "test-pagination-secret-key"
+            test_settings = Settings(
+                db_url_user="sqlite+aiosqlite:///:memory:",
+                api_frontend_user_key="test-frontend-user-key",
+                api_chat_user_key="test-chat-key",
+                api_office_user_key="test-office-key",
+                api_meetings_user_key="test-meetings-key",
+                pagination_secret_key="test-pagination-secret-key",
+                environment="test",
+            )
             mock_settings.return_value = test_settings
             client = TestClient(app)
             response = client.get(
                 "/v1/internal/users/nonexistent-user/status",
-                headers={"X-API-Key": "test-api-key"},
+                headers={"X-API-Key": "test-frontend-user-key"},
             )
             assert response.status_code in (404, 422, 400, 403)

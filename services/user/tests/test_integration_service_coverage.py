@@ -20,9 +20,9 @@ from services.user.tests.test_base import BaseUserManagementTest
 class TestIntegrationServiceCoverage(BaseUserManagementTest):
     """Test cases for IntegrationService coverage."""
 
-    def setup_method(self):
+    def setup_method(self, method):
         """Set up test fixtures."""
-        super().setup_method()
+        super().setup_method(method)
         self.service = IntegrationService()
 
     @pytest.mark.asyncio

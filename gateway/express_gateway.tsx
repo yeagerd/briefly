@@ -120,12 +120,17 @@ const logWithContext = (level: string, message: string, context: any = {}) => {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const envPath = path.join(__dirname, '.env');
-console.log('[DEBUG] Loading .env file from:', envPath);
+
+// Load environment-specific .env.gateway files
+const environment = process.env.ENVIRONMENT || 'local';
+const envPath = path.join(__dirname, '..', `.env.gateway.${environment}`);
+console.log(`[DEBUG] Loading gateway environment variables from: .env.gateway.${environment}`);
+console.log(`[DEBUG] Full path: ${envPath}`);
+
 if (!fs.existsSync(envPath)) {
-    logWithContext('error', '❌ .env file not found in gateway directory');
+    logWithContext('error', `❌ .env.gateway.${environment} file not found`);
     logWithContext('error', `   Expected location: ${envPath}`);
-    logWithContext('error', '   Please create a .env file with:');
+    logWithContext('error', '   Please create a .env.gateway.local file with:');
     logWithContext('error', '   NEXTAUTH_SECRET=your-secret-here');
     logWithContext('error', '   USER_SERVICE_URL=http://localhost:8001');
     logWithContext('error', '   CHAT_SERVICE_URL=http://localhost:8002');
@@ -134,7 +139,7 @@ if (!fs.existsSync(envPath)) {
     logWithContext('error', '   FRONTEND_URL=http://localhost:3000');
     process.exit(1);
 }
-dotenv.config({ path: envPath });
+dotenv.config({ path: envPath, override: true });
 
 // ENVIRONMENT VARIABLE ASSERTION (must be first)
 (function assertRequiredEnv() {

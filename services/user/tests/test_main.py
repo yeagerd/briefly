@@ -214,7 +214,7 @@ class TestReadinessEndpoint(BaseUserManagementIntegrationTest):
         """Test readiness check with missing configuration."""
         mock_settings = mock_get_settings.return_value
         # Provide valid API keys since they are now required
-        mock_settings.api_frontend_user_key = "test-frontend-key"
+        mock_settings.api_frontend_user_key = "test-frontend-user-key"
         mock_settings.api_chat_user_key = "test-chat-key"
         mock_settings.api_office_user_key = "test-office-key"
         # Test with other missing configuration

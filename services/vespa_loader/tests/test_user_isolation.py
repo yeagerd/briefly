@@ -384,26 +384,46 @@ class TestUserIsolation(BaseSelectiveHTTPIntegrationTest):
         )  # Correct format: id:briefly:briefly_document:g=user:doc
 
     def test_search_query_user_isolation(self):
-        """Test that search queries properly use user_id for isolation."""
-        # Test YQL queries to ensure they filter by user_id
+        """Test that search queries properly use streaming.groupname for isolation."""
+        # Test search query parameters to ensure they use streaming.groupname for user isolation
 
-        test_queries = [
-            'select * from briefly_document where user_id contains "user1@example.com"',
-            'select * from briefly_document where user_id contains "user2@example.com"',
-            'select * from briefly_document where user_id contains "user3@example.com"',
+        test_search_params = [
+            {
+                "yql": "select * from briefly_document where userInput(@query)",
+                "query": "test query",
+                "streaming.groupname": "user1@example.com",
+            },
+            {
+                "yql": "select * from briefly_document where userInput(@query)",
+                "query": "test query",
+                "streaming.groupname": "user2@example.com",
+            },
+            {
+                "yql": "select * from briefly_document where userInput(@query)",
+                "query": "test query",
+                "streaming.groupname": "user3@example.com",
+            },
         ]
 
-        for query in test_queries:
-            # Verify query contains user_id filter
-            assert "user_id contains" in query, f"Query missing user_id filter: {query}"
-
-            # Verify query has proper quoting
-            assert '"' in query, f"Query missing proper quotes: {query}"
-
-            # Verify query structure
+        for search_params in test_search_params:
+            # Verify search params contain streaming.groupname for user isolation
             assert (
-                "select * from briefly_document where" in query
-            ), f"Invalid query structure: {query}"
+                "streaming.groupname" in search_params
+            ), f"Search params missing streaming.groupname: {search_params}"
+
+            # Verify streaming.groupname is not empty
+            assert search_params[
+                "streaming.groupname"
+            ], f"streaming.groupname is empty: {search_params}"
+
+            # Verify YQL query structure (should not contain explicit user_id filtering)
+            yql = search_params["yql"]
+            assert (
+                "select * from briefly_document" in yql
+            ), f"Invalid YQL structure: {yql}"
+            assert (
+                "user_id" not in yql
+            ), f"YQL should not contain explicit user_id filtering: {yql}"
 
     def test_document_retrieval_user_isolation(self):
         """Test that document retrieval respects user isolation."""

@@ -215,7 +215,7 @@ class UserManagementDemo:
             if response.status_code in [200, 201]:
                 # Get the user profile to extract the database ID
                 profile_response = await self.client.get(
-                    f"{self.base_url}/users/me",
+                    f"{self.base_url}/v1/users/me",
                     headers={"Authorization": self.auth_token},
                 )
                 if profile_response.status_code == 200:
@@ -235,9 +235,10 @@ class UserManagementDemo:
         self.print_section("Getting User Profile")
 
         try:
-            # Use /users/me endpoint to get current user's profile
+            # Use /v1/users/me endpoint to get current user's profile
             response = await self.client.get(
-                f"{self.base_url}/users/me", headers={"Authorization": self.auth_token}
+                f"{self.base_url}/v1/users/me",
+                headers={"Authorization": self.auth_token},
             )
             self.print_response(response, "User profile retrieval")
             return response.json() if response.status_code == 200 else None
@@ -268,7 +269,7 @@ class UserManagementDemo:
         try:
             # Use the database ID for the update endpoint
             response = await self.client.put(
-                f"{self.base_url}/users/{self.demo_database_user_id}",
+                f"{self.base_url}/v1/users/{self.demo_database_user_id}",
                 json=update_data,
                 headers={"Authorization": self.auth_token},
             )
@@ -308,7 +309,7 @@ class UserManagementDemo:
 
         try:
             response = await self.client.get(
-                f"{self.base_url}/users/{clerk_id}/preferences",
+                f"{self.base_url}/v1/users/{clerk_id}/preferences",
                 headers={"Authorization": self.auth_token},
             )
             self.print_response(response, "User preferences retrieval")
@@ -351,7 +352,7 @@ class UserManagementDemo:
 
         try:
             response = await self.client.put(
-                f"{self.base_url}/users/{clerk_id}/preferences",
+                f"{self.base_url}/v1/users/{clerk_id}/preferences",
                 json=preferences_update,
                 headers={"Authorization": self.auth_token},
             )

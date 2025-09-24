@@ -8,7 +8,7 @@ set -e
 VESPA_CONTAINER_NAME="vespa"
 VESPA_HOSTNAME="vespa-container"
 VESPA_IMAGE="vespaengine/vespa"
-VESPA_PORTS=("8080:8080" "19092:19092")
+VESPA_PORTS=("8080:8080" "19071:19071" "19092:19092")
 VESPA_ENDPOINT="http://localhost:8080"
 
 
@@ -85,6 +85,16 @@ check_vespa_container_health() {
     return 1
 }
 
+# Check if Vespa config server is ready
+check_vespa_config_server_ready() {
+    # Check if config server port is accessible
+    if curl -s http://localhost:19071/application/v2/tenant/default/session >/dev/null 2>&1; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 # Check if Vespa application is deployed and responding
 check_vespa_status() {
     log_info "Checking Vespa status..."
@@ -96,6 +106,14 @@ check_vespa_status() {
     fi
     
     log_success "Vespa container is running"
+    
+    # Check if config server is ready
+    if ! check_vespa_config_server_ready; then
+        log_info "Vespa config server is not ready yet"
+        return 1
+    fi
+    
+    log_success "Vespa config server is ready"
     
     # Check if HTTP is responding (this will fail until app is deployed)
     if curl -s "$VESPA_ENDPOINT/" > /dev/null 2>&1; then
@@ -138,8 +156,7 @@ start_vespa_container() {
         docker run -d \
             --name "${VESPA_CONTAINER_NAME}" \
             --hostname "${VESPA_HOSTNAME}" \
-            -p "${VESPA_PORTS[0]}" \
-            -p "${VESPA_PORTS[1]}" \
+            $(printf -- '-p %s ' "${VESPA_PORTS[@]}") \
             -e VESPA_IGNORE_NOT_ENOUGH_MEMORY=true \
             "${VESPA_IMAGE}"
     fi
@@ -150,14 +167,33 @@ start_vespa_container() {
     
     while [ $attempts -lt $max_attempts ]; do
         if check_vespa_container_health; then
-            log_success "Vespa container is ready!"
+            log_success "Vespa container is running!"
+            break
+        fi
+        attempts=$((attempts + 1))
+        sleep 2
+    done
+    
+    if [ $attempts -ge $max_attempts ]; then
+        log_error "Vespa container failed to start within ${max_attempts} seconds"
+        return 1
+    fi
+    
+    # Now wait for config server to be ready
+    log_info "Waiting for Vespa config server to be ready..."
+    attempts=0
+    max_attempts=60
+    
+    while [ $attempts -lt $max_attempts ]; do
+        if check_vespa_config_server_ready; then
+            log_success "Vespa config server is ready!"
             return 0
         fi
         attempts=$((attempts + 1))
         sleep 2
     done
     
-    log_error "Vespa container failed to start within ${max_attempts} seconds"
+    log_error "Vespa config server failed to become ready within ${max_attempts} seconds"
     return 1
 }
 
@@ -224,6 +260,14 @@ deploy_package() {
     # Use config server workflow (prepare -> activate)
     log_info "Using config server workflow (prepare -> activate)..."
     
+    # Ensure config server is ready before attempting deployment
+    log_info "Verifying config server is ready for deployment..."
+    if ! check_vespa_config_server_ready; then
+        log_error "Config server is not ready for deployment"
+        return 1
+    fi
+    log_success "Config server is ready for deployment"
+    
     # Start tailing logs in background to show deployment progress
     log_info "Starting real-time log monitoring..."
     docker logs "$VESPA_CONTAINER_NAME" --follow --tail 0 &
@@ -250,6 +294,13 @@ deploy_package() {
     else
         log_error "Failed to prepare application"
         log_info "Prepare output: $prepare_output"
+        
+        # Check if it's a connection issue
+        if [[ "$prepare_output" == *"Connection refused"* ]] || [[ "$prepare_output" == *"Failed to connect"* ]]; then
+            log_error "Config server connection failed - this usually means Vespa is still starting up"
+            log_info "Try running the script again in a few seconds"
+        fi
+        
         kill $LOG_TAIL_PID 2>/dev/null || true
         return 1
     fi
@@ -962,6 +1013,112 @@ start_all() {
     show_status
 }
 
+# Upgrade Vespa to latest version
+upgrade_vespa() {
+    log_info "🔄 Starting Vespa upgrade process..."
+    
+    # Check if Docker is running
+    if ! check_docker_running; then
+        log_error "Docker is not running. Please start Docker and try again."
+        return 1
+    fi
+    
+    # Check current version if container exists
+    if docker ps -a --format "table {{.Names}}" | grep -q "^${VESPA_CONTAINER_NAME}$"; then
+        log_info "Checking current Vespa version..."
+        local current_version
+        current_version=$(docker logs "$VESPA_CONTAINER_NAME" 2>/dev/null | grep -i "Starting jdisc at version" | head -1 | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
+        if [[ "$current_version" != "unknown" ]]; then
+            log_info "Current Vespa version: $current_version"
+        fi
+    fi
+    
+    # Step 1: Stop and cleanup current container
+    log_info "Step 1: Stopping and cleaning up current Vespa container..."
+    if docker ps --format "table {{.Names}}" | grep -q "^${VESPA_CONTAINER_NAME}$"; then
+        log_info "Stopping Vespa container..."
+        docker stop "${VESPA_CONTAINER_NAME}"
+        log_success "Vespa container stopped"
+    else
+        log_info "Vespa container is not running"
+    fi
+    
+    if docker ps -a --format "table {{.Names}}" | grep -q "^${VESPA_CONTAINER_NAME}$"; then
+        log_info "Removing Vespa container..."
+        docker rm "${VESPA_CONTAINER_NAME}"
+        log_success "Vespa container removed"
+    else
+        log_info "Vespa container not found"
+    fi
+    
+    # Step 2: Pull latest Vespa Docker image
+    log_info "Step 2: Pulling latest Vespa Docker image..."
+    if docker pull "${VESPA_IMAGE}"; then
+        log_success "Latest Vespa image pulled successfully"
+    else
+        log_error "Failed to pull latest Vespa image"
+        return 1
+    fi
+    
+    # Step 3: Start Vespa with new image
+    log_info "Step 3: Starting Vespa with upgraded image..."
+    if ! start_vespa_container; then
+        log_error "Failed to start Vespa container with upgraded image"
+        return 1
+    fi
+    
+    # Wait for Vespa to be ready
+    log_info "Waiting for Vespa to be ready..."
+    if ! check_vespa_status; then
+        log_error "Vespa failed to start properly after upgrade"
+        return 1
+    fi
+    
+    # Wait for config server to be accessible
+    log_info "Waiting for config server to be accessible..."
+    local config_ready=false
+    local attempts=0
+    local max_attempts=30
+    
+    while [ $attempts -lt $max_attempts ]; do
+        if curl -s http://localhost:8080/application/v2/tenant/default/session >/dev/null 2>&1; then
+            config_ready=true
+            break
+        fi
+        attempts=$((attempts + 1))
+        log_info "Config server not ready yet, waiting... ($attempts/$max_attempts)"
+        sleep 2
+    done
+    
+    if [[ "$config_ready" != true ]]; then
+        log_error "Config server failed to become accessible within $((max_attempts * 2)) seconds"
+        return 1
+    fi
+    
+    log_success "Config server is ready!"
+    
+    # Step 4: Deploy application
+    log_info "Step 4: Deploying Briefly application..."
+    if ! deploy_briefly; then
+        log_error "Failed to deploy Briefly application after upgrade"
+        return 1
+    fi
+    
+    # Step 5: Show final status
+    log_success "🎉 Vespa upgrade completed successfully!"
+    echo
+    log_info "📊 Final Status:"
+    show_status
+    
+    # Show new version
+    log_info "Checking new Vespa version..."
+    local new_version
+    new_version=$(docker logs "$VESPA_CONTAINER_NAME" 2>/dev/null | grep -i "Starting jdisc at version" | head -1 | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
+    if [[ "$new_version" != "unknown" ]]; then
+        log_success "New Vespa version: $new_version"
+    fi
+}
+
 # Main script logic
 case "${1:-}" in
     --start)
@@ -995,6 +1152,9 @@ case "${1:-}" in
         stop_vespa_services
         sleep 2
         start_all
+        ;;
+    --upgrade)
+        upgrade_vespa
         ;;
     --auto)
         # Explicit auto mode: start container if needed, deploy if needed, then show status
@@ -1038,6 +1198,7 @@ case "${1:-}" in
         echo "  --deploy   Deploy the Briefly application to Vespa"
         echo "  --stop     Stop Vespa container only"
         echo "  --cleanup  Stop and remove the Vespa container"
+        echo "  --upgrade  Upgrade Vespa to latest version (stops, pulls latest image, starts, deploys)"
         echo "  --clear-data --email {address} --env-file {filename} [--force] Clear data for specific user (requires env file with API_OFFICE_USER_KEY)"
         echo "  --clear-data-all-users Clear all data from Vespa for ALL discovered users"
         echo "  --clear-all-data Clear all data from Vespa for ALL users"

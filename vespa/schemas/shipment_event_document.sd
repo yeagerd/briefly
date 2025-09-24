@@ -87,7 +87,6 @@ schema shipment_event_document {
         field content_type type string {
             indexing: attribute | summary
             attribute: fast-search
-            default: "shipment_event"
         }
     }
     

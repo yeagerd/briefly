@@ -11,6 +11,8 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import JSON, Column, DateTime, Text, func
 from sqlmodel import Field, SQLModel
 
+from services.api.v1.office.schemas import ContactPhone
+
 
 class EmailContactEventCount(SQLModel, table=False):
     """Count of events for a specific contact and event type."""
@@ -99,7 +101,7 @@ class Contact(SQLModel, table=True):
         sa_column=Column(DateTime(timezone=True)),
         description="When this contact was last synced from Office Service",
     )
-    phone_numbers: List[str] = Field(
+    phone_numbers: List[ContactPhone] = Field(
         default_factory=list,
         sa_column=Column(JSON),
         description="Contact phone numbers",

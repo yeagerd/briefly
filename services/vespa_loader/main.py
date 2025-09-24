@@ -13,7 +13,7 @@ import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from services.api.v1.vespa.vespa_types import VespaDocumentType
+from services.api.v1.vespa_query.vespa_types import VespaDocumentType
 from services.common.http_errors import (
     AuthError,
     ErrorCode,
@@ -315,7 +315,7 @@ async def ingest_document(
     """Ingest a document into Vespa"""
     try:
         # Convert Dict to VespaDocumentType
-        from services.api.v1.vespa.vespa_types import VespaDocumentType
+        from services.api.v1.vespa_query.vespa_types import VespaDocumentType
 
         # Create a VespaDocumentType from the input data
         vespa_document = VespaDocumentType(

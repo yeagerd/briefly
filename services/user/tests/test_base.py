@@ -2,136 +2,146 @@
 Base classes for User Management tests.
 
 Provides common setup and teardown for all user management tests,
-including required environment variables and database setup.
+including required settings and HTTP call prevention.
 """
 
 import os
-import tempfile
-from unittest.mock import patch
 
-from fastapi.testclient import TestClient
+from services.common.test_utils import BaseSelectiveHTTPIntegrationTest
 
 
-class BaseUserManagementTest:
-    """Base class for all User Management tests (unit and integration)."""
+class BaseUserManagementTest(BaseSelectiveHTTPIntegrationTest):
+    """Base class for all User Management tests with HTTP call prevention."""
 
-    def setup_method(self):
-        """Set up User Management test environment with required variables."""
-        # Reset database settings and connections before importing app
-        from services.user.database import reset_db, reset_settings
+    def setup_method(self, method: object) -> None:
+        """Set up User Management test environment with required settings."""
+        # Call parent setup to enable HTTP call detection
+        super().setup_method(method)
 
-        reset_settings()
-
-        # Create temporary database file for tests that need file-based SQLite
-        # Use tempfile.NamedTemporaryFile with delete=False and close immediately
-        # so SQLite can open the file
-        temp_db = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-        self.db_path = temp_db.name
-        temp_db.close()  # Close immediately so SQLite can use it
-
-        # Set required environment variables for User Management service
-        # Standardize to sqlite+aiosqlite:// everywhere for consistency
-        os.environ["DB_URL_USER"] = f"sqlite+aiosqlite:///{self.db_path}"
-        os.environ["TOKEN_ENCRYPTION_SALT"] = "dGVzdC1zYWx0LTE2Ynl0ZQ=="
-        os.environ["API_FRONTEND_USER_KEY"] = "test-frontend-key"
-        os.environ["API_CHAT_USER_KEY"] = "test-chat-key"
-        os.environ["API_OFFICE_USER_KEY"] = "test-office-key"
-        os.environ["API_MEETINGS_USER_KEY"] = "test-meetings-key"
-        os.environ["PAGINATION_SECRET_KEY"] = "test-pagination-secret-key"
-
-        # Optional environment variables with test defaults
-        os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
+        # Set up environment variables for CI compatibility
+        # This ensures that Settings() constructor can find required fields
+        os.environ.setdefault("API_FRONTEND_USER_KEY", "test-frontend-user-key")
+        os.environ.setdefault("API_CHAT_USER_KEY", "test-chat-user-key")
+        os.environ.setdefault("API_OFFICE_USER_KEY", "test-office-user-key")
+        os.environ.setdefault("API_MEETINGS_USER_KEY", "test-meetings-user-key")
+        os.environ.setdefault("PAGINATION_SECRET_KEY", "test-pagination-secret-key")
+        os.environ.setdefault("TOKEN_ENCRYPTION_SALT", "dGVzdC1zYWx0LTE2Ynl0ZQ==")
         os.environ.setdefault("ENVIRONMENT", "test")
 
-        # Import app after environment variables are set
-        from services.user.main import app
+        # Import user settings module
+        import services.user.settings as user_settings
 
-        self.app = app
+        # Store original settings singleton for cleanup
+        self._original_settings = user_settings._settings
 
-    def teardown_method(self):
+        # Use in-memory SQLite for testing to avoid disk I/O issues
+        # This is more reliable for parallel testing and faster
+        self.db_path = ":memory:"
+        db_path_abs = ":memory:"
+
+        # Patch the common secrets settings to use test environment
+        import services.common.config_secrets as common_secrets
+        from services.common.settings import BaseSettings, Field, SettingsConfigDict
+
+        class TestSecretsSettings(BaseSettings):
+            """Test version of SecretsSettings."""
+
+            environment: str = Field(default="test", description="Environment mode")
+            model_config = SettingsConfigDict(
+                env_file=None,  # Don't load from .env file in tests
+                env_file_encoding="utf-8",
+                case_sensitive=False,
+                extra="ignore",
+            )
+
+        # Store original secrets settings for cleanup
+        self._original_secrets_settings = common_secrets._secrets_settings
+        # Set test secrets settings
+        common_secrets._secrets_settings = TestSecretsSettings()
+
+        # Patch the get_token_encryption_salt function to return our test salt
+        self._original_get_token_encryption_salt = (
+            common_secrets.get_token_encryption_salt
+        )
+        common_secrets.get_token_encryption_salt = lambda: "dGVzdC1zYWx0LTE2Ynl0ZQ=="
+
+        # Also patch the get_secret function to return our test salt when called with TOKEN_ENCRYPTION_SALT
+        self._original_get_secret = common_secrets.get_secret
+
+        def mock_get_secret(secret_id: str, default: str = ""):
+            if secret_id == "TOKEN_ENCRYPTION_SALT":
+                return "dGVzdC1zYWx0LTE2Ynl0ZQ=="
+            return self._original_get_secret(secret_id, default)
+
+        common_secrets.get_secret = mock_get_secret
+
+        # Create test settings instance
+        from services.user.settings import Settings
+
+        test_settings = Settings(
+            db_url_user="sqlite+aiosqlite:///:memory:",
+            api_frontend_user_key="test-frontend-user-key",
+            api_chat_user_key="test-chat-user-key",
+            api_office_user_key="test-office-user-key",
+            api_meetings_user_key="test-meetings-user-key",
+            pagination_secret_key="test-pagination-secret-key",
+            token_encryption_salt="dGVzdC1zYWx0LTE2Ynl0ZQ==",
+            environment="test",
+            debug=False,
+            # OAuth credentials for testing
+            google_client_id="test-google-client-id",
+            google_client_secret="test-google-client-secret",
+            azure_ad_client_id="test-microsoft-client-id",
+            azure_ad_client_secret="test-microsoft-client-secret",
+            oauth_redirect_uri="https://example.com/oauth/callback",
+        )
+
+        # Set the test settings as the singleton
+        user_settings._settings = test_settings
+
+    def teardown_method(self, method: object) -> None:
         """Clean up User Management test environment."""
-        # Reset database connections
-        import asyncio
+        # Call parent teardown to clean up HTTP patches
+        super().teardown_method(method)
 
-        from services.user.database import reset_db
+        # Restore original settings singleton
+        import services.user.settings as user_settings
 
-        try:
-            # Try to reset database asynchronously
-            asyncio.run(reset_db())
-        except RuntimeError:
-            # If we're already in an event loop, use ThreadPoolExecutor
-            import concurrent.futures
+        user_settings._settings = self._original_settings
 
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, reset_db())
-                future.result()
+        # Restore original secrets settings
+        import services.common.config_secrets as common_secrets
 
-        # Remove temporary database file
-        if hasattr(self, "db_path") and os.path.exists(self.db_path):
-            os.unlink(self.db_path)
+        common_secrets._secrets_settings = self._original_secrets_settings
+        common_secrets.get_token_encryption_salt = (
+            self._original_get_token_encryption_salt
+        )
+        common_secrets.get_secret = self._original_get_secret
+
+        # Clean up temporary database file (only if using file-based database)
+        if (
+            hasattr(self, "db_path")
+            and self.db_path != ":memory:"
+            and os.path.exists(self.db_path)
+        ):
+            try:
+                os.unlink(self.db_path)
+            except OSError as e:
+                # Log the error but don't fail the test
+                print(
+                    f"Warning: Could not remove temporary database file {self.db_path}: {e}"
+                )
 
 
 class BaseUserManagementIntegrationTest(BaseUserManagementTest):
     """Base class for User Management integration tests with full app setup."""
 
-    def setup_method(self):
+    def setup_method(self, method: object) -> None:
         """Set up User Management integration test environment."""
-        # Call parent setup for environment variables and database resets
-        super().setup_method()
+        # Call parent setup for settings and HTTP patches
+        super().setup_method(method)
 
-        # Use selective HTTP patches that don't interfere with TestClient
-        self.http_patches = [
-            # Patch httpx AsyncClient methods (most common for async HTTP calls)
-            patch(
-                "httpx.AsyncClient._send_single_request",
-                side_effect=AssertionError(
-                    "Real HTTP call detected! AsyncClient._send_single_request was called"
-                ),
-            ),
-            patch(
-                "httpx.AsyncClient.request",
-                side_effect=AssertionError(
-                    "Real HTTP call detected! AsyncClient.request was called"
-                ),
-            ),
-            # Patch requests (commonly used for external calls)
-            patch(
-                "requests.adapters.HTTPAdapter.send",
-                side_effect=AssertionError(
-                    "Real HTTP call detected! requests HTTPAdapter.send was called"
-                ),
-            ),
-            patch(
-                "requests.Session.request",
-                side_effect=AssertionError(
-                    "Real HTTP call detected! requests.Session.request was called"
-                ),
-            ),
-            # Patch urllib (basic HTTP library)
-            patch(
-                "urllib.request.urlopen",
-                side_effect=AssertionError(
-                    "Real HTTP call detected! urllib.request.urlopen was called"
-                ),
-            ),
-            patch(
-                "urllib3.poolmanager.PoolManager.urlopen",
-                side_effect=AssertionError(
-                    "Real HTTP call detected! urllib3.PoolManager.urlopen was called"
-                ),
-            ),
-            # Note: We don't patch httpx.Client.send because TestClient uses it internally
-        ]
-
-        # Start all HTTP detection patches
-        for http_patch in self.http_patches:
-            http_patch.start()
-
-        # Database connections are already reset in parent setup_method
-        # No need to reload modules - just create tables
-
-        # Actually create the database tables
-        # Initialize database schema for testing
+        # Initialize database tables for testing
         import asyncio
 
         from services.user.database import create_all_tables_for_testing
@@ -145,52 +155,38 @@ class BaseUserManagementIntegrationTest(BaseUserManagementTest):
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(asyncio.run, create_all_tables_for_testing())
                 future.result()
+        except Exception as e:
+            # If database creation fails, provide more detailed error information
+            print(f"Database creation failed: {e}")
+            print(f"Database path: {self.db_path}")
+            print(f"Database URL: {os.environ.get('DB_URL_USER')}")
+            raise
 
-        # Create test client using app from base class
-        self.client = TestClient(self.app)
+        # Import app after settings are configured
+        from fastapi.testclient import TestClient
+
+        from services.user.main import app
+
+        self.app = app
+        self.client = TestClient(app)
 
         # Set up authentication overrides
         self._override_auth()
 
-    def teardown_method(self):
-        """Clean up User Management integration test environment."""
-        # Stop all patches
-        if hasattr(self, "http_patches"):
-            for http_patch in self.http_patches:
-                http_patch.stop()
-
-        # Clear app overrides
-        if hasattr(self, "app"):
-            self.app.dependency_overrides.clear()
-        if hasattr(self, "_patcher") and hasattr(self._patcher, "stop"):
-            self._patcher.stop()
-
-        # Call parent teardown
-        super().teardown_method()
-
     def _override_auth(self):
         """Override authentication for testing."""
-
-        from services.user.auth.nextauth import get_current_user  # Changed here
+        from services.user.auth.nextauth import get_current_user
 
         async def mock_get_current_user():
             return "user_123"
 
-        # This async def function can still be used as a side_effect if needed,
-        # but we'll create an AsyncMock instance directly for the patch.
-        # async def mock_verify_user_ownership_side_effect(
-        #     current_user_id: str, resource_user_id: str
-        # ):
-        #     return None
-
-        async def mock_verify_user_ownership(
-            current_user_id: str, resource_user_id: str
-        ):
-            pass
-
         self.app.dependency_overrides[get_current_user] = mock_get_current_user
-        self._patcher = patch(
-            "services.user.auth.nextauth.verify_user_ownership",  # Changed here
-            new=mock_verify_user_ownership,
-        )
-        self._patcher.start()
+
+    def teardown_method(self, method: object) -> None:
+        """Clean up User Management integration test environment."""
+        # Clear app overrides
+        if hasattr(self, "app"):
+            self.app.dependency_overrides.clear()
+
+        # Call parent teardown
+        super().teardown_method(method)

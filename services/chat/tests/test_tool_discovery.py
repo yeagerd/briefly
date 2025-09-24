@@ -59,9 +59,7 @@ class TestToolDiscovery:
         assert "clear_all_drafts" in tool_ids
 
         # Check for search tools
-        assert "vespa_search" in tool_ids
         assert "user_data_search" in tool_ids
-        assert "semantic_search" in tool_ids
 
         # Check for web tools
         assert "web_search" in tool_ids
@@ -122,11 +120,11 @@ class TestToolDiscovery:
 
     def test_get_tool_info_for_search_tool(self, get_tools):
         """Test get_tool_info() for search tools."""
-        result = get_tools.get_tool.get_tool_info("vespa_search")
+        result = get_tools.get_tool.get_tool_info("user_data_search")
         assert result["status"] == "success"
 
         tool_info = result["tool_info"]
-        assert tool_info["tool_id"] == "vespa_search"
+        assert tool_info["tool_id"] == "user_data_search"
         assert tool_info["category"] == "search"
         assert tool_info["requires_auth"] is True
         assert tool_info["service_dependency"] == "vespa"
@@ -279,7 +277,7 @@ class TestToolDiscovery:
         test_tools = [
             "get_calendar_events",
             "create_draft_email",
-            "vespa_search",
+            "user_data_search",
             "format_event_time_for_display",
         ]
 

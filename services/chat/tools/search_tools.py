@@ -84,6 +84,27 @@ class UserDataSearchTool:
         """Async context manager exit - ensure cleanup."""
         await self.cleanup()
 
+    def _escape_yql_value(self, value: str) -> str:
+        """
+        Safely escape a value for use in YQL queries to prevent injection attacks.
+
+        YQL uses double quotes for string literals, so we need to escape:
+        - Double quotes by doubling them
+        - Backslashes by doubling them
+
+        Args:
+            value: The string value to escape
+
+        Returns:
+            The escaped string safe for YQL interpolation
+        """
+        if not isinstance(value, str):
+            raise ValueError(f"Expected string, got {type(value).__name__}")
+
+        # Escape backslashes first, then double quotes
+        escaped = value.replace("\\", "\\\\").replace('"', '""')
+        return escaped
+
     async def search(
         self,
         query: str,
@@ -103,11 +124,17 @@ class UserDataSearchTool:
             Dict containing search results and metadata
         """
         try:
-            # Since user_id is already set as streaming.groupname, we do not need to filter by user_id in the YQL query.
+            # Safely escape user inputs to prevent YQL injection
+            escaped_query = self._escape_yql_value(query)
+            escaped_user_id = self._escape_yql_value(self.user_id)
+            escaped_data_type = self._escape_yql_value(data_type.value)
+
+            # Build YQL query with explicit user_id filtering for security
+            # Use exact matching (=) instead of contains for user_id to prevent data leakage
             if data_type == DataType.ANY:
-                yql_query = f'select * from briefly_document where (search_text contains "{query}" or content contains "{query}" or title contains "{query}")'
+                yql_query = f'select * from briefly_document where user_id="{escaped_user_id}" and (search_text contains "{escaped_query}" or content contains "{escaped_query}" or title contains "{escaped_query}")'
             else:
-                yql_query = f'select * from briefly_document where source_type contains "{data_type.value}" and (search_text contains "{query}" or content contains "{query}" or title contains "{query}")'
+                yql_query = f'select * from briefly_document where user_id="{escaped_user_id}" and source_type="{escaped_data_type}" and (search_text contains "{escaped_query}" or content contains "{escaped_query}" or title contains "{escaped_query}")'
 
             search_query = {
                 "yql": yql_query,

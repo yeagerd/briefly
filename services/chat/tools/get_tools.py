@@ -756,21 +756,23 @@ class GetTools:
             requires_auth=True,
             service_dependency="vespa",
         )
+
         # Create a synchronous wrapper for the async vespa search method
         def vespa_search_wrapper(query: str, max_results: int = 20):
             """Synchronous wrapper for vespa_search async method."""
             import asyncio
-            
+
             # Run the async method in the current event loop or create a new one
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
                     # If we're in an async context, we need to handle this differently
                     import concurrent.futures
+
                     with concurrent.futures.ThreadPoolExecutor() as executor:
                         future = executor.submit(
-                            asyncio.run, 
-                            self.vespa_search_tool.search(query, max_results)
+                            asyncio.run,
+                            self.vespa_search_tool.search(query, max_results),
                         )
                         return future.result()
                 else:
@@ -779,13 +781,9 @@ class GetTools:
                     )
             except RuntimeError:
                 # No event loop exists, create a new one
-                return asyncio.run(
-                    self.vespa_search_tool.search(query, max_results)
-                )
-        
-        self.registry.register_tool(
-            vespa_search_metadata, vespa_search_wrapper
-        )
+                return asyncio.run(self.vespa_search_tool.search(query, max_results))
+
+        self.registry.register_tool(vespa_search_metadata, vespa_search_wrapper)
 
         # Register semantic_search
         semantic_search_metadata = ToolMetadata(
@@ -825,21 +823,23 @@ class GetTools:
             requires_auth=True,
             service_dependency="vespa",
         )
+
         # Create a synchronous wrapper for the async semantic search method
         def semantic_search_wrapper(query: str, max_results: int = 20):
             """Synchronous wrapper for semantic_search async method."""
             import asyncio
-            
+
             # Run the async method in the current event loop or create a new one
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
                     # If we're in an async context, we need to handle this differently
                     import concurrent.futures
+
                     with concurrent.futures.ThreadPoolExecutor() as executor:
                         future = executor.submit(
-                            asyncio.run, 
-                            self.semantic_search_tool.search(query, max_results)
+                            asyncio.run,
+                            self.semantic_search_tool.search(query, max_results),
                         )
                         return future.result()
                 else:
@@ -848,13 +848,9 @@ class GetTools:
                     )
             except RuntimeError:
                 # No event loop exists, create a new one
-                return asyncio.run(
-                    self.semantic_search_tool.search(query, max_results)
-                )
-        
-        self.registry.register_tool(
-            semantic_search_metadata, semantic_search_wrapper
-        )
+                return asyncio.run(self.semantic_search_tool.search(query, max_results))
+
+        self.registry.register_tool(semantic_search_metadata, semantic_search_wrapper)
 
         # Register user_data_search
         user_data_search_metadata = ToolMetadata(
@@ -904,19 +900,23 @@ class GetTools:
             requires_auth=True,
             service_dependency="vespa",
         )
+
         # Create a synchronous wrapper for the async search method
-        def user_data_search_wrapper(query: str, data_type: str = "any", max_results: int = 20):
+        def user_data_search_wrapper(
+            query: str, data_type: str = "any", max_results: int = 20
+        ):
             """Synchronous wrapper for user_data_search async method."""
             import asyncio
+
             from services.chat.tools.search_tools import DataType
-            
+
             # Convert string to DataType enum
             try:
                 data_type_enum = DataType(data_type)
             except ValueError:
                 # If invalid data_type provided, default to ANY
                 data_type_enum = DataType.ANY
-            
+
             # Run the async method in the current event loop or create a new one
             try:
                 loop = asyncio.get_event_loop()
@@ -924,25 +924,30 @@ class GetTools:
                     # If we're in an async context, we need to handle this differently
                     # This shouldn't happen with the current architecture, but let's be safe
                     import concurrent.futures
+
                     with concurrent.futures.ThreadPoolExecutor() as executor:
                         future = executor.submit(
-                            asyncio.run, 
-                            self.user_data_search_tool.search(query, data_type_enum, max_results)
+                            asyncio.run,
+                            self.user_data_search_tool.search(
+                                query, data_type_enum, max_results
+                            ),
                         )
                         return future.result()
                 else:
                     return loop.run_until_complete(
-                        self.user_data_search_tool.search(query, data_type_enum, max_results)
+                        self.user_data_search_tool.search(
+                            query, data_type_enum, max_results
+                        )
                     )
             except RuntimeError:
                 # No event loop exists, create a new one
                 return asyncio.run(
-                    self.user_data_search_tool.search(query, data_type_enum, max_results)
+                    self.user_data_search_tool.search(
+                        query, data_type_enum, max_results
+                    )
                 )
-        
-        self.registry.register_tool(
-            user_data_search_metadata, user_data_search_wrapper
-        )
+
+        self.registry.register_tool(user_data_search_metadata, user_data_search_wrapper)
 
     def _register_utility_tools(self) -> None:
         """Register utility tools."""

@@ -42,8 +42,7 @@ schema sheet_document {
         }
         
         field named_ranges type array<map<string, string>> {
-            indexing: index | summary
-            index: enable-bm25
+            indexing: summary
         }
         
         field data_validation type array<map<string, string>> {
@@ -70,7 +69,7 @@ schema sheet_document {
     }
     
     fieldset sheet_search {
-        fields: title, content, search_text, formulas, named_ranges
+        fields: title, content, search_text, formulas
     }
     
     rank-profile sheet_hybrid inherits hybrid {
@@ -85,11 +84,11 @@ schema sheet_document {
     
     rank-profile sheet_formula inherits hybrid {
         first-phase {
-            expression: nativeRank(title, content, search_text, formulas, named_ranges)
+            expression: nativeRank(title, content, search_text, formulas)
         }
         second-phase {
-            expression: 0.3 * nativeRank(title, content, search_text, formulas, named_ranges) + 0.6 * closeness(field, embedding) + 0.1 * freshness(updated_at)
+            expression: 0.3 * nativeRank(title, content, search_text, formulas) + 0.6 * closeness(field, embedding) + 0.1 * freshness(updated_at)
         }
-        match-features: nativeRank(title, content, search_text, formulas, named_ranges) closeness(field, embedding) freshness(updated_at)
+        match-features: nativeRank(title, content, search_text, formulas) closeness(field, embedding) freshness(updated_at)
     }
 }

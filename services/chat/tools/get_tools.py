@@ -776,29 +776,27 @@ class GetTools:
                 # If invalid data_type provided, default to ANY
                 data_type_enum = DataType.ANY
 
-            # Run the async method in the current event loop or create a new one
+            # Run the async method safely without creating resource conflicts
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
-                    # If we're in an async context, we need to handle this differently
-                    # This shouldn't happen with the current architecture, but let's be safe
-                    import concurrent.futures
-
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(
-                            asyncio.run,
-                            self.user_data_search_tool.search(
-                                query, data_type_enum, RankingMode.HYBRID, max_results
-                            ),
-                        )
-                        return future.result()
+                    # If we're in an async context, we can't use run_until_complete
+                    # Instead, we'll use asyncio.create_task and handle it properly
+                    # This is a synchronous wrapper, so we should avoid this scenario
+                    # by ensuring this wrapper is only called from sync contexts
+                    raise RuntimeError(
+                        "user_data_search_wrapper should not be called from an async context. "
+                        "Use the async search method directly instead."
+                    )
                 else:
                     return loop.run_until_complete(
                         self.user_data_search_tool.search(
                             query, data_type_enum, RankingMode.HYBRID, max_results
                         )
                     )
-            except RuntimeError:
+            except RuntimeError as e:
+                if "should not be called from an async context" in str(e):
+                    raise e
                 # No event loop exists, create a new one
                 return asyncio.run(
                     self.user_data_search_tool.search(

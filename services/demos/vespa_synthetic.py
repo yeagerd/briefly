@@ -296,7 +296,7 @@ class VespaChatDemo:
             flat_results = search_results.get("results", [])
             if flat_results:
                 # Group results by source_type for chat display
-                grouped_by_type = {}
+                grouped_by_type: Dict[str, List[Dict[str, Any]]] = {}
                 for result in flat_results:
                     fields = result.get("fields", {})
                     source_type = fields.get("source_type", "unknown")

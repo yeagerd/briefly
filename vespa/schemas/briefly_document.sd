@@ -23,16 +23,22 @@ schema briefly_document {
         field title type string {
             indexing: index | summary
             index: enable-bm25
+            match: word
+            stemming: best
         }
         
         field content type string {
             indexing: index | summary
             index: enable-bm25
+            match: word
+            stemming: best
         }
         
         field search_text type string {
             indexing: index | summary
             index: enable-bm25
+            match: word
+            stemming: best
         }
         
         field sender type string {
@@ -68,6 +74,8 @@ schema briefly_document {
         field quoted_content type string {
             indexing: index | summary
             index: enable-bm25
+            match: word
+            stemming: best
         }
         
         field thread_summary type map<string, string> {

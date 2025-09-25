@@ -1,6 +1,6 @@
 import { officeApi } from '@/api';
-import { useEmailList, useEmailThread } from '@/hooks/use-email-data';
 import { useOfficeData } from '@/contexts/office-data-context';
+import { useEmailList, useEmailThread } from '@/hooks/use-email-data';
 import { EmailThread } from "@/types/api/office";
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -95,6 +95,16 @@ export const useThreads = (initialOptions: UseThreadsOptions = {}): UseThreadsRe
             // Update last message date if this message is newer
             if (new Date(message.date) > new Date(thread.last_message_date)) {
                 thread.last_message_date = message.date;
+            }
+
+            // Aggregate is_read: thread is unread if ANY message is unread
+            if (!message.is_read) {
+                thread.is_read = false;
+            }
+
+            // Aggregate providers: add unique providers from all messages
+            if (!thread.providers.includes(message.provider)) {
+                thread.providers.push(message.provider);
             }
         });
 

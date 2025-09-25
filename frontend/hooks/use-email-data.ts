@@ -191,14 +191,16 @@ export function useEmailThread(threadId: string | null, options: UseEmailThreadO
 export function useEmailCache() {
     const { invalidateEmailCache, clearEmailCache } = useOfficeData();
 
-    const invalidateList = useCallback(async (folderId?: string, query?: string) => {
+    const invalidateList = useCallback(async (folderId?: string, query?: string, pageSize?: number, labels?: string[]) => {
         try {
             const session = await getSession();
             if (session?.user?.id) {
                 const scope: EmailScope = {
                     userId: session.user.id,
                     folderId,
-                    query
+                    query,
+                    pageSize,
+                    labels
                 };
                 invalidateEmailCache(scope);
             }

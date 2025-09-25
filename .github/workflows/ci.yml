@@ -11,9 +11,9 @@ jobs:
     name: Detect Changes
     runs-on: ubicloud-standard-2
     outputs:
-      python-changed: ${{ steps.changes.outputs.python }}
-      frontend-changed: ${{ steps.changes.outputs.frontend }}
-      force-run: ${{ steps.changes.outputs.force-run }}
+      python-changed: ${{ steps.changes.outputs.python-changed }}
+      frontend-changed: ${{ steps.changes.outputs.frontend-changed }}
+      force-run: ${{ steps.force-check.outputs.force-run }}
     steps:
       - uses: actions/checkout@v4
         with:

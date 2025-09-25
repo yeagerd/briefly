@@ -275,7 +275,7 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
         inflightRequests.current.set(inflightKey, requestPromise);
         return requestPromise;
-    }, [listCache]);
+    }, []);
 
     const getEmailListLoading = useCallback((scope: EmailScope): boolean => {
         const cacheKey = createCacheKey(scope);
@@ -365,7 +365,7 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
         inflightRequests.current.set(inflightKey, requestPromise);
         return requestPromise;
-    }, [threadCache]);
+    }, []);
 
     const getEmailThreadLoading = useCallback((threadId: string): boolean => {
         return threadLoading.get(threadId) || false;

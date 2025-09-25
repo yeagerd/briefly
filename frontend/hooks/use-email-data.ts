@@ -1,7 +1,7 @@
 import { useOfficeData } from '@/contexts/office-data-context';
 import type { EmailMessage, EmailThread } from '@/types/api/office';
 import { getSession } from 'next-auth/react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface EmailScope {
     userId: string;
@@ -70,6 +70,14 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
     const [hasMore, setHasMore] = useState(false);
     const [scope, setScope] = useState<EmailScope | null>(null);
 
+    // Store latest function references to avoid circular dependencies
+    const getEmailListRef = useRef(getEmailList);
+    const refreshEmailListRef = useRef(refreshEmailList);
+    
+    // Update refs when functions change
+    getEmailListRef.current = getEmailList;
+    refreshEmailListRef.current = refreshEmailList;
+
     // Create scope when user session is available
     useEffect(() => {
         const createScope = async () => {
@@ -94,7 +102,7 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
         if (scope && autoFetch) {
             const fetchEmails = async () => {
                 try {
-                    const result = await getEmailList(scope, providers);
+                    const result = await getEmailListRef.current(scope, providers);
                     setEmails(result);
                 } catch (error) {
                     console.error('Failed to fetch emails:', error);
@@ -102,19 +110,19 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
             };
             fetchEmails();
         }
-    }, [scope, providers, autoFetch, getEmailList]);
+    }, [scope, providers, autoFetch]);
 
     const refresh = useCallback(async () => {
         if (scope) {
             try {
-                await refreshEmailList(scope, providers);
-                const result = await getEmailList(scope, providers);
+                await refreshEmailListRef.current(scope, providers);
+                const result = await getEmailListRef.current(scope, providers);
                 setEmails(result);
             } catch (error) {
                 console.error('Failed to refresh emails:', error);
             }
         }
-    }, [scope, providers, refreshEmailList, getEmailList]);
+    }, [scope, providers]);
 
     const loading = scope ? getEmailListLoading(scope) : false;
     const error = scope ? getEmailListError(scope) : null;
@@ -149,12 +157,20 @@ export function useEmailThread(threadId: string | null, options: UseEmailThreadO
 
     const [thread, setThread] = useState<EmailThread | null>(null);
 
+    // Store latest function references to avoid circular dependencies
+    const getEmailThreadRef = useRef(getEmailThread);
+    const refreshEmailThreadRef = useRef(refreshEmailThread);
+    
+    // Update refs when functions change
+    getEmailThreadRef.current = getEmailThread;
+    refreshEmailThreadRef.current = refreshEmailThread;
+
     // Fetch thread when threadId changes
     useEffect(() => {
         if (threadId && autoFetch) {
             const fetchThread = async () => {
                 try {
-                    const result = await getEmailThread(threadId, includeBody);
+                    const result = await getEmailThreadRef.current(threadId, includeBody);
                     setThread(result);
                 } catch (error) {
                     console.error('Failed to fetch thread:', error);
@@ -162,19 +178,19 @@ export function useEmailThread(threadId: string | null, options: UseEmailThreadO
             };
             fetchThread();
         }
-    }, [threadId, includeBody, autoFetch, getEmailThread]);
+    }, [threadId, includeBody, autoFetch]);
 
     const refresh = useCallback(async () => {
         if (threadId) {
             try {
-                await refreshEmailThread(threadId, includeBody);
-                const result = await getEmailThread(threadId, includeBody);
+                await refreshEmailThreadRef.current(threadId, includeBody);
+                const result = await getEmailThreadRef.current(threadId, includeBody);
                 setThread(result);
             } catch (error) {
                 console.error('Failed to refresh thread:', error);
             }
         }
-    }, [threadId, includeBody, refreshEmailThread, getEmailThread]);
+    }, [threadId, includeBody]);
 
     const loading = threadId ? getEmailThreadLoading(threadId) : false;
     const error = threadId ? getEmailThreadError(threadId) : null;

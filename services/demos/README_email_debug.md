@@ -134,5 +134,12 @@ python -m services.demos.email_debug user@example.com --folder "Junk Email" --pr
 
 The script includes a mapping of known user emails to user IDs for demo purposes:
 - `trybriefly@outlook.com` → `AAAAAAAAAAAAAAAAAAAAAG_WiRzTkk4vuAr97CA2Dc4`
+- `danstrashbin@hotmail.com` → `AAAAAAAAAAAAAAAAAAAAAG_WiRzTkk4vuAr97CA2Dc4`
 
-For other users, the script will attempt to resolve the user ID via the user service API.
+For unknown users, the script will:
+1. Show a warning with available known users
+2. Use the first known user ID as a fallback for demo purposes
+3. Continue with email retrieval using the fallback user ID
+
+This approach avoids authentication issues and allows the script to work
+with any email address for debugging purposes.

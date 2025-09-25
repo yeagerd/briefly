@@ -10,9 +10,10 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
 import { useIntegrations } from '@/contexts/integrations-context';
 import { useDraftState } from '@/hooks/use-draft-state';
+import { useEmailList, useEmailThread } from '@/hooks/use-email-data';
 import { listProviderDraftsForThread } from '@/lib/draft-utils';
 import { safeParseDate } from '@/lib/utils';
-import { EmailFolder, EmailMessage, EmailThread as EmailThreadType, Provider } from "@/types/api/office";
+import { EmailFolder, EmailMessage, Provider } from "@/types/api/office";
 import { Archive, Check, ChevronLeft, Clock, List, ListTodo, PanelLeft, RefreshCw, Settings, Square, Trash2, X } from 'lucide-react';
 import { getSession } from 'next-auth/react';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -100,20 +101,15 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
         }
     };
 
-    const [threads, setThreads] = useState<EmailMessage[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [filters, setFilters] = useState<Record<string, unknown>>({});
     const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
-    const [fullThread, setFullThread] = useState<EmailThreadType | null>(null);
-    const [loadingThread, setLoadingThread] = useState(false);
-    const [threadError, setThreadError] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>('tight');
     const [readingPaneMode, setReadingPaneMode] = useState<ReadingPaneMode>('right');
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [isInThreadView, setIsInThreadView] = useState(false);
     const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
+    const [refreshing, setRefreshing] = useState(false);
+
     const { loading: integrationsLoading, activeProviders, hasExpiredButRefreshableTokens } = useIntegrations();
     const { toast } = useToast();
     const { setCurrentDraft, updateDraft, createNewDraft } = useDraftState();
@@ -136,81 +132,66 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
         is_system: true
     });
 
-    const fetchEmails = useCallback(async (noCache = false) => {
-        if (!activeProviders || activeProviders.length === 0) {
-            return;
-        }
+    // Determine folder/label parameters for the provider
+    const getFolderParams = useCallback(() => {
+        const isSystemFolder = selectedFolder.is_system;
+        let labels: string[] | undefined;
+        let folderId: string | undefined;
 
-        try {
-            const session = await getSession();
-            const userId = session?.user?.id;
-            if (!userId) throw new Error('No user id found in session');
-
-            // For Microsoft, always use folder_id when available (both system and user folders)
-            // For Google, use folder_id for system folders, labels for user folders
-            const isSystemFolder = selectedFolder.is_system;
-            let labels: string[] | undefined;
-            let folderId: string | undefined;
-
-            if (selectedFolder.provider === Provider.MICROSOFT) {
-                // Microsoft: use folder_id for all folders when available
+        if (selectedFolder.provider === Provider.MICROSOFT) {
+            // Microsoft: use folder_id for all folders when available
+            folderId = selectedFolder.provider_folder_id || undefined;
+            labels = undefined;
+        } else if (selectedFolder.provider === Provider.GOOGLE) {
+            // Google: use folder_id for system folders, labels for user folders
+            if (isSystemFolder && selectedFolder.provider_folder_id) {
                 folderId = selectedFolder.provider_folder_id || undefined;
                 labels = undefined;
-            } else if (selectedFolder.provider === Provider.GOOGLE) {
-                // Google: use folder_id for system folders, labels for user folders
-                if (isSystemFolder && selectedFolder.provider_folder_id) {
-                    folderId = selectedFolder.provider_folder_id || undefined;
-                    labels = undefined;
-                } else {
-                    labels = [selectedFolder.label];
-                    folderId = undefined;
-                }
+            } else {
+                labels = [selectedFolder.label];
+                folderId = undefined;
             }
-
-            const emailsResp = await officeApi.getEmails(activeProviders, 50, 0, noCache, labels, folderId) as { data?: { messages?: EmailMessage[] } };
-
-            let messages = emailsResp.data?.messages || [];
-
-            // Apply client-side filtering only for inbox and sent since we now use proper folder-specific fetching
-            if (selectedFolder.label === 'inbox' || selectedFolder.label === 'sent') {
-                const session = await getSession();
-                const userEmail = session?.user?.email;
-                if (userEmail) {
-                    messages = messages.filter(msg => {
-                        if (selectedFolder.label === 'inbox') {
-                            // For inbox: show messages where user is recipient (in "to" field, not "from")
-                            const isInToField = msg.to_addresses?.some(addr => addr.email === userEmail) || false;
-                            const isFromUser = msg.from_address?.email === userEmail;
-                            return isInToField && !isFromUser;
-                        } else if (selectedFolder.label === 'sent') {
-                            // For sent: show messages where user is sender (in "from" field)
-                            const isFromUser = msg.from_address?.email === userEmail;
-                            return isFromUser;
-                        }
-                        return true;
-                    });
-                }
-            }
-
-            setThreads(messages);
-            setError(null);
-            // Clear email selections when emails are fetched/updated
-            setSelectedEmails(new Set());
-        } catch (e: unknown) {
-            setError((e && typeof e === 'object' && 'message' in e) ? (e as { message?: string }).message || 'Failed to load emails' : 'Failed to load emails');
         }
-    }, [activeProviders, selectedFolder.label, selectedFolder.provider, selectedFolder.provider_folder_id, selectedFolder.is_system]);
+
+        return { labels, folderId };
+    }, [selectedFolder]);
+
+    // Use provider hooks for email data
+    const { labels, folderId } = getFolderParams();
+    const {
+        emails: threads,
+        loading,
+        error,
+        lastUpdated,
+        refresh: refreshEmails
+    } = useEmailList({
+        folderId,
+        folderLabel: selectedFolder.label,
+        labels,
+        pageSize: 50,
+        providers: activeProviders || ['google', 'microsoft'],
+        autoFetch: activeTool === 'email' && !toolDataLoading && !integrationsLoading
+    });
+
+    const {
+        thread: fullThread,
+        loading: loadingThread,
+        error: threadError
+    } = useEmailThread(selectedThreadId, {
+        includeBody: true,
+        autoFetch: !!selectedThreadId
+    });
 
     const handleRefresh = useCallback(async () => {
         setRefreshing(true);
         try {
-            await fetchEmails(true); // Pass true to bypass cache
+            await refreshEmails();
             // Clear email selections after refresh
             setSelectedEmails(new Set());
         } finally {
             setRefreshing(false);
         }
-    }, [fetchEmails]);
+    }, [refreshEmails]);
 
     const handleFolderSelect = useCallback((folder: EmailFolder) => {
         setSelectedFolder(folder);
@@ -391,60 +372,41 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
     // selectedThread was used for fallback logic that has been removed
     // Keeping this for potential future use or debugging
 
-    // Function to fetch full thread when user clicks into it
-    const fetchFullThread = useCallback(async (threadId: string) => {
-        setLoadingThread(true);
-        setThreadError(null);
-
+    // Function to load provider drafts for a thread
+    const loadProviderDrafts = useCallback(async (threadId: string) => {
         try {
-            const response = await officeApi.getThread(threadId, true); // include body
-            if (response.data?.threads && response.data.threads.length > 0) {
-                setFullThread(response.data.threads[0]);
-                // Auto-load provider drafts for this thread
-                try {
-                    const draftsResp = await listProviderDraftsForThread(threadId);
-                    // The API returns a single EmailDraftResult, not a list
-                    if (draftsResp?.data?.draft_id) {
-                        const provider = draftsResp.data.provider as 'google' | 'microsoft' | undefined;
-                        const session = await getSession();
-                        const local = createNewDraft('email', session?.user?.id || '');
-                        // Since we only get metadata, create a basic draft
-                        updateDraft({
-                            id: local.id,
-                            content: '',
-                            metadata: {
-                                subject: '',
-                                recipients: [],
-                                cc: [],
-                                bcc: [],
-                                provider,
-                                providerDraftId: draftsResp.data.draft_id,
-                            },
-                            threadId,
-                        });
-                        setCurrentDraft({ ...local, content: '', metadata: { ...local.metadata, provider, providerDraftId: draftsResp.data.draft_id } });
-                    }
-                } catch (e) {
-                    console.warn('No provider drafts for thread or failed to load:', e);
-                }
-            } else {
-                throw new Error('No thread data received from API');
+            const draftsResp = await listProviderDraftsForThread(threadId);
+            // The API returns a single EmailDraftResult, not a list
+            if (draftsResp?.data?.draft_id) {
+                const provider = draftsResp.data.provider as 'google' | 'microsoft' | undefined;
+                const session = await getSession();
+                const local = createNewDraft('email', session?.user?.id || '');
+                // Since we only get metadata, create a basic draft
+                updateDraft({
+                    id: local.id,
+                    content: '',
+                    metadata: {
+                        subject: '',
+                        recipients: [],
+                        cc: [],
+                        bcc: [],
+                        provider,
+                        providerDraftId: draftsResp.data.draft_id,
+                    },
+                    threadId,
+                });
+                setCurrentDraft({ ...local, content: '', metadata: { ...local.metadata, provider, providerDraftId: draftsResp.data.draft_id } });
             }
-        } catch (error) {
-            console.error('Error fetching full thread:', error);
-            setThreadError('Failed to load thread data. Please try refreshing.');
-            setFullThread(null);
-        } finally {
-            setLoadingThread(false);
+        } catch (e) {
+            console.warn('No provider drafts for thread or failed to load:', e);
         }
     }, [createNewDraft, setCurrentDraft, updateDraft]);
 
-    const handleThreadSelect = useCallback((threadId: string) => {
+    const handleThreadSelect = useCallback(async (threadId: string) => {
         setSelectedThreadId(threadId);
-        // Clear the previous thread data immediately
-        setFullThread(null);
-        // Fetch full thread when user clicks into it
-        fetchFullThread(threadId);
+
+        // Load provider drafts for this thread
+        await loadProviderDrafts(threadId);
 
         // Handle click behavior based on pane mode
         if (readingPaneMode === 'none') {
@@ -452,12 +414,11 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
             setIsInThreadView(true);
         }
         // Two-pane mode: thread will be shown in right pane automatically
-    }, [readingPaneMode, fetchFullThread]);
+    }, [readingPaneMode, loadProviderDrafts]);
 
     const handleBackToList = useCallback(() => {
         setIsInThreadView(false);
         setSelectedThreadId(null);
-        setFullThread(null);
     }, []);
 
     // Update selectedFolder provider when activeProviders change
@@ -483,36 +444,10 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
 
 
 
+    // Clear email selections when folder changes
     useEffect(() => {
-        // Only fetch when the tab is actually activated
-        if (toolDataLoading) return;
-        if (integrationsLoading) return;
-        if ((!activeProviders || activeProviders.length === 0)) {
-            if (hasExpiredButRefreshableTokens) {
-                setError('Your email integration token has expired and is being refreshed. Please wait or try reconnecting.');
-            } else {
-                setError('No active email integrations found. Please connect your email account first.');
-            }
-            setThreads([]);
-            setLoading(false);
-            return;
-        }
-        if (activeTool !== 'email') {
-            setLoading(false);
-            return;
-        }
-
-        let isMounted = true;
-        setLoading(true);
-        (async () => {
-            try {
-                await fetchEmails(false); // Use cached data for initial load
-            } finally {
-                if (isMounted) setLoading(false);
-            }
-        })();
-        return () => { isMounted = false; };
-    }, [filters, activeProviders, integrationsLoading, toolDataLoading, activeTool, hasExpiredButRefreshableTokens, fetchEmails, selectedFolder.label]);
+        setSelectedEmails(new Set());
+    }, [selectedFolder]);
 
     return (
         <div className="flex flex-col h-full">
@@ -538,6 +473,13 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
                         >
                             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                         </button>
+
+                        {/* Last updated timestamp */}
+                        {lastUpdated && (
+                            <span className="text-xs text-muted-foreground">
+                                Updated {Math.floor((Date.now() - lastUpdated) / 1000)}s ago
+                            </span>
+                        )}
 
                         {/* Settings dropdown */}
                         <DropdownMenu open={settingsOpen} onOpenChange={setSettingsOpen}>
@@ -713,6 +655,21 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
                         <div className="flex-1 overflow-y-auto">
                             {loading ? (
                                 <div className="p-8 text-center text-muted-foreground">Loading…</div>
+                            ) : hasExpiredButRefreshableTokens ? (
+                                <div className="p-8 text-center">
+                                    <div className="text-amber-600">
+                                        <p className="mb-4">Your email integration token has expired and is being refreshed. Please wait or try reconnecting.</p>
+                                        <a
+                                            href="/settings?page=integrations"
+                                            className="inline-flex items-center gap-1 text-amber-700 hover:text-amber-900 font-medium"
+                                        >
+                                            <span>Go to Integrations</span>
+                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                            </svg>
+                                        </a>
+                                    </div>
+                                </div>
                             ) : error ? (
                                 <div className="p-8 text-center">
                                     {error.includes('No active email integrations') ? (

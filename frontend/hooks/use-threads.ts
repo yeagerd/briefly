@@ -96,7 +96,7 @@ export const useThreads = (initialOptions: UseThreadsOptions = {}): UseThreadsRe
             // Update last message date if this message is newer
             const messageDate = safeParseDate(message.date);
             const threadDate = safeParseDate(thread.last_message_date);
-            
+
             if (messageDate && threadDate && messageDate > threadDate) {
                 thread.last_message_date = message.date;
             } else if (messageDate && !threadDate) {
@@ -118,16 +118,16 @@ export const useThreads = (initialOptions: UseThreadsOptions = {}): UseThreadsRe
         return Array.from(threadMap.values()).sort((a, b) => {
             const dateA = safeParseDate(a.last_message_date);
             const dateB = safeParseDate(b.last_message_date);
-            
+
             // If both dates are valid, sort normally
             if (dateA && dateB) {
                 return dateB.getTime() - dateA.getTime();
             }
-            
+
             // If only one date is valid, prioritize it
             if (dateA && !dateB) return -1;
             if (!dateA && dateB) return 1;
-            
+
             // If both dates are invalid, maintain original order
             return 0;
         });

@@ -73,7 +73,7 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
     // Store latest function references to avoid circular dependencies
     const getEmailListRef = useRef(getEmailList);
     const refreshEmailListRef = useRef(refreshEmailList);
-    
+
     // Update refs when functions change
     getEmailListRef.current = getEmailList;
     refreshEmailListRef.current = refreshEmailList;
@@ -160,7 +160,7 @@ export function useEmailThread(threadId: string | null, options: UseEmailThreadO
     // Store latest function references to avoid circular dependencies
     const getEmailThreadRef = useRef(getEmailThread);
     const refreshEmailThreadRef = useRef(refreshEmailThread);
-    
+
     // Update refs when functions change
     getEmailThreadRef.current = getEmailThread;
     refreshEmailThreadRef.current = refreshEmailThread;

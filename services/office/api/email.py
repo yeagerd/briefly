@@ -3048,31 +3048,161 @@ async def get_internal_email_messages(
                     request_id=request_id,
                 )
 
-        # Query each provider using fetch_provider_emails for consistent filtering
+        # Query each provider with restored original behavior + priority filtering
         all_messages = []
         total_count = 0
 
+        # Build filter string if labels are provided (semantic label filtering)
+        filter_str = None
+        if labels:
+            # Convert labels to provider-specific filters
+            if "inbox" in labels:
+                filter_str = "isRead eq false"
+            elif "sent" in labels:
+                filter_str = "from/emailAddress/address eq 'me'"
+            # Add more label filters as needed
+
+        # Get API client factory
+        api_client_factory = await get_api_client_factory()
+
         for provider in valid_providers:
             try:
-                # Use fetch_provider_emails which includes priority filtering logic
-                messages, provider_used = await fetch_provider_emails(
-                    request_id=request_id,
-                    user_id=user_id,
-                    provider=provider,
-                    limit=limit,
-                    include_body=include_body,
-                    labels=labels,
-                    folder_id=folder_id,
-                    q=q,
-                    page_token=page_token,
-                    priority=priority,
+                # Check if user has integration for this provider
+                user_providers = await get_user_email_providers(user_id)
+                logger.info(f"User {user_id} has providers: {user_providers}")
+                logger.info(f"Checking if provider '{provider}' is in {user_providers}")
+
+                if provider not in user_providers:
+                    logger.info(f"User {user_id} has no integration for {provider}")
+                    continue
+
+                logger.info(
+                    f"User {user_id} has integration for {provider}, proceeding to create API client"
                 )
 
-                all_messages.extend(messages)
-                total_count += len(messages)
+                # Create API client for this provider
+                client = await api_client_factory.create_client(user_id, provider)
+                if not client:
+                    logger.warning(
+                        f"Failed to create {provider} client for user {user_id}"
+                    )
+                    continue
+
+                logger.info(
+                    f"Successfully created {provider} client for user {user_id}"
+                )
+
+                # Get messages from provider with priority filtering
+                async with client:
+                    if provider == "microsoft" and isinstance(
+                        client, MicrosoftAPIClient
+                    ):
+                        # Microsoft client uses top, skip, filter, search, order_by
+                        # Convert page_token to skip value for pagination
+                        skip_value = 0
+                        if page_token:
+                            try:
+                                skip_value = int(page_token)
+                            except (ValueError, TypeError):
+                                skip_value = 0
+
+                        # Build combined filter with priority filtering
+                        combined_filter = filter_str
+                        if priority is not None:
+                            priority_filter = (
+                                "inferenceClassification eq 'focused'"
+                                if priority
+                                else "inferenceClassification ne 'focused'"
+                            )
+                            if combined_filter:
+                                combined_filter = (
+                                    f"({combined_filter}) and ({priority_filter})"
+                                )
+                            else:
+                                combined_filter = priority_filter
+
+                        logger.info(
+                            f"Fetching messages from Microsoft API for user {user_id} with skip={skip_value}, filter={combined_filter}"
+                        )
+                        messages = await client.get_messages(
+                            top=limit,
+                            skip=skip_value,
+                            filter=combined_filter,
+                            search=q,
+                            order_by="receivedDateTime desc",
+                        )
+                        logger.info(
+                            f"Microsoft API returned: {type(messages)} with keys: {list(messages.keys()) if isinstance(messages, dict) else 'Not a dict'}"
+                        )
+                    elif provider == "google" and isinstance(client, GoogleAPIClient):
+                        # Google client uses max_results, query
+                        # Build query with priority filter if specified
+                        gmail_query = q or ""
+                        if priority is not None:
+                            if priority:
+                                # Priority emails: exclude promotions
+                                priority_query = "-category:promotions"
+                            else:
+                                # Non-priority emails: only promotions
+                                priority_query = "category:promotions"
+
+                            if gmail_query:
+                                gmail_query = f"({gmail_query}) ({priority_query})"
+                            else:
+                                gmail_query = priority_query
+
+                        logger.info(
+                            f"Fetching messages from Google API for user {user_id} with query={gmail_query}"
+                        )
+                        messages = await client.get_messages(
+                            max_results=limit,
+                            query=gmail_query,
+                        )
+                        logger.info(
+                            f"Google API returned: {type(messages)} with keys: {list(messages.keys()) if isinstance(messages, dict) else 'Not a dict'}"
+                        )
+                    else:
+                        logger.warning(
+                            f"Unknown client type for provider {provider}: {type(client)}"
+                        )
+                        continue
+
+                # Normalize messages using the email parameter (not user_id)
+                if provider == "microsoft":
+                    # Microsoft Graph API returns emails in a 'value' array
+                    email_list = (
+                        messages.get("value", []) if isinstance(messages, dict) else []
+                    )
+                    normalized_messages = [
+                        normalize_microsoft_email(msg, email) for msg in email_list
+                    ]
+                elif provider == "google":
+                    # Gmail API returns emails in a 'messages' array
+                    email_list = (
+                        messages.get("messages", [])
+                        if isinstance(messages, dict)
+                        else []
+                    )
+                    normalized_messages = [
+                        normalize_google_email(msg, email) for msg in email_list
+                    ]
+                else:
+                    # If unknown provider, yield empty list
+                    normalized_messages = []
+
+                # Add to results
+                all_messages.extend(normalized_messages)
+                total_count += len(normalized_messages)
+
+                logger.info(
+                    f"Retrieved {len(normalized_messages)} messages from {provider} for user {user_id}"
+                )
 
             except Exception as e:
-                logger.error(f"Error fetching messages from {provider}: {e}")
+                logger.error(
+                    f"Error fetching messages from {provider} for user {user_id}: {e}"
+                )
+                # Continue with other providers
                 continue
 
         # If count_only, return just the count

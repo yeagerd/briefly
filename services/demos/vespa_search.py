@@ -751,6 +751,12 @@ class VespaSearchDemo:
                         else:
                             print(f"      • {key}: {value}")
 
+            # Priority and category fields (top-level fields)
+            if fields.get("is_priority") is not None:
+                print(f"    ⭐ Priority: {fields.get('is_priority')}")
+            if fields.get("derived_category"):
+                print(f"    🏷️  Category: {fields.get('derived_category')}")
+
         elif doc_type == "calendar":
             print(f"    📅 Start: {fields.get('start_time', 'Unknown')}")
             print(f"    ⏰ End: {fields.get('end_time', 'Unknown')}")

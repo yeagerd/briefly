@@ -47,20 +47,33 @@ class EmailDebugger:
         self.factory = APIClientFactory()
 
     async def resolve_user_id(self) -> str:
-        """Resolve email address to user ID."""
-        # Try to resolve user ID via API call first
+        """Resolve email address to user ID using the same approach as vespa_backfill.py."""
         try:
+            # Import settings to get API keys
+            from services.demos.settings_demos import get_demo_settings
+            settings = get_demo_settings()
+            api_keys = settings.get_api_keys()
+            
             import httpx
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    f"http://localhost:8001/v1/internal/users/exists",
-                    params={"email": self.user_email}
+                    f"{settings.user_service_url}/v1/internal/users/exists",
+                    params={"email": self.user_email},
+                    headers={"X-API-Key": api_keys["user"]},
+                    timeout=10.0,
                 )
-                response.raise_for_status()
-                data = response.json()
-                self.user_id = data["user_id"]
-                logger.info(f"Resolved user ID: {self.user_id} for email: {self.user_email}")
-                return self.user_id
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("exists", False):
+                        self.user_id = data.get("user_id")
+                        logger.info(f"Resolved user ID: {self.user_id} for email: {self.user_email}")
+                        return self.user_id
+                    else:
+                        raise ValueError(f"No user found for email: {self.user_email}")
+                else:
+                    raise ValueError(f"Failed to resolve email: HTTP {response.status_code}")
+                    
         except Exception as e:
             logger.error(f"Failed to resolve user ID for {self.user_email}: {e}")
             raise ValueError(

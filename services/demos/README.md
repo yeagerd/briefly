@@ -33,6 +33,7 @@ This directory contains various demonstration scripts and tools for testing and 
 ### Email Debugging
 ```bash
 # Debug email classification and folder mapping
+# Note: User must exist in the system and user service must be accessible
 python -m services.demos.email_debug user@example.com --folder "Inbox" --priority true
 ```
 

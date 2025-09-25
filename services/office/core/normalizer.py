@@ -218,6 +218,9 @@ def normalize_google_email(
         # Convert Gmail labels to standardized labels
         labels = _normalize_gmail_labels(label_ids)
 
+        # Set is_priority: true if NOT in CATEGORY_PROMOTIONS
+        is_priority = "CATEGORY_PROMOTIONS" not in label_ids
+
         return EmailMessage(
             id=f"gmail_{message_id}",
             thread_id=f"gmail_{thread_id}" if thread_id else None,
@@ -235,6 +238,7 @@ def normalize_google_email(
             labels=labels,
             is_read=is_read,
             has_attachments=has_attachments,
+            is_priority=is_priority,
             provider=Provider.GOOGLE,
             provider_message_id=message_id,
             account_email=account_email,
@@ -383,6 +387,19 @@ def normalize_microsoft_email(
         if importance == "high":
             labels.append("important")
 
+        # Extract inference classification (focused/other)
+        inference_classification = raw_data.get("inferenceClassification")
+
+        # Set is_priority: true if inferenceClassification == "focused"
+        is_priority = inference_classification == "focused"
+
+        # Set derived_category: CATEGORY_PERSONAL if focused, CATEGORY_OTHER if other
+        derived_category = None
+        if inference_classification == "focused":
+            derived_category = "CATEGORY_PERSONAL"
+        elif inference_classification == "other":
+            derived_category = "CATEGORY_OTHER"
+
         return EmailMessage(
             id=f"outlook_{message_id}",
             thread_id=f"outlook_{conversation_id}" if conversation_id else None,
@@ -400,6 +417,9 @@ def normalize_microsoft_email(
             labels=labels,
             is_read=is_read,
             has_attachments=has_attachments,
+            inference_classification=inference_classification,
+            is_priority=is_priority,
+            derived_category=derived_category,
             provider=Provider.MICROSOFT,
             provider_message_id=message_id,
             account_email=account_email,

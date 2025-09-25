@@ -132,7 +132,7 @@ class MicrosoftAPIClient(BaseAPIClient):
         params["$select"] = (
             "id,conversationId,subject,bodyPreview,body,from,toRecipients,"
             "ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,"
-            "hasAttachments,categories,importance"
+            "hasAttachments,categories,importance,inferenceClassification"
         )
 
         if search:
@@ -178,7 +178,7 @@ class MicrosoftAPIClient(BaseAPIClient):
         params["$select"] = (
             "id,conversationId,subject,bodyPreview,body,from,toRecipients,"
             "ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,"
-            "hasAttachments,categories,importance"
+            "hasAttachments,categories,importance,inferenceClassification"
         )
 
         if filter:

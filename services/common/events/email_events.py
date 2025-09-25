@@ -33,6 +33,15 @@ class EmailData(BaseModel):
     has_attachments: bool = Field(
         default=False, description="Whether the email has attachments"
     )
+    inference_classification: Optional[str] = Field(
+        None, description="Outlook inference classification (focused/other)"
+    )
+    is_priority: bool = Field(
+        default=False, description="Provider-agnostic priority flag"
+    )
+    derived_category: Optional[str] = Field(
+        None, description="Gmail-style category for Microsoft emails"
+    )
     provider: str = Field(..., description="Email provider (gmail, outlook, etc.)")
     provider_message_id: str = Field(..., description="Provider's internal message ID")
 

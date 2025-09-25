@@ -452,6 +452,9 @@ async def run_backfill_job(
                             is_read=email.is_read,
                             is_starred=False,  # Not available in EmailMessage
                             has_attachments=email.has_attachments,
+                            inference_classification=email.inference_classification,
+                            is_priority=email.is_priority,
+                            derived_category=email.derived_category,
                             provider=request.provider,
                             provider_message_id=email.provider_message_id,
                             size_bytes=None,  # Not available in EmailMessage

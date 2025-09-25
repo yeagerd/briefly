@@ -321,6 +321,10 @@ async def get_email_messages(
     no_cache: bool = Query(
         False, description="Bypass cache and fetch fresh data from providers"
     ),
+    priority: Optional[bool] = Query(
+        None,
+        description="Filter by priority status (true=priority only, false=non-priority only)",
+    ),
 ) -> EmailMessageList:
     """
     Get unified email messages from multiple providers.
@@ -337,6 +341,7 @@ async def get_email_messages(
         labels: Filter by message labels/categories
         q: Search query string
         page_token: Pagination token
+        priority: Filter by priority status (true=priority only, false=non-priority only)
 
     Returns:
         EmailMessageList with aggregated email messages
@@ -379,6 +384,7 @@ async def get_email_messages(
             "q": q or "",
             "page_token": page_token or "",
             "no_cache": no_cache,
+            "priority": priority,
         }
         cache_key = generate_cache_key(user_id, "unified", "messages", cache_params)
 
@@ -437,6 +443,7 @@ async def get_email_messages(
                 folder_id,
                 q,
                 page_token,
+                priority,
             )
             tasks.append(task)
 
@@ -556,6 +563,10 @@ async def get_email_folders(
     no_cache: bool = Query(
         False, description="Bypass cache and fetch fresh data from providers"
     ),
+    priority: Optional[bool] = Query(
+        None,
+        description="Filter by priority status (true=priority only, false=non-priority only)",
+    ),
 ) -> EmailFolderList:
     """
     Get unified email folders/labels from multiple providers.
@@ -598,6 +609,7 @@ async def get_email_folders(
         cache_params = {
             "providers": valid_providers,
             "no_cache": no_cache,
+            "priority": priority,
         }
         cache_key = generate_cache_key(user_id, "unified", "folders", cache_params)
 
@@ -978,6 +990,10 @@ async def get_email_threads(
     ),
     no_cache: bool = Query(
         False, description="Bypass cache and fetch fresh data from providers"
+    ),
+    priority: Optional[bool] = Query(
+        None,
+        description="Filter by priority status (true=priority only, false=non-priority only)",
     ),
 ) -> EmailThreadList:
     """
@@ -1570,6 +1586,7 @@ async def fetch_provider_emails(
     folder_id: Optional[str],
     q: Optional[str],
     page_token: Optional[str],
+    priority: Optional[bool] = None,
 ) -> tuple[List[EmailMessage], str]:
     """
     Fetch emails from a specific provider.
@@ -1584,6 +1601,7 @@ async def fetch_provider_emails(
         folder_id: Folder ID to fetch from
         q: Search query
         page_token: Pagination token
+        priority: Filter by priority status (true=priority only, false=non-priority only)
 
     Returns:
         Tuple of (messages list, provider name)
@@ -1614,6 +1632,21 @@ async def fetch_provider_emails(
             if provider == "google":
                 google_client = cast(GoogleAPIClient, client)
 
+                # Build query with priority filter if specified
+                gmail_query = q or ""
+                if priority is not None:
+                    if priority:
+                        # Priority emails: exclude promotions
+                        priority_query = "-category:promotions"
+                    else:
+                        # Non-priority emails: only promotions
+                        priority_query = "category:promotions"
+
+                    if gmail_query:
+                        gmail_query = f"({gmail_query}) ({priority_query})"
+                    else:
+                        gmail_query = priority_query
+
                 # Fetch messages from Gmail - use label-specific endpoint if folder_id is provided
                 if folder_id:
                     messages_response = await google_client.get_messages_from_label(
@@ -1623,7 +1656,7 @@ async def fetch_provider_emails(
                     )
                 else:
                     messages_response = await google_client.get_messages(
-                        max_results=limit, page_token=page_token, query=q
+                        max_results=limit, page_token=page_token, query=gmail_query
                     )
                 messages = messages_response.get("messages", [])
 
@@ -1669,6 +1702,18 @@ async def fetch_provider_emails(
                         ]
                     )
                     filter_expr = category_filter
+
+                # Add priority filter if specified
+                if priority is not None:
+                    priority_filter = (
+                        "inferenceClassification eq 'focused'"
+                        if priority
+                        else "inferenceClassification eq 'other'"
+                    )
+                    if filter_expr:
+                        filter_expr = f"({filter_expr}) and ({priority_filter})"
+                    else:
+                        filter_expr = priority_filter
 
                 # Convert page_token to skip value
                 skip_value = 0
@@ -2914,6 +2959,10 @@ async def get_internal_email_messages(
     count_only: bool = Query(
         False, description="Return only count of messages, not the actual messages"
     ),
+    priority: Optional[bool] = Query(
+        None,
+        description="Filter by priority status (true=priority only, false=non-priority only)",
+    ),
     service_name: str = Depends(service_permission_required(["internal_access"])),
 ) -> EmailMessageList:
     """
@@ -2955,6 +3004,7 @@ async def get_internal_email_messages(
             "q": q or "",
             "page_token": page_token or "",
             "no_cache": no_cache,
+            "priority": priority,
         }
         cache_key = generate_cache_key(user_id, "unified", "messages", cache_params)
 

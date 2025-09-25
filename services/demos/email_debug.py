@@ -110,6 +110,7 @@ class EmailDebugger:
                         folder_mapping[folder_id] = folder_name
 
             logger.info(f"Found {len(folder_mapping)} folders: {list(folder_mapping.values())}")
+            logger.info(f"Full folder mapping: {folder_mapping}")
 
             # Build filter for Microsoft Graph API
             filters = []

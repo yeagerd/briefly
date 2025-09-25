@@ -130,16 +130,17 @@ python -m services.demos.email_debug user@example.com --folder "Junk Email" --pr
 - Valid OAuth tokens for email providers
 - Python dependencies: httpx, asyncio, structlog
 
-## Known Users
+## User ID Resolution
 
-The script includes a mapping of known user emails to user IDs for demo purposes:
-- `trybriefly@outlook.com` → `AAAAAAAAAAAAAAAAAAAAAG_WiRzTkk4vuAr97CA2Dc4`
-- `danstrashbin@hotmail.com` → `AAAAAAAAAAAAAAAAAAAAAG_WiRzTkk4vuAr97CA2Dc4`
+The script resolves user IDs by calling the user service API:
+- Makes a request to `/v1/internal/users/exists` with the email address
+- Retrieves the corresponding user ID from the response
+- Uses this user ID for all subsequent API calls
 
-For unknown users, the script will:
-1. Show a warning with available known users
-2. Use the first known user ID as a fallback for demo purposes
-3. Continue with email retrieval using the fallback user ID
+**Requirements:**
+- User service must be running and accessible
+- The email address must exist in the user database
+- Proper authentication may be required depending on your setup
 
-This approach avoids authentication issues and allows the script to work
-with any email address for debugging purposes.
+If user ID resolution fails, the script will exit with a clear error message
+indicating that the user needs to exist in the system.

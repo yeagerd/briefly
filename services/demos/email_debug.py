@@ -48,28 +48,26 @@ class EmailDebugger:
 
     async def resolve_user_id(self) -> str:
         """Resolve email address to user ID."""
-        # For demo purposes, use known user IDs
-        known_users = {
-            "trybriefly@outlook.com": "AAAAAAAAAAAAAAAAAAAAAG_WiRzTkk4vuAr97CA2Dc4",
-            "danstrashbin@hotmail.com": "AAAAAAAAAAAAAAAAAAAAAG_WiRzTkk4vuAr97CA2Dc4",  # Same user for demo
-        }
-        
-        if self.user_email in known_users:
-            self.user_id = known_users[self.user_email]
-            logger.info(f"Using known user ID: {self.user_id} for email: {self.user_email}")
-            return self.user_id
-        
-        # For unknown users, try to use a generic user ID or prompt for manual input
-        print(f"⚠️  Unknown user email: {self.user_email}")
-        print("Available known users:")
-        for email, user_id in known_users.items():
-            print(f"  - {email} → {user_id}")
-        
-        # Use the first known user ID as fallback for demo purposes
-        fallback_user_id = list(known_users.values())[0]
-        self.user_id = fallback_user_id
-        logger.warning(f"Using fallback user ID: {self.user_id} for unknown email: {self.user_email}")
-        return self.user_id
+        # Try to resolve user ID via API call first
+        try:
+            import httpx
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"http://localhost:8001/v1/internal/users/exists",
+                    params={"email": self.user_email}
+                )
+                response.raise_for_status()
+                data = response.json()
+                self.user_id = data["user_id"]
+                logger.info(f"Resolved user ID: {self.user_id} for email: {self.user_email}")
+                return self.user_id
+        except Exception as e:
+            logger.error(f"Failed to resolve user ID for {self.user_email}: {e}")
+            raise ValueError(
+                f"Could not resolve user ID for email '{self.user_email}'. "
+                f"Please ensure the user exists in the system and the user service is accessible. "
+                f"Error: {e}"
+            )
 
     async def get_microsoft_emails(
         self,

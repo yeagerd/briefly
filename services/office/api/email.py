@@ -1706,7 +1706,7 @@ async def fetch_provider_emails(
                     priority_filter = (
                         "inferenceClassification eq 'focused'"
                         if priority
-                        else "inferenceClassification eq 'other'"
+                        else "inferenceClassification ne 'focused'"
                     )
                     if filter_expr:
                         filter_expr = f"({filter_expr}) and ({priority_filter})"
@@ -2254,7 +2254,7 @@ async def fetch_provider_threads(
                     priority_filter = (
                         "inferenceClassification eq 'focused'"
                         if priority
-                        else "inferenceClassification eq 'other'"
+                        else "inferenceClassification ne 'focused'"
                     )
                     filter_expr = priority_filter
 

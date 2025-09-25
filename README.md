@@ -779,6 +779,13 @@ Each CI run includes a summary showing:
 - How to force all tests to run
 - Files that trigger each type of test
 
+### Branch Protection Compatibility
+
+The CI system is designed to work seamlessly with GitHub branch protection rules:
+- **Skipped jobs** are replaced with placeholder jobs that always succeed
+- This ensures branch protection rules requiring specific checks don't fail when tests are skipped
+- All required checks will show as "completed" rather than "skipped"
+
 ## Contributing
 
 (To be added: Guidelines for contributing, code style, pull request process, etc.)

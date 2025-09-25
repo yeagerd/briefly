@@ -433,10 +433,57 @@ jobs:
       working-directory: ./frontend
       run: npm run build
 
+  # Placeholder jobs that always succeed when main jobs are skipped
+  # This ensures GitHub branch protection rules work correctly
+  lint-skipped:
+    name: Python Linting & Formatting (Skipped)
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.python-changed == 'false' }}
+    runs-on: ubicloud-standard-2
+    steps:
+      - name: Skip Python linting
+        run: echo "✅ Python linting skipped - no Python-related changes detected"
+
+  typecheck-skipped:
+    name: Python Type Checking (Skipped)
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.python-changed == 'false' }}
+    runs-on: ubicloud-standard-2
+    steps:
+      - name: Skip Python type checking
+        run: echo "✅ Python type checking skipped - no Python-related changes detected"
+
+  test-skipped:
+    name: Python Tests (Skipped)
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.python-changed == 'false' }}
+    runs-on: ubicloud-standard-2
+    steps:
+      - name: Skip Python tests
+        run: echo "✅ Python tests skipped - no Python-related changes detected"
+
+  coverage-skipped:
+    name: Python Coverage (Skipped)
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.python-changed == 'false' }}
+    runs-on: ubicloud-standard-2
+    steps:
+      - name: Skip Python coverage
+        run: echo "✅ Python coverage skipped - no Python-related changes detected"
+
+  frontend-quality-skipped:
+    name: Frontend Code Quality (Skipped)
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.frontend-changed == 'false' }}
+    runs-on: ubicloud-standard-2
+    steps:
+      - name: Skip frontend quality checks
+        run: echo "✅ Frontend quality checks skipped - no frontend-related changes detected"
+
   # Summary job to show what tests were run
   test-summary:
     name: Test Summary
-    needs: [detect-changes, lint, typecheck, test, coverage, frontend-quality]
+    needs: [detect-changes, lint, typecheck, test, coverage, frontend-quality, lint-skipped, typecheck-skipped, test-skipped, coverage-skipped, frontend-quality-skipped]
     if: always()
     runs-on: ubicloud-standard-2
     steps:

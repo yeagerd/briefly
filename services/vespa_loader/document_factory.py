@@ -67,7 +67,7 @@ class VespaDocumentFactory:
             from_address=email.from_address or "",
             to_addresses=email.to_addresses or [],
             thread_id=email.thread_id,
-            folder="",  # Not available in current model
+            folder=email.folder or "",
             created_at=email.received_date,
             updated_at=email.sent_date,
             metadata={

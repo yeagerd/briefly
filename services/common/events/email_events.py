@@ -39,6 +39,10 @@ class EmailData(BaseModel):
     derived_category: Optional[str] = Field(
         None, description="Gmail-style category for Microsoft emails"
     )
+    folder: Optional[str] = Field(
+        None,
+        description="Email folder name (e.g., 'Inbox', 'Junk Email', 'Sent Items')",
+    )
     provider: str = Field(..., description="Email provider (gmail, outlook, etc.)")
     provider_message_id: str = Field(..., description="Provider's internal message ID")
 

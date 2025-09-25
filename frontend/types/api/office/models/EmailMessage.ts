@@ -23,6 +23,7 @@ export type EmailMessage = {
     has_attachments?: boolean;
     is_priority?: boolean;
     derived_category?: (string | null);
+    folder?: (string | null);
     provider: Provider;
     provider_message_id: string;
     account_email: string;

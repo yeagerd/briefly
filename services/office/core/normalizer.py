@@ -426,6 +426,11 @@ def normalize_microsoft_email(
         elif inference_classification == "other":
             derived_category = "CATEGORY_OTHER"
 
+        # Determine folder name from folder mapping
+        email_folder: Optional[str] = None
+        if parent_folder_id and folder_mapping:
+            email_folder = folder_mapping.get(parent_folder_id)
+
         return EmailMessage(
             id=f"outlook_{message_id}",
             thread_id=f"outlook_{conversation_id}" if conversation_id else None,
@@ -445,6 +450,7 @@ def normalize_microsoft_email(
             has_attachments=has_attachments,
             is_priority=is_priority,
             derived_category=derived_category,
+            folder=email_folder,
             provider=Provider.MICROSOFT,
             provider_message_id=message_id,
             account_email=account_email,

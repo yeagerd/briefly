@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { safeParseDate } from '@/lib/utils';
 import type { EmailThread as EmailThreadType } from "@/types/api/office";
-import { Archive, CalendarRange, Clock, Download, MoreHorizontal, Reply, Star, Trash2 } from 'lucide-react';
+import { Archive, CalendarRange, ChevronRight, Clock, Download, MoreHorizontal, Reply, Star, Trash2 } from 'lucide-react';
 import React, { useState } from 'react';
 import EmailThreadCard from './email-thread-card';
 // removed global draft pane wiring for thread-level drafts
@@ -15,12 +15,14 @@ interface EmailThreadProps {
     thread: EmailThreadType;
     onSelectMessage?: (messageId: string) => void;
     selectedMessageId?: string;
+    onCloseReadingPane?: () => void;
 }
 
 const EmailThread: React.FC<EmailThreadProps> = ({
     thread,
     onSelectMessage,
-    selectedMessageId
+    selectedMessageId,
+    onCloseReadingPane
 }) => {
     const router = useRouter();
     const [isStarred, setIsStarred] = useState(false);
@@ -279,6 +281,17 @@ const EmailThread: React.FC<EmailThreadProps> = ({
 
                                 </DropdownMenuContent>
                             </DropdownMenu>
+                            {onCloseReadingPane && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={onCloseReadingPane}
+                                    title="Close reading pane"
+                                >
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>

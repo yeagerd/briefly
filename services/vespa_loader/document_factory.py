@@ -96,7 +96,6 @@ class VespaDocumentFactory:
             quoted_content="",
             thread_summary={},
             search_text="",
-            inference_classification=email.inference_classification,
             is_priority=email.is_priority,
             derived_category=email.derived_category,
         )

@@ -1126,7 +1126,6 @@ class VespaBackfillDemo:
                                 is_read=email.is_read,
                                 is_starred=False,  # EmailMessage doesn't have is_starred
                                 has_attachments=email.has_attachments,
-                                inference_classification=email.inference_classification,
                                 is_priority=email.is_priority,
                                 derived_category=email.derived_category,
                                 provider=(

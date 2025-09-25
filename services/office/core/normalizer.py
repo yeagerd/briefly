@@ -417,7 +417,6 @@ def normalize_microsoft_email(
             labels=labels,
             is_read=is_read,
             has_attachments=has_attachments,
-            inference_classification=inference_classification,
             is_priority=is_priority,
             derived_category=derived_category,
             provider=Provider.MICROSOFT,

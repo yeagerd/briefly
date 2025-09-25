@@ -33,9 +33,6 @@ class EmailData(BaseModel):
     has_attachments: bool = Field(
         default=False, description="Whether the email has attachments"
     )
-    inference_classification: Optional[str] = Field(
-        None, description="Outlook inference classification (focused/other)"
-    )
     is_priority: bool = Field(
         default=False, description="Provider-agnostic priority flag"
     )

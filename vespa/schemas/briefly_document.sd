@@ -86,11 +86,6 @@ schema briefly_document {
             indexing: summary
         }
         
-        field inference_classification type string {
-            indexing: attribute | summary
-            attribute: fast-search
-        }
-        
         field is_priority type bool {
             indexing: attribute | summary
             attribute: fast-search

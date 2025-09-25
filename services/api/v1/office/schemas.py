@@ -50,9 +50,6 @@ class EmailMessage(BaseModel):
     labels: List[str] = []
     is_read: bool = False
     has_attachments: bool = False
-    inference_classification: Optional[str] = (
-        None  # "focused" or "other" for Outlook emails
-    )
     is_priority: bool = False  # Provider-agnostic priority flag
     derived_category: Optional[str] = None  # Gmail-style category for Microsoft emails
     # Provenance Information

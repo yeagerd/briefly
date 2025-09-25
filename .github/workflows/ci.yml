@@ -37,22 +37,29 @@ jobs:
           echo "Changed files:"
           echo "$CHANGED_FILES"
 
-          # Check for Python-related changes
-          if echo "$CHANGED_FILES" | grep -E '^(services/|pyproject\.toml|noxfile\.py|uv\.lock|scripts/)' > /dev/null; then
+          # Check for CI/workflow changes (affects both Python and frontend)
+          if echo "$CHANGED_FILES" | grep -E '^\.github/' > /dev/null; then
             echo "python-changed=true" >> $GITHUB_OUTPUT
-            echo "🐍 Python-related files changed"
-          else
-            echo "python-changed=false" >> $GITHUB_OUTPUT
-            echo "🐍 No Python-related files changed"
-          fi
-
-          # Check for frontend-related changes
-          if echo "$CHANGED_FILES" | grep -E '^(frontend/|gateway/|Dockerfile\.frontend|docker-compose\.yml)' > /dev/null; then
             echo "frontend-changed=true" >> $GITHUB_OUTPUT
-            echo "⚛️ Frontend-related files changed"
+            echo "🔧 GitHub Actions workflows changed - running all tests"
           else
-            echo "frontend-changed=false" >> $GITHUB_OUTPUT
-            echo "⚛️ No frontend-related files changed"
+            # Check for Python-related changes
+            if echo "$CHANGED_FILES" | grep -E '^(services/|pyproject\.toml|noxfile\.py|uv\.lock|scripts/)' > /dev/null; then
+              echo "python-changed=true" >> $GITHUB_OUTPUT
+              echo "🐍 Python-related files changed"
+            else
+              echo "python-changed=false" >> $GITHUB_OUTPUT
+              echo "🐍 No Python-related files changed"
+            fi
+            
+            # Check for frontend-related changes
+            if echo "$CHANGED_FILES" | grep -E '^(frontend/|gateway/|Dockerfile\.frontend|docker-compose\.yml)' > /dev/null; then
+              echo "frontend-changed=true" >> $GITHUB_OUTPUT
+              echo "⚛️ Frontend-related files changed"
+            else
+              echo "frontend-changed=false" >> $GITHUB_OUTPUT
+              echo "⚛️ No frontend-related files changed"
+            fi
           fi
 
           # Override with force-run if detected
@@ -467,5 +474,6 @@ jobs:
           echo "### Files that trigger tests:" >> $GITHUB_STEP_SUMMARY
           echo "- **Python**: \`services/\`, \`pyproject.toml\`, \`noxfile.py\`, \`uv.lock\`, \`scripts/\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Frontend**: \`frontend/\`, \`gateway/\`, \`Dockerfile.frontend\`, \`docker-compose.yml\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Both**: \`.github/\` (GitHub Actions workflows)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "To force all tests to run, add \`FORCE_RUN_PRESUBMIT\` to your PR description." >> $GITHUB_STEP_SUMMARY

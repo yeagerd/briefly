@@ -738,6 +738,9 @@ The CI automatically detects which files have changed in your PR and runs only t
   - `Dockerfile.frontend` (frontend Docker configuration)
   - `docker-compose.yml` (affects frontend service)
 
+- **Both Python and Frontend tests** run when changes are made to:
+  - `.github/` directory (GitHub Actions workflows)
+
 ### Force Running All Tests
 
 If you need to run all tests regardless of file changes (e.g., for critical changes or debugging), add `FORCE_RUN_PRESUBMIT` to your PR description. This will run both Python and frontend tests.

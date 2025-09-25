@@ -215,7 +215,27 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 );
 
                 if (response.success && response.data?.messages) {
-                    const messages = response.data.messages;
+                    let messages = response.data.messages;
+
+                    // Apply client-side filtering for inbox and sent folders
+                    if (scope.folderId === 'inbox' || scope.folderId === 'sent') {
+                        const userEmail = session.user.email;
+                        if (userEmail) {
+                            messages = messages.filter(msg => {
+                                if (scope.folderId === 'inbox') {
+                                    // For inbox: show messages where user is recipient (in "to" field, not "from")
+                                    const isInToField = msg.to_addresses?.some(addr => addr.email === userEmail) || false;
+                                    const isFromUser = msg.from_address?.email === userEmail;
+                                    return isInToField && !isFromUser;
+                                } else if (scope.folderId === 'sent') {
+                                    // For sent: show messages where user is sender (in "from" field)
+                                    const isFromUser = msg.from_address?.email === userEmail;
+                                    return isFromUser;
+                                }
+                                return true;
+                            });
+                        }
+                    }
 
                     // Update cache
                     const cacheEntry: EmailListCacheEntry = {
@@ -253,7 +273,7 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
         inflightRequests.current.set(inflightKey, requestPromise);
         return requestPromise;
-    }, [listCache]);
+    }, []);
 
     const getEmailListLoading = useCallback((scope: EmailScope): boolean => {
         const cacheKey = createCacheKey(scope);
@@ -343,7 +363,7 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
         inflightRequests.current.set(inflightKey, requestPromise);
         return requestPromise;
-    }, [threadCache]);
+    }, []);
 
     const getEmailThreadLoading = useCallback((threadId: string): boolean => {
         return threadLoading.get(threadId) || false;

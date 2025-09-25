@@ -25,6 +25,7 @@ interface EmailThreadCacheEntry extends CacheEntry<EmailThread> {
 interface EmailScope {
     userId: string;
     folderId?: string;
+    folderLabel?: string;
     query?: string;
     pageSize?: number;
     labels?: string[];
@@ -88,6 +89,7 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const parts = [
             scope.userId,
             scope.folderId || 'default',
+            scope.folderLabel || '',
             scope.query || '',
             scope.pageSize?.toString() || '50',
             (scope.labels || []).sort().join(',')
@@ -218,16 +220,16 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                     let messages = response.data.messages;
 
                     // Apply client-side filtering for inbox and sent folders
-                    if (scope.folderId === 'inbox' || scope.folderId === 'sent') {
+                    if (scope.folderLabel === 'inbox' || scope.folderLabel === 'sent') {
                         const userEmail = session.user.email;
                         if (userEmail) {
                             messages = messages.filter(msg => {
-                                if (scope.folderId === 'inbox') {
+                                if (scope.folderLabel === 'inbox') {
                                     // For inbox: show messages where user is recipient (in "to" field, not "from")
                                     const isInToField = msg.to_addresses?.some(addr => addr.email === userEmail) || false;
                                     const isFromUser = msg.from_address?.email === userEmail;
                                     return isInToField && !isFromUser;
-                                } else if (scope.folderId === 'sent') {
+                                } else if (scope.folderLabel === 'sent') {
                                     // For sent: show messages where user is sender (in "from" field)
                                     const isFromUser = msg.from_address?.email === userEmail;
                                     return isFromUser;

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 interface EmailScope {
     userId: string;
     folderId?: string;
+    folderLabel?: string;
     query?: string;
     pageSize?: number;
     labels?: string[];
@@ -13,6 +14,7 @@ interface EmailScope {
 
 interface UseEmailListOptions {
     folderId?: string;
+    folderLabel?: string;
     query?: string;
     pageSize?: number;
     labels?: string[];
@@ -48,6 +50,7 @@ interface UseEmailThreadReturn {
 export function useEmailList(options: UseEmailListOptions = {}): UseEmailListReturn {
     const {
         folderId,
+        folderLabel,
         query,
         pageSize = 50,
         labels,
@@ -75,6 +78,7 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
                 const newScope: EmailScope = {
                     userId: session.user.id,
                     folderId,
+                    folderLabel,
                     query,
                     pageSize,
                     labels
@@ -83,7 +87,7 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
             }
         };
         createScope();
-    }, [folderId, query, pageSize, labels]);
+    }, [folderId, folderLabel, query, pageSize, labels]);
 
     // Fetch emails when scope changes
     useEffect(() => {

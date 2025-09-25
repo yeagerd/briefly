@@ -166,6 +166,7 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
         refresh: refreshEmails
     } = useEmailList({
         folderId,
+        folderLabel: selectedFolder.label,
         labels,
         pageSize: 50,
         providers: activeProviders || ['google', 'microsoft'],

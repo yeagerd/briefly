@@ -1,5 +1,6 @@
 import { officeApi } from '@/api';
 import { useIntegrations } from '@/contexts/integrations-context';
+import { useEmailCache, useEmailList, useEmailThread } from '@/hooks/use-email-data';
 import { EmailMessage, Provider } from "@/types/api/office";
 import { act, render, screen, waitFor } from '@testing-library/react';
 import EmailView from './email-view';
@@ -8,11 +9,15 @@ import EmailView from './email-view';
 jest.mock('@/contexts/integrations-context');
 const mockUseIntegrations = useIntegrations as jest.MockedFunction<typeof useIntegrations>;
 
+// Mock the email data hooks
+jest.mock('@/hooks/use-email-data');
+const mockUseEmailList = useEmailList as jest.MockedFunction<typeof useEmailList>;
+const mockUseEmailThread = useEmailThread as jest.MockedFunction<typeof useEmailThread>;
+const mockUseEmailCache = useEmailCache as jest.MockedFunction<typeof useEmailCache>;
+
 // Mock the office API
 jest.mock('@/api', () => ({
     officeApi: {
-        getEmails: jest.fn(),
-        getThread: jest.fn(),
         getEmailFolders: jest.fn(),
         bulkAction: jest.fn(),
     },
@@ -94,28 +99,37 @@ describe('EmailView - Select All Functionality', () => {
             triggerAutoRefreshIfNeeded: jest.fn(),
         });
 
-        // Mock the office API methods
-        (officeApi.getEmails as jest.Mock).mockResolvedValue({
-            data: { messages: mockEmails }
-        });
-        (officeApi.getEmailFolders as jest.Mock).mockResolvedValue({
-            data: { folders: [] }
-        });
-        (officeApi.getThread as jest.Mock).mockResolvedValue({
-            data: { messages: mockEmails }
+        // Mock the email data hooks
+        mockUseEmailList.mockReturnValue({
+            emails: mockEmails,
+            loading: false,
+            error: null,
+            lastUpdated: Date.now(),
+            refresh: jest.fn(),
+            hasMore: false
         });
 
-        // Mock the office API methods for the second test
-        (officeApi.getEmails as jest.Mock).mockResolvedValue({
-            data: { messages: mockEmails }
+        mockUseEmailThread.mockReturnValue({
+            thread: null,
+            loading: false,
+            error: null,
+            lastUpdated: null,
+            refresh: jest.fn()
+        });
+
+        mockUseEmailCache.mockReturnValue({
+            invalidateList: jest.fn(),
+            invalidateThread: jest.fn(),
+            clearAll: jest.fn()
+        });
+
+        // Mock the office API methods
+        (officeApi.getEmailFolders as jest.Mock).mockResolvedValue({
+            data: { folders: [] }
         });
     });
 
     it('should select only latest emails in tight view mode', async () => {
-        (officeApi.getEmails as jest.Mock).mockResolvedValue({
-            data: { messages: mockEmails }
-        });
-
         await act(async () => {
             render(<EmailView activeTool="email" />);
         });

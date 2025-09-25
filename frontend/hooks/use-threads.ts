@@ -1,6 +1,7 @@
 import { officeApi } from '@/api';
+import { useEmailList, useEmailThread } from '@/hooks/use-email-data';
 import { EmailThread } from "@/types/api/office";
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 interface UseThreadsOptions {
@@ -30,12 +31,8 @@ interface UseThreadsReturn {
 }
 
 export const useThreads = (initialOptions: UseThreadsOptions = {}): UseThreadsReturn => {
-    const [threads, setThreads] = useState<EmailThread[]>([]);
-    const [selectedThread, setSelectedThread] = useState<EmailThread | null>(null);
+    const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
     const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [hasMore, setHasMore] = useState(false);
     const [options] = useState<UseThreadsOptions>({
         providers: ['google', 'microsoft'],
         limit: 50,
@@ -44,113 +41,115 @@ export const useThreads = (initialOptions: UseThreadsOptions = {}): UseThreadsRe
         ...initialOptions,
     });
 
-    const fetchThreads = useCallback(async (fetchOptions?: Partial<UseThreadsOptions>) => {
-        const mergedOptions = { ...options, ...fetchOptions };
-        setLoading(true);
-        setError(null);
+    // Use provider hooks for email data
+    const {
+        emails: emailMessages,
+        loading,
+        error,
+        refresh: refreshEmails
+    } = useEmailList({
+        labels: options.labels,
+        folderId: options.folderId,
+        query: options.q,
+        pageSize: options.limit,
+        providers: options.providers,
+        autoFetch: options.autoFetch
+    });
 
-        try {
-            const response = await officeApi.getThreads(
-                mergedOptions.providers,
-                mergedOptions.limit,
-                mergedOptions.includeBody,
-                mergedOptions.labels,
-                mergedOptions.folderId,
-                mergedOptions.q
-            );
+    const {
+        thread: selectedThread,
+        loading: threadLoading,
+        error: threadError,
+        refresh: refreshThread
+    } = useEmailThread(selectedThreadId, {
+        includeBody: options.includeBody,
+        autoFetch: !!selectedThreadId
+    });
 
-            if (response.success && response.data) {
-                setThreads(response.data.threads || []);
-                setHasMore(response.data.has_more || false);
-            } else {
-                throw new Error('Failed to fetch threads');
+    // Convert email messages to threads (group by thread_id)
+    const threads = useMemo(() => {
+        const threadMap = new Map<string, EmailThread>();
+
+        emailMessages.forEach(message => {
+            const threadId = message.thread_id || message.id;
+            if (!threadMap.has(threadId)) {
+                threadMap.set(threadId, {
+                    id: threadId,
+                    subject: message.subject,
+                    messages: [],
+                    participant_count: 0,
+                    last_message_date: message.date,
+                    is_read: message.is_read,
+                    providers: [message.provider]
+                });
             }
-        } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Failed to fetch threads';
-            setError(errorMessage);
-            toast.error(errorMessage);
-        } finally {
-            setLoading(false);
-        }
-    }, [options]);
+
+            const thread = threadMap.get(threadId)!;
+            thread.messages.push(message);
+            thread.participant_count = Math.max(thread.participant_count,
+                (message.to_addresses?.length || 0) + (message.cc_addresses?.length || 0) + (message.bcc_addresses?.length || 0));
+
+            // Update last message date if this message is newer
+            if (new Date(message.date) > new Date(thread.last_message_date)) {
+                thread.last_message_date = message.date;
+            }
+        });
+
+        return Array.from(threadMap.values()).sort((a, b) =>
+            new Date(b.last_message_date).getTime() - new Date(a.last_message_date).getTime()
+        );
+    }, [emailMessages]);
+
+    const fetchThreads = useCallback(async (fetchOptions?: Partial<UseThreadsOptions>) => {
+        // This is now handled by the provider hooks automatically
+        await refreshEmails();
+    }, [refreshEmails]);
 
     const fetchThread = useCallback(async (threadId: string) => {
-        setLoading(true);
-        setError(null);
-
-        try {
-            const response = await officeApi.getThread(threadId, true);
-
-            if (response.success && response.data?.threads && response.data.threads.length > 0) {
-                setSelectedThread(response.data.threads[0]);
-            } else {
-                throw new Error('Failed to fetch thread');
-            }
-        } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Failed to fetch thread';
-            setError(errorMessage);
-            toast.error(errorMessage);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+        setSelectedThreadId(threadId);
+        await refreshThread();
+    }, [refreshThread]);
 
     const fetchMessageThread = useCallback(async (messageId: string) => {
-        setLoading(true);
-        setError(null);
-
+        // For now, we'll need to find the thread ID from the message
+        // This could be enhanced to use a message-to-thread lookup
         try {
             const response = await officeApi.getMessageThread(messageId, true);
-
             if (response.success && response.data?.threads && response.data.threads.length > 0) {
-                setSelectedThread(response.data.threads[0]);
-            } else {
-                throw new Error('Failed to fetch message thread');
+                const threadId = response.data.threads[0].id;
+                setSelectedThreadId(threadId);
             }
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to fetch message thread';
-            setError(errorMessage);
             toast.error(errorMessage);
-        } finally {
-            setLoading(false);
         }
     }, []);
 
     const selectThread = useCallback((threadId: string) => {
-        const thread = threads.find(t => t.id === threadId);
-        if (thread) {
-            setSelectedThread(thread);
-            setSelectedMessageId(null);
-        }
-    }, [threads]);
+        setSelectedThreadId(threadId);
+        setSelectedMessageId(null);
+    }, []);
 
     const selectMessage = useCallback((messageId: string) => {
         setSelectedMessageId(messageId);
     }, []);
 
     const clearSelection = useCallback(() => {
-        setSelectedThread(null);
+        setSelectedThreadId(null);
         setSelectedMessageId(null);
     }, []);
 
     const refreshThreads = useCallback(async () => {
-        await fetchThreads();
-    }, [fetchThreads]);
-
-    // Auto-fetch threads on mount and when options change
-    useEffect(() => {
-        if (options.autoFetch) {
-            fetchThreads();
-        }
-    }, [options.autoFetch, fetchThreads]);
+        await refreshEmails();
+    }, [refreshEmails]);
 
     return {
         threads,
         selectedThread,
         selectedMessageId,
-        loading,
-        error,
-        hasMore,
+        loading: loading || threadLoading,
+        error: error || threadError,
+        hasMore: false, // This would need to be implemented based on pagination
         fetchThreads,
         fetchThread,
         fetchMessageThread,

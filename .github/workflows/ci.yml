@@ -32,8 +32,10 @@ jobs:
       - name: Detect changed files
         id: changes
         run: |
-          # Get list of changed files
-          CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
+          # Get list of changed files - compare against the PR's base branch
+          BASE_BRANCH="${{ github.base_ref }}"
+          echo "Comparing against base branch: $BASE_BRANCH"
+          CHANGED_FILES=$(git diff --name-only origin/$BASE_BRANCH...HEAD)
           echo "Changed files:"
           echo "$CHANGED_FILES"
 

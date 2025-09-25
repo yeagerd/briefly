@@ -1,6 +1,7 @@
 import { officeApi } from '@/api';
 import { useOfficeData } from '@/contexts/office-data-context';
 import { useEmailList, useEmailThread } from '@/hooks/use-email-data';
+import { safeParseDate } from '@/lib/utils';
 import { EmailThread } from "@/types/api/office";
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -93,7 +94,13 @@ export const useThreads = (initialOptions: UseThreadsOptions = {}): UseThreadsRe
                 (message.to_addresses?.length || 0) + (message.cc_addresses?.length || 0) + (message.bcc_addresses?.length || 0));
 
             // Update last message date if this message is newer
-            if (new Date(message.date) > new Date(thread.last_message_date)) {
+            const messageDate = safeParseDate(message.date);
+            const threadDate = safeParseDate(thread.last_message_date);
+            
+            if (messageDate && threadDate && messageDate > threadDate) {
+                thread.last_message_date = message.date;
+            } else if (messageDate && !threadDate) {
+                // If thread date is invalid but message date is valid, use message date
                 thread.last_message_date = message.date;
             }
 
@@ -108,9 +115,22 @@ export const useThreads = (initialOptions: UseThreadsOptions = {}): UseThreadsRe
             }
         });
 
-        return Array.from(threadMap.values()).sort((a, b) =>
-            new Date(b.last_message_date).getTime() - new Date(a.last_message_date).getTime()
-        );
+        return Array.from(threadMap.values()).sort((a, b) => {
+            const dateA = safeParseDate(a.last_message_date);
+            const dateB = safeParseDate(b.last_message_date);
+            
+            // If both dates are valid, sort normally
+            if (dateA && dateB) {
+                return dateB.getTime() - dateA.getTime();
+            }
+            
+            // If only one date is valid, prioritize it
+            if (dateA && !dateB) return -1;
+            if (!dateA && dateB) return 1;
+            
+            // If both dates are invalid, maintain original order
+            return 0;
+        });
     }, [emailMessages]);
 
     const fetchThreads = useCallback(async (fetchOptions?: Partial<UseThreadsOptions>) => {

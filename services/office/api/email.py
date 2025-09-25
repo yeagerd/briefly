@@ -1741,6 +1741,19 @@ async def fetch_provider_emails(
                     )
                 messages = messages_response.get("value", [])
 
+                # Get folder mapping for Microsoft emails to identify Junk Email folder
+                folder_mapping = {}
+                try:
+                    mailboxes_response = await microsoft_client.get_mailboxes()
+                    mailboxes = mailboxes_response.get("value", [])
+                    for mailbox in mailboxes:
+                        folder_id = mailbox.get("id")
+                        folder_name = mailbox.get("displayName", "")
+                        if folder_id and folder_name:
+                            folder_mapping[folder_id] = folder_name
+                except Exception as e:
+                    logger.warning(f"Failed to get folder mapping for Microsoft: {e}")
+
                 # Normalize messages
                 normalized_messages = []
                 for msg in messages:
@@ -1754,7 +1767,7 @@ async def fetch_provider_emails(
                         account_name = f"Outlook Account ({user_id})"  # Placeholder
 
                     normalized_msg = normalize_microsoft_email(
-                        msg, account_email, account_name
+                        msg, account_email, account_name, folder_mapping
                     )
                     normalized_messages.append(normalized_msg)
 
@@ -2017,7 +2030,22 @@ async def fetch_single_message(
                     account_email = f"{user_id}@outlook.com"  # Placeholder
                     account_name = f"Outlook Account ({user_id})"  # Placeholder
 
-                return normalize_microsoft_email(message, account_email, account_name)
+                # Get folder mapping for Microsoft emails to identify Junk Email folder
+                folder_mapping = {}
+                try:
+                    mailboxes_response = await microsoft_client.get_mailboxes()
+                    mailboxes = mailboxes_response.get("value", [])
+                    for mailbox in mailboxes:
+                        folder_id = mailbox.get("id")
+                        folder_name = mailbox.get("displayName", "")
+                        if folder_id and folder_name:
+                            folder_mapping[folder_id] = folder_name
+                except Exception as e:
+                    logger.warning(f"Failed to get folder mapping for Microsoft: {e}")
+
+                return normalize_microsoft_email(
+                    message, account_email, account_name, folder_mapping
+                )
 
             else:
                 raise ValidationError(message=f"Unsupported provider: {provider}")
@@ -3173,8 +3201,26 @@ async def get_internal_email_messages(
                     email_list = (
                         messages.get("value", []) if isinstance(messages, dict) else []
                     )
+
+                    # Get folder mapping for Microsoft emails to identify Junk Email folder
+                    folder_mapping = {}
+                    try:
+                        if isinstance(client, MicrosoftAPIClient):
+                            mailboxes_response = await client.get_mailboxes()
+                            mailboxes = mailboxes_response.get("value", [])
+                            for mailbox in mailboxes:
+                                folder_id = mailbox.get("id")
+                                folder_name = mailbox.get("displayName", "")
+                                if folder_id and folder_name:
+                                    folder_mapping[folder_id] = folder_name
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to get folder mapping for Microsoft: {e}"
+                        )
+
                     normalized_messages = [
-                        normalize_microsoft_email(msg, email) for msg in email_list
+                        normalize_microsoft_email(msg, email, None, folder_mapping)
+                        for msg in email_list
                     ]
                 elif provider == "google":
                     # Gmail API returns emails in a 'messages' array

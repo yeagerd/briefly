@@ -252,7 +252,10 @@ def normalize_google_email(
 
 
 def normalize_microsoft_email(
-    raw_data: Dict[str, Any], account_email: str, account_name: Optional[str] = None
+    raw_data: Dict[str, Any],
+    account_email: str,
+    account_name: Optional[str] = None,
+    folder_mapping: Optional[Dict[str, str]] = None,
 ) -> EmailMessage:
     """
     Convert a raw Microsoft Graph API message response into a unified EmailMessage model.
@@ -261,6 +264,7 @@ def normalize_microsoft_email(
         raw_data: Raw JSON response from Microsoft Graph API
         account_email: Email address of the account this message belongs to
         account_name: Display name for the account
+        folder_mapping: Optional mapping of folder IDs to folder names (e.g., {"folder_id": "Junk Email"})
 
     Returns:
         EmailMessage: Unified email message model
@@ -390,12 +394,34 @@ def normalize_microsoft_email(
         # Extract inference classification (focused/other)
         inference_classification = raw_data.get("inferenceClassification")
 
-        # Set is_priority: true if inferenceClassification == "focused"
-        is_priority = inference_classification == "focused"
+        # Extract parent folder ID to determine if email is in Junk Email folder
+        parent_folder_id = raw_data.get("parentFolderId")
+
+        # Check if email is in Junk Email folder
+        # Use folder_mapping if provided, otherwise fall back to heuristic
+        is_junk_email = False
+        if parent_folder_id and folder_mapping:
+            folder_name = folder_mapping.get(parent_folder_id, "")
+            is_junk_email = folder_name.lower() in ["junk email", "junk", "spam"]
+        elif parent_folder_id:
+            # Fallback heuristic: check if folder ID contains junk indicators
+            junk_folder_indicators = ["junk", "spam", "junkemail"]
+            is_junk_email = any(
+                indicator in parent_folder_id.lower()
+                for indicator in junk_folder_indicators
+            )
+
+        # Set is_priority: true if inferenceClassification == "focused" AND not in Junk Email folder
+        is_priority = inference_classification == "focused" and not is_junk_email
 
         # Set derived_category: CATEGORY_PERSONAL if focused, CATEGORY_OTHER if other
+        # But override to CATEGORY_OTHER if in Junk Email folder
         derived_category = None
-        if inference_classification == "focused":
+        if is_junk_email:
+            derived_category = (
+                "CATEGORY_OTHER"  # Junk emails should be categorized as OTHER
+            )
+        elif inference_classification == "focused":
             derived_category = "CATEGORY_PERSONAL"
         elif inference_classification == "other":
             derived_category = "CATEGORY_OTHER"

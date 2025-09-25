@@ -717,6 +717,76 @@ tox
 python -m pytest --durations=10 -q -n auto
 ```
 
+## Continuous Integration (CI)
+
+Our CI system uses selective test running to save time and resources. Tests are only run when relevant files have changed.
+
+### How It Works
+
+The CI automatically detects which files have changed in your PR and runs only the relevant tests:
+
+- **Python tests** run when changes are made to:
+  - `services/` directory (all Python services)
+  - `pyproject.toml` (Python dependencies and configuration)
+  - `noxfile.py` (test configuration)
+  - `uv.lock` (dependency lock file)
+  - `scripts/` directory (build and test scripts)
+
+- **Frontend tests** run when changes are made to:
+  - `frontend/` directory (Next.js application)
+  - `gateway/` directory (Express.js API gateway)
+  - `Dockerfile.frontend` (frontend Docker configuration)
+  - `docker-compose.yml` (affects frontend service)
+
+- **Both Python and Frontend tests** run when changes are made to:
+  - `.github/` directory (GitHub Actions workflows)
+
+### Force Running All Tests
+
+If you need to run all tests regardless of file changes (e.g., for critical changes or debugging), add `FORCE_RUN_PRESUBMIT` to your PR description. This will run both Python and frontend tests.
+
+Example PR description:
+```
+Fix critical authentication bug
+
+FORCE_RUN_PRESUBMIT
+
+This change affects both frontend and backend authentication,
+so we need to run all tests to ensure nothing is broken.
+```
+
+### Test Jobs
+
+The CI runs the following test jobs when appropriate:
+
+**Python Tests:**
+- **Linting & Formatting** - Code style checks with black, isort, and ruff
+- **Type Checking** - Static type analysis with mypy
+- **Unit Tests** - All service tests with pytest
+- **Coverage** - Test coverage reporting
+
+**Frontend Tests:**
+- **Code Quality** - ESLint, TypeScript checking, Jest tests, and build verification
+
+**Always Run:**
+- **Generated Files Check** - Ensures OpenAPI schemas and TypeScript types are up to date
+
+### CI Summary
+
+Each CI run includes a summary showing:
+- Which tests were run and why
+- Which tests were skipped
+- How to force all tests to run
+- Files that trigger each type of test
+
+### Branch Protection Compatibility
+
+The CI system is designed to work seamlessly with GitHub branch protection rules:
+- **All jobs always run** but skip expensive operations when not needed
+- Jobs show as "completed" rather than "skipped" to satisfy branch protection rules
+- When tests are skipped, jobs complete quickly with clear skip messages
+- This ensures branch protection rules requiring specific checks don't fail
+
 ## Contributing
 
 (To be added: Guidelines for contributing, code style, pull request process, etc.)

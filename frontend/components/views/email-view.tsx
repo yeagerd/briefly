@@ -114,6 +114,11 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [isInThreadView, setIsInThreadView] = useState(false);
     const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
+    const [selectedClassification, setSelectedClassification] = useState<string>('focused');
+    const handleClassificationSelect = useCallback((classification: string) => {
+        console.log('Classification selected:', classification);
+        setSelectedClassification(classification);
+    }, []);
     const { loading: integrationsLoading, activeProviders, hasExpiredButRefreshableTokens } = useIntegrations();
     const { toast } = useToast();
     const { setCurrentDraft, updateDraft, createNewDraft } = useDraftState();
@@ -167,12 +172,51 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
                 }
             }
 
-            const emailsResp = await officeApi.getEmails(activeProviders, 50, 0, noCache, labels, folderId) as { data?: { messages?: EmailMessage[] } };
+            const emailsResp = await officeApi.getEmails(
+                activeProviders,
+                50,
+                0,
+                noCache,
+                labels,
+                folderId,
+                undefined, // do not pass classification; filter client-side to match Outlook behavior
+                selectedFolder.label === 'inbox'
+            ) as { data?: { messages?: EmailMessage[] } };
+
+            console.log('Email API Call Debug:', {
+                activeProviders,
+                labels,
+                folderId,
+                selectedClassification,
+                classificationParam: selectedClassification !== 'all' ? selectedClassification : undefined
+            });
 
             let messages = emailsResp.data?.messages || [];
 
-            // Apply client-side filtering only for inbox and sent since we now use proper folder-specific fetching
-            if (selectedFolder.label === 'inbox' || selectedFolder.label === 'sent') {
+            // Apply classification filtering client-side (focused/other) to mirror Outlook behavior
+            if (selectedFolder.label === 'inbox' && selectedClassification !== 'all') {
+                const target = selectedClassification.toLowerCase();
+                messages = messages.filter(m => (m.inference_classification || '').toLowerCase() === target);
+            }
+
+            console.log('Email Response Debug:', {
+                totalMessages: messages.length,
+                messagesWithClassification: messages.filter(m => m.inference_classification).length,
+                classificationBreakdown: {
+                    focused: messages.filter(m => m.inference_classification === 'focused').length,
+                    other: messages.filter(m => m.inference_classification === 'other').length,
+                    null: messages.filter(m => !m.inference_classification).length
+                },
+                sampleMessages: messages.slice(0, 3).map(m => ({
+                    id: m.id,
+                    subject: m.subject,
+                    inference_classification: m.inference_classification,
+                    provider: m.provider
+                }))
+            });
+
+            // Apply additional inbox/sent participant filtering only when classification is 'all'
+            if ((selectedFolder.label === 'inbox' || selectedFolder.label === 'sent') && selectedClassification === 'all') {
                 const session = await getSession();
                 const userEmail = session?.user?.email;
                 if (userEmail) {
@@ -199,7 +243,7 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
         } catch (e: unknown) {
             setError((e && typeof e === 'object' && 'message' in e) ? (e as { message?: string }).message || 'Failed to load emails' : 'Failed to load emails');
         }
-    }, [activeProviders, selectedFolder.label, selectedFolder.provider, selectedFolder.provider_folder_id, selectedFolder.is_system]);
+    }, [activeProviders, selectedFolder.label, selectedFolder.provider, selectedFolder.provider_folder_id, selectedFolder.is_system, selectedClassification]);
 
     const handleRefresh = useCallback(async () => {
         setRefreshing(true);
@@ -216,6 +260,11 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
         setSelectedFolder(folder);
         // Clear email selections when folder changes
         setSelectedEmails(new Set());
+        // If switching to inbox, keep current classification (focused by default)
+        // If switching to other folders, clear classification
+        if (folder.label !== 'inbox') {
+            setSelectedClassification('all');
+        }
     }, []);
 
     // Group emails by thread
@@ -523,8 +572,14 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
                         <EmailFolderSelector
                             onFolderSelect={handleFolderSelect}
                             selectedFolder={selectedFolder}
+                            selectedClassification={selectedClassification}
+                            onClassificationSelect={handleClassificationSelect}
                         />
-                        <h1 className="text-xl font-semibold">{selectedFolder.name}</h1>
+                        <h1 className="text-xl font-semibold">
+                            {selectedFolder.name}
+                            {selectedClassification === 'focused' && ' (Priority)'}
+                            {selectedClassification === 'other' && ' (Other)'}
+                        </h1>
                         <div className="ml-4 flex-1 max-w-md">
                             <EmailFilters filters={filters} setFilters={setFilters} />
                         </div>

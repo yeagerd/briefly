@@ -21,6 +21,7 @@ export type EmailMessage = {
     labels?: Array<string>;
     is_read?: boolean;
     has_attachments?: boolean;
+    inference_classification?: (string | null);
     provider: Provider;
     provider_message_id: string;
     account_email: string;

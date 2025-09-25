@@ -115,7 +115,9 @@ class EmailDebugger:
             # Build filter for Microsoft Graph API
             filters = []
             if thread_id:
-                filters.append(f"conversationId eq '{thread_id}'")
+                # Remove 'outlook_' prefix if present for Microsoft Graph API
+                clean_thread_id = thread_id.replace('outlook_', '') if thread_id.startswith('outlook_') else thread_id
+                filters.append(f"conversationId eq '{clean_thread_id}'")
             if priority is not None:
                 if priority:
                     filters.append("inferenceClassification eq 'focused'")
@@ -205,7 +207,9 @@ class EmailDebugger:
             # Build query for Gmail API
             query_parts = []
             if thread_id:
-                query_parts.append(f"thread:{thread_id}")
+                # Remove 'gmail_' prefix if present for Gmail API
+                clean_thread_id = thread_id.replace('gmail_', '') if thread_id.startswith('gmail_') else thread_id
+                query_parts.append(f"thread:{clean_thread_id}")
             if priority is not None:
                 if priority:
                     query_parts.append("-category:promotions")

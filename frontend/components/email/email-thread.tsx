@@ -178,7 +178,19 @@ const EmailThread: React.FC<EmailThreadProps> = ({
             <div className="space-y-4">
                 <div className="border-b pb-2 mb-4">
                     <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
+                        <div className="flex items-center gap-3 flex-1">
+                            {/* Close button moved to far left */}
+                            {onCloseReadingPane && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={onCloseReadingPane}
+                                    title="Close reading pane"
+                                >
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                            )}
                             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                                 {thread.subject || 'No Subject'}
                             </h3>
@@ -281,17 +293,6 @@ const EmailThread: React.FC<EmailThreadProps> = ({
 
                                 </DropdownMenuContent>
                             </DropdownMenu>
-                            {onCloseReadingPane && (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0"
-                                    onClick={onCloseReadingPane}
-                                    title="Close reading pane"
-                                >
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
-                            )}
                         </div>
                     </div>
                 </div>

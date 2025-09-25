@@ -330,6 +330,7 @@ def generate_threads_list_cache_key(
     folder_id: Optional[str] = None,
     q: Optional[str] = None,
     page_token: Optional[str] = None,
+    priority: Optional[bool] = None,
 ) -> str:
     """
     Generate a cache key for threads list data.
@@ -343,6 +344,7 @@ def generate_threads_list_cache_key(
         folder_id: Folder ID filter
         q: Search query
         page_token: Pagination token
+        priority: Filter by priority status
 
     Returns:
         Cache key string
@@ -369,6 +371,9 @@ def generate_threads_list_cache_key(
 
     if page_token:
         key_parts.extend(["page", page_token])
+
+    if priority is not None:
+        key_parts.extend(["priority", str(priority)])
 
     return ":".join(key_parts)
 

@@ -563,10 +563,6 @@ async def get_email_folders(
     no_cache: bool = Query(
         False, description="Bypass cache and fetch fresh data from providers"
     ),
-    priority: Optional[bool] = Query(
-        None,
-        description="Filter by priority status (true=priority only, false=non-priority only)",
-    ),
 ) -> EmailFolderList:
     """
     Get unified email folders/labels from multiple providers.
@@ -609,7 +605,6 @@ async def get_email_folders(
         cache_params = {
             "providers": valid_providers,
             "no_cache": no_cache,
-            "priority": priority,
         }
         cache_key = generate_cache_key(user_id, "unified", "folders", cache_params)
 
@@ -1030,6 +1025,7 @@ async def get_email_threads(
             folder_id=folder_id,
             q=q,
             page_token=page_token,
+            priority=priority,
         )
 
         if not no_cache:
@@ -1087,6 +1083,7 @@ async def get_email_threads(
                     folder_id,
                     q,
                     page_token,
+                    priority,
                 )
                 all_threads.extend(threads)
                 providers_used.append(provider_used)
@@ -1117,6 +1114,7 @@ async def get_email_threads(
                 "folder_id": folder_id,
                 "query": q,
                 "page_token": page_token,
+                "priority": priority,
             },
         }
 
@@ -2166,6 +2164,7 @@ async def fetch_provider_threads(
     folder_id: Optional[str],
     q: Optional[str],
     page_token: Optional[str],
+    priority: Optional[bool] = None,
 ) -> tuple[List[EmailThread], str]:
     """
     Fetch email threads from a specific provider.
@@ -2180,6 +2179,7 @@ async def fetch_provider_threads(
         folder_id: Folder ID to fetch from
         q: Search query
         page_token: Pagination token
+        priority: Filter by priority status (true=priority only, false=non-priority only)
 
     Returns:
         Tuple of (list of EmailThread objects, provider used)
@@ -2197,10 +2197,26 @@ async def fetch_provider_threads(
         async with client:
             if provider == "google":
                 google_client = cast(GoogleAPIClient, client)
+
+                # Build query with priority filter if specified
+                gmail_query = q or ""
+                if priority is not None:
+                    if priority:
+                        # Priority threads: exclude promotions
+                        priority_query = "-category:promotions"
+                    else:
+                        # Non-priority threads: only promotions
+                        priority_query = "category:promotions"
+
+                    if gmail_query:
+                        gmail_query = f"({gmail_query}) ({priority_query})"
+                    else:
+                        gmail_query = priority_query
+
                 # For Gmail, we need to fetch threads and then get messages for each thread
                 threads_data = await google_client.get_threads(
                     max_results=limit,
-                    q=q,
+                    q=gmail_query,
                     label_ids=labels,
                 )
 
@@ -2231,10 +2247,22 @@ async def fetch_provider_threads(
 
             elif provider == "microsoft":
                 microsoft_client = cast(MicrosoftAPIClient, client)
+
+                # Build filter with priority filter if specified
+                filter_expr = ""
+                if priority is not None:
+                    priority_filter = (
+                        "inferenceClassification eq 'focused'"
+                        if priority
+                        else "inferenceClassification eq 'other'"
+                    )
+                    filter_expr = priority_filter
+
                 # For Microsoft, get messages and group by conversationId to create threads
                 messages_response = await microsoft_client.get_messages(
                     top=limit
                     * 10,  # Get more messages to ensure we have enough threads
+                    filter=filter_expr if filter_expr else None,
                 )
                 messages = messages_response.get("value", [])
 
@@ -3020,131 +3048,31 @@ async def get_internal_email_messages(
                     request_id=request_id,
                 )
 
-        # Get API client factory
-        api_client_factory = await get_api_client_factory()
-
-        # Query each provider
+        # Query each provider using fetch_provider_emails for consistent filtering
         all_messages = []
         total_count = 0
 
-        # Build filter string if labels are provided
-        filter_str = None
-        if labels:
-            # Convert labels to provider-specific filters
-            if "inbox" in labels:
-                filter_str = "isRead eq false"
-            elif "sent" in labels:
-                filter_str = "from/emailAddress/address eq 'me'"
-            # Add more label filters as needed
-
         for provider in valid_providers:
             try:
-                # Check if user has integration for this provider
-                user_providers = await get_user_email_providers(user_id)
-                logger.info(f"User {user_id} has providers: {user_providers}")
-                logger.info(f"Checking if provider '{provider}' is in {user_providers}")
-
-                if provider not in user_providers:
-                    logger.info(f"User {user_id} has no integration for {provider}")
-                    continue
-
-                logger.info(
-                    f"User {user_id} has integration for {provider}, proceeding to create API client"
+                # Use fetch_provider_emails which includes priority filtering logic
+                messages, provider_used = await fetch_provider_emails(
+                    request_id=request_id,
+                    user_id=user_id,
+                    provider=provider,
+                    limit=limit,
+                    include_body=include_body,
+                    labels=labels,
+                    folder_id=folder_id,
+                    q=q,
+                    page_token=page_token,
+                    priority=priority,
                 )
 
-                # Create API client for this provider
-                client = await api_client_factory.create_client(user_id, provider)
-                if not client:
-                    logger.warning(
-                        f"Failed to create {provider} client for user {user_id}"
-                    )
-                    continue
-
-                logger.info(
-                    f"Successfully created {provider} client for user {user_id}"
-                )
-
-                # Get messages from provider
-                async with client:
-                    if provider == "microsoft" and isinstance(
-                        client, MicrosoftAPIClient
-                    ):
-                        # Microsoft client uses top, skip, filter, search, order_by
-                        # Convert page_token to skip value for pagination
-                        skip_value = 0
-                        if page_token:
-                            try:
-                                skip_value = int(page_token)
-                            except (ValueError, TypeError):
-                                skip_value = 0
-
-                        logger.info(
-                            f"Fetching messages from Microsoft API for user {user_id} with skip={skip_value}"
-                        )
-                        messages = await client.get_messages(
-                            top=limit,
-                            skip=skip_value,
-                            filter=filter_str,
-                            search=q,
-                            order_by="receivedDateTime desc",
-                        )
-                        logger.info(
-                            f"Microsoft API returned: {type(messages)} with keys: {list(messages.keys()) if isinstance(messages, dict) else 'Not a dict'}"
-                        )
-                    elif provider == "google" and isinstance(client, GoogleAPIClient):
-                        # Google client uses max_results, query
-                        logger.info(
-                            f"Fetching messages from Google API for user {user_id}"
-                        )
-                        messages = await client.get_messages(
-                            max_results=limit,
-                            query=q,
-                        )
-                        logger.info(
-                            f"Google API returned: {type(messages)} with keys: {list(messages.keys()) if isinstance(messages, dict) else 'Not a dict'}"
-                        )
-                    else:
-                        logger.warning(
-                            f"Unknown client type for provider {provider}: {type(client)}"
-                        )
-                        continue
-
-                # Normalize messages
-                if provider == "microsoft":
-                    # Microsoft Graph API returns emails in a 'value' array
-                    email_list = (
-                        messages.get("value", []) if isinstance(messages, dict) else []
-                    )
-                    normalized_messages = [
-                        normalize_microsoft_email(msg, email) for msg in email_list
-                    ]
-                elif provider == "google":
-                    # Gmail API returns emails in a 'messages' array
-                    email_list = (
-                        messages.get("messages", [])
-                        if isinstance(messages, dict)
-                        else []
-                    )
-                    normalized_messages = [
-                        normalize_google_email(msg, email) for msg in email_list
-                    ]
-                else:
-                    # If unknown provider, yield empty list
-                    normalized_messages = []
-
-                # Add to results
-                all_messages.extend(normalized_messages)
-                total_count += len(normalized_messages)
-
-                logger.info(
-                    f"Retrieved {len(normalized_messages)} messages from {provider} for user {user_id}"
-                )
+                all_messages.extend(messages)
+                total_count += len(messages)
 
             except Exception as e:
-                logger.error(
-                    f"Error fetching messages from {provider} for user {user_id}: {e}"
-                )
-                # Continue with other providers
+                logger.error(f"Error fetching messages from {provider}: {e}")
                 continue
 
         # If count_only, return just the count

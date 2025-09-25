@@ -780,6 +780,7 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
                             ) : fullThread ? (
                                 <EmailThread
                                     thread={fullThread}
+                                    onCloseReadingPane={() => setSelectedThreadId(null)}
                                 />
                             ) : (
                                 <div className="p-8 text-center text-muted-foreground">

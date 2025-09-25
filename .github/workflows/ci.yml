@@ -209,7 +209,6 @@ jobs:
   lint:
     name: Python Linting & Formatting
     needs: detect-changes
-    if: ${{ needs.detect-changes.outputs.python-changed == 'true' }}
     runs-on: ubicloud-standard-2
     strategy:
       matrix:
@@ -218,12 +217,24 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Check if Python tests should run
+      run: |
+        if [[ "${{ needs.detect-changes.outputs.python-changed }}" == "false" ]]; then
+          echo "✅ Python linting skipped - no Python-related changes detected"
+          echo "SKIP_TESTS=true" >> $GITHUB_ENV
+        else
+          echo "🐍 Python linting will run - Python-related changes detected"
+          echo "SKIP_TESTS=false" >> $GITHUB_ENV
+        fi
+
     - name: Set up Python ${{ matrix.python-version }}
+      if: env.SKIP_TESTS == 'false'
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
 
     - name: Cache UV dependencies
+      if: env.SKIP_TESTS == 'false'
       uses: actions/cache@v3
       with:
         path: |
@@ -234,20 +245,24 @@ jobs:
           ${{ runner.os }}-uv-
 
     - name: Install UV
+      if: env.SKIP_TESTS == 'false'
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
     - name: Install dependencies with UV
+      if: env.SKIP_TESTS == 'false'
       run: |
         uv sync --all-packages --all-extras --active
 
     - name: Run nox (format, lint)
+      if: env.SKIP_TESTS == 'false'
       run:  |
         source .venv/bin/activate
         nox -s format lint
 
     - name: Check for conftest.py files
+      if: env.SKIP_TESTS == 'false'
       run: |
         set -euo pipefail
         # Find conftest.py in the repository while excluding tool and virtual environment directories
@@ -264,7 +279,6 @@ jobs:
   typecheck:
     name: Python Type Checking
     needs: detect-changes
-    if: ${{ needs.detect-changes.outputs.python-changed == 'true' }}
     runs-on: ubicloud-standard-2
     strategy:
       matrix:
@@ -273,12 +287,24 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Check if Python tests should run
+      run: |
+        if [[ "${{ needs.detect-changes.outputs.python-changed }}" == "false" ]]; then
+          echo "✅ Python type checking skipped - no Python-related changes detected"
+          echo "SKIP_TESTS=true" >> $GITHUB_ENV
+        else
+          echo "🐍 Python type checking will run - Python-related changes detected"
+          echo "SKIP_TESTS=false" >> $GITHUB_ENV
+        fi
+
     - name: Set up Python ${{ matrix.python-version }}
+      if: env.SKIP_TESTS == 'false'
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
 
     - name: Cache UV dependencies
+      if: env.SKIP_TESTS == 'false'
       uses: actions/cache@v3
       with:
         path: |
@@ -289,14 +315,17 @@ jobs:
           ${{ runner.os }}-uv-
 
     - name: Install UV
+      if: env.SKIP_TESTS == 'false'
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
     - name: Install dependencies with UV
+      if: env.SKIP_TESTS == 'false'
       run: |
         uv sync --all-packages --all-extras --active
 
     - name: Run nox (typecheck)
+      if: env.SKIP_TESTS == 'false'
       run: |
         source .venv/bin/activate
         nox -s typecheck
@@ -304,7 +333,6 @@ jobs:
   test:
     name: Python Tests
     needs: detect-changes
-    if: ${{ needs.detect-changes.outputs.python-changed == 'true' }}
     runs-on: ubicloud-standard-2
     strategy:
       matrix:
@@ -313,12 +341,24 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Check if Python tests should run
+      run: |
+        if [[ "${{ needs.detect-changes.outputs.python-changed }}" == "false" ]]; then
+          echo "✅ Python tests skipped - no Python-related changes detected"
+          echo "SKIP_TESTS=true" >> $GITHUB_ENV
+        else
+          echo "🐍 Python tests will run - Python-related changes detected"
+          echo "SKIP_TESTS=false" >> $GITHUB_ENV
+        fi
+
     - name: Set up Python ${{ matrix.python-version }}
+      if: env.SKIP_TESTS == 'false'
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
 
     - name: Cache UV dependencies
+      if: env.SKIP_TESTS == 'false'
       uses: actions/cache@v3
       with:
         path: |
@@ -328,14 +368,17 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-uv-
     - name: Install UV
+      if: env.SKIP_TESTS == 'false'
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
     - name: Install dependencies with UV
+      if: env.SKIP_TESTS == 'false'
       run: |
         uv sync --all-packages --all-extras --active
 
     - name: Run nox (test)
+      if: env.SKIP_TESTS == 'false'
       run: |
         source .venv/bin/activate
         nox -s test
@@ -343,7 +386,6 @@ jobs:
   coverage:
     name: Python Coverage
     needs: detect-changes
-    if: ${{ needs.detect-changes.outputs.python-changed == 'true' }}
     runs-on: ubicloud-standard-2
     strategy:
       matrix:
@@ -352,12 +394,24 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Check if Python tests should run
+      run: |
+        if [[ "${{ needs.detect-changes.outputs.python-changed }}" == "false" ]]; then
+          echo "✅ Python coverage skipped - no Python-related changes detected"
+          echo "SKIP_TESTS=true" >> $GITHUB_ENV
+        else
+          echo "🐍 Python coverage will run - Python-related changes detected"
+          echo "SKIP_TESTS=false" >> $GITHUB_ENV
+        fi
+
     - name: Set up Python ${{ matrix.python-version }}
+      if: env.SKIP_TESTS == 'false'
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
 
     - name: Cache UV dependencies
+      if: env.SKIP_TESTS == 'false'
       uses: actions/cache@v3
       with:
         path: |
@@ -367,21 +421,24 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-uv-
     - name: Install UV
+      if: env.SKIP_TESTS == 'false'
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
     - name: Install dependencies with UV
+      if: env.SKIP_TESTS == 'false'
       run: |
         uv sync --all-packages --all-extras --active
 
     - name: Run nox (coverage)
+      if: env.SKIP_TESTS == 'false'
       run: |
         source .venv/bin/activate
         nox -s test_cov
 
     - name: Upload coverage reports
+      if: env.SKIP_TESTS == 'false' && matrix.python-version == '3.12'
       uses: codecov/codecov-action@v3
-      if: matrix.python-version == '3.12'
       with:
         file: ./coverage.xml
         fail_ci_if_error: false
@@ -389,13 +446,23 @@ jobs:
   frontend-quality:
     name: Frontend Code Quality
     needs: detect-changes
-    if: ${{ needs.detect-changes.outputs.frontend-changed == 'true' }}
     runs-on: ubicloud-standard-2
 
     steps:
     - uses: actions/checkout@v4
 
+    - name: Check if frontend tests should run
+      run: |
+        if [[ "${{ needs.detect-changes.outputs.frontend-changed }}" == "false" ]]; then
+          echo "✅ Frontend quality checks skipped - no frontend-related changes detected"
+          echo "SKIP_TESTS=true" >> $GITHUB_ENV
+        else
+          echo "⚛️ Frontend quality checks will run - frontend-related changes detected"
+          echo "SKIP_TESTS=false" >> $GITHUB_ENV
+        fi
+
     - name: Set up Node.js
+      if: env.SKIP_TESTS == 'false'
       uses: actions/setup-node@v4
       with:
         node-version: '18'
@@ -403,87 +470,48 @@ jobs:
         cache-dependency-path: frontend/package-lock.json
 
     - name: Install dependencies
+      if: env.SKIP_TESTS == 'false'
       working-directory: ./frontend
       run: npm ci
 
     - name: Run ESLint
+      if: env.SKIP_TESTS == 'false'
       working-directory: ./frontend
       run: npm run lint
 
     - name: Type check
+      if: env.SKIP_TESTS == 'false'
       working-directory: ./frontend
       run: npx tsc --noEmit
 
     - name: Run Jest tests
+      if: env.SKIP_TESTS == 'false'
       working-directory: ./frontend
       run: npx jest --ci
 
     - name: Copy .example.env to frontend/.env
+      if: env.SKIP_TESTS == 'false'
       run: cp .example.env frontend/.env
 
     - name: Set NEXTAUTH_SECRET for CI build
+      if: env.SKIP_TESTS == 'false'
       working-directory: ./frontend
       run: echo "NEXTAUTH_SECRET=dummy-secret-for-ci-build-$(date +%s)" >> .env
 
     - name: Set NEXTAUTH_URL for CI build
+      if: env.SKIP_TESTS == 'false'
       working-directory: ./frontend
       run: echo "NEXTAUTH_URL=https://github.com" >> .env
 
     - name: Build application
+      if: env.SKIP_TESTS == 'false'
       working-directory: ./frontend
       run: npm run build
-
-  # Placeholder jobs that always succeed when main jobs are skipped
-  # This ensures GitHub branch protection rules work correctly
-  lint-skipped:
-    name: Python Linting & Formatting (Skipped)
-    needs: detect-changes
-    if: ${{ needs.detect-changes.outputs.python-changed == 'false' }}
-    runs-on: ubicloud-standard-2
-    steps:
-      - name: Skip Python linting
-        run: echo "✅ Python linting skipped - no Python-related changes detected"
-
-  typecheck-skipped:
-    name: Python Type Checking (Skipped)
-    needs: detect-changes
-    if: ${{ needs.detect-changes.outputs.python-changed == 'false' }}
-    runs-on: ubicloud-standard-2
-    steps:
-      - name: Skip Python type checking
-        run: echo "✅ Python type checking skipped - no Python-related changes detected"
-
-  test-skipped:
-    name: Python Tests (Skipped)
-    needs: detect-changes
-    if: ${{ needs.detect-changes.outputs.python-changed == 'false' }}
-    runs-on: ubicloud-standard-2
-    steps:
-      - name: Skip Python tests
-        run: echo "✅ Python tests skipped - no Python-related changes detected"
-
-  coverage-skipped:
-    name: Python Coverage (Skipped)
-    needs: detect-changes
-    if: ${{ needs.detect-changes.outputs.python-changed == 'false' }}
-    runs-on: ubicloud-standard-2
-    steps:
-      - name: Skip Python coverage
-        run: echo "✅ Python coverage skipped - no Python-related changes detected"
-
-  frontend-quality-skipped:
-    name: Frontend Code Quality (Skipped)
-    needs: detect-changes
-    if: ${{ needs.detect-changes.outputs.frontend-changed == 'false' }}
-    runs-on: ubicloud-standard-2
-    steps:
-      - name: Skip frontend quality checks
-        run: echo "✅ Frontend quality checks skipped - no frontend-related changes detected"
 
   # Summary job to show what tests were run
   test-summary:
     name: Test Summary
-    needs: [detect-changes, lint, typecheck, test, coverage, frontend-quality, lint-skipped, typecheck-skipped, test-skipped, coverage-skipped, frontend-quality-skipped]
+    needs: [detect-changes, lint, typecheck, test, coverage, frontend-quality]
     if: always()
     runs-on: ubicloud-standard-2
     steps:

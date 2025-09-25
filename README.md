@@ -782,9 +782,10 @@ Each CI run includes a summary showing:
 ### Branch Protection Compatibility
 
 The CI system is designed to work seamlessly with GitHub branch protection rules:
-- **Skipped jobs** are replaced with placeholder jobs that always succeed
-- This ensures branch protection rules requiring specific checks don't fail when tests are skipped
-- All required checks will show as "completed" rather than "skipped"
+- **All jobs always run** but skip expensive operations when not needed
+- Jobs show as "completed" rather than "skipped" to satisfy branch protection rules
+- When tests are skipped, jobs complete quickly with clear skip messages
+- This ensures branch protection rules requiring specific checks don't fail
 
 ## Contributing
 

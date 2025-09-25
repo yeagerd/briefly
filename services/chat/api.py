@@ -319,9 +319,15 @@ async def chat_stream_endpoint(
             # Stream the workflow responses
             full_response = ""
             async for event in agent.astream_chat(user_input):
-                # SECURITY FIX: Only stream events that contain actual response deltas
-                # Filter out internal agent events that contain system prompts and internal state
-                delta_value = getattr(event, "delta", None)
+                # Handle both AgentStream objects with delta attribute and raw string events
+                delta_value = None
+
+                # Check if event has a delta attribute (proper AgentStream object)
+                if hasattr(event, "delta") and event.delta:
+                    delta_value = event.delta
+                # Check if event is a raw string (direct content delta)
+                elif isinstance(event, str) and event.strip():
+                    delta_value = event
 
                 # Only stream events that have actual content for the user
                 if delta_value:

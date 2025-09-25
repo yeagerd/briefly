@@ -1,5 +1,6 @@
 import { officeApi } from '@/api';
 import { useEmailList, useEmailThread } from '@/hooks/use-email-data';
+import { useOfficeData } from '@/contexts/office-data-context';
 import { EmailThread } from "@/types/api/office";
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -66,6 +67,8 @@ export const useThreads = (initialOptions: UseThreadsOptions = {}): UseThreadsRe
         autoFetch: !!selectedThreadId
     });
 
+    const { refreshEmailThread } = useOfficeData();
+
     // Convert email messages to threads (group by thread_id)
     const threads = useMemo(() => {
         const threadMap = new Map<string, EmailThread>();
@@ -107,23 +110,28 @@ export const useThreads = (initialOptions: UseThreadsOptions = {}): UseThreadsRe
 
     const fetchThread = useCallback(async (threadId: string) => {
         setSelectedThreadId(threadId);
-        await refreshThread();
-    }, [refreshThread]);
+        // Use refreshEmailThread directly to avoid race condition
+        await refreshEmailThread(threadId, options.includeBody);
+    }, [refreshEmailThread, options.includeBody]);
 
     const fetchMessageThread = useCallback(async (messageId: string) => {
-        // For now, we'll need to find the thread ID from the message
-        // This could be enhanced to use a message-to-thread lookup
         try {
+            // First get the thread ID from the message
             const response = await officeApi.getMessageThread(messageId, true);
             if (response.success && response.data?.threads && response.data.threads.length > 0) {
                 const threadId = response.data.threads[0].id;
                 setSelectedThreadId(threadId);
+                // Use refreshEmailThread to get the thread with proper caching
+                await refreshEmailThread(threadId, true);
+            } else {
+                const errorMessage = 'No thread found for message';
+                toast.error(errorMessage);
             }
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to fetch message thread';
             toast.error(errorMessage);
         }
-    }, []);
+    }, [refreshEmailThread]);
 
     const selectThread = useCallback((threadId: string) => {
         setSelectedThreadId(threadId);

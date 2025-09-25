@@ -16,6 +16,7 @@
   - Outlook: apply `$filter=(inferenceClassification eq 'focused')` when `priority=true`
 - [x] Update internal threads/messages aggregations and cache keys to include `priority` filter param where applicable (`services/office/api/email.py`)
 - [x] Regenerate OpenAPI schema and clients so `is_priority` and category fields are exposed (`scripts/generate-api-schema.sh` + frontend type regen)
+- [x] **API Schema Cleanup**: Remove redundant `inference_classification` from API schema, keep only `derived_category` for cleaner interface
 
 ### Provider-derived Categories (Microsoft → Gmail buckets)
 - [x] Add `derived_category: Optional[str]` to `EmailMessage` (values: `CATEGORY_PERSONAL`, `CATEGORY_OTHER`) (`services/api/v1/office/schemas.py`)

@@ -191,8 +191,9 @@ export function useEmailThread(threadId: string | null, options: UseEmailThreadO
 export function useEmailCache() {
     const { invalidateEmailCache, clearEmailCache } = useOfficeData();
 
-    const invalidateList = useCallback((folderId?: string, query?: string) => {
-        const session = getSession().then(session => {
+    const invalidateList = useCallback(async (folderId?: string, query?: string) => {
+        try {
+            const session = await getSession();
             if (session?.user?.id) {
                 const scope: EmailScope = {
                     userId: session.user.id,
@@ -201,7 +202,9 @@ export function useEmailCache() {
                 };
                 invalidateEmailCache(scope);
             }
-        });
+        } catch (error) {
+            console.error('Failed to invalidate email list cache:', error);
+        }
     }, [invalidateEmailCache]);
 
     const invalidateThread = useCallback((threadId: string) => {

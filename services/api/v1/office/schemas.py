@@ -57,6 +57,20 @@ class EmailMessage(BaseModel):
     account_name: Optional[str] = None  # Display name for the account
 
 
+class EmailDeltaResponse(BaseModel):
+    """Response model for email delta sync operations."""
+
+    created: List[EmailMessage] = Field(
+        default_factory=list, description="Newly created messages"
+    )
+    updated: List[EmailMessage] = Field(
+        default_factory=list, description="Updated messages"
+    )
+    deleted: List[str] = Field(default_factory=list, description="Deleted message IDs")
+    next_token: str = Field(..., description="Next delta token for subsequent requests")
+    request_id: str = Field(..., description="Request ID for tracking")
+
+
 class EmailThread(BaseModel):
     id: str
     subject: Optional[str] = None

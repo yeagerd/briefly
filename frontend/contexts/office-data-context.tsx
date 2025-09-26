@@ -22,13 +22,34 @@ interface EmailThreadCacheEntry extends CacheEntry<EmailThread> {
     includeBody: boolean;
 }
 
-interface EmailScope {
+export interface EmailScope {
     userId: string;
     folderId?: string;
     folderLabel?: string;
     query?: string;
     pageSize?: number;
     labels?: string[];
+}
+
+interface DeltaTokenData {
+    token: string;
+    lastSuccessfulSyncAt: number;
+}
+
+interface DeltaMetrics {
+    duration: number;
+    createdCount: number;
+    updatedCount: number;
+    deletedCount: number;
+    tokenInvalidations: number;
+    avoidedFullFetches: number;
+}
+
+interface DeltaResponse {
+    created: EmailMessage[];
+    updated: EmailMessage[];
+    deleted: string[]; // message IDs
+    nextToken: string;
 }
 
 interface OfficeDataContextType {
@@ -53,6 +74,13 @@ interface OfficeDataContextType {
     refreshEmailThread: (threadId: string, includeBody?: boolean) => Promise<void>;
     getEmailThreadLastUpdated: (threadId: string) => number | null;
 
+    // Delta Sync
+    seedScope: (scope: EmailScope, providers: string[]) => Promise<void>;
+    runDelta: (scope: EmailScope, providers: string[]) => Promise<void>;
+    getDeltaToken: (scope: EmailScope) => DeltaTokenData | null;
+    getDeltaLoading: (scope: EmailScope) => boolean;
+    getDeltaMetrics: (scope: EmailScope) => DeltaMetrics | null;
+
     // Cache Management
     invalidateEmailCache: (scope?: EmailScope, threadId?: string) => void;
     clearEmailCache: () => void;
@@ -75,8 +103,14 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const [listErrors, setListErrors] = useState<Map<string, string>>(new Map());
     const [threadErrors, setThreadErrors] = useState<Map<string, string>>(new Map());
 
+    // Delta sync state
+    const [deltaTokenByScope, setDeltaTokenByScope] = useState<Map<string, DeltaTokenData>>(new Map());
+    const [deltaLoading, setDeltaLoading] = useState<Map<string, boolean>>(new Map());
+    const [deltaMetrics, setDeltaMetrics] = useState<Map<string, DeltaMetrics>>(new Map());
+
     // Inflight requests for de-duplication
     const inflightRequests = useRef<Map<string, Promise<any>>>(new Map());
+    const deltaInflightByScope = useRef<Map<string, Promise<any>>>(new Map());
 
     // Cache configuration
     const LIST_TTL = 60 * 1000; // 60 seconds
@@ -398,6 +432,276 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return null;
     }, [threadCache]);
 
+    // Delta sync functions
+    const seedScope = useCallback(async (scope: EmailScope, providers: string[]): Promise<void> => {
+        const scopeKey = createCacheKey(scope);
+
+        // Check if already seeding
+        if (deltaInflightByScope.current.has(scopeKey)) {
+            return deltaInflightByScope.current.get(scopeKey)!;
+        }
+
+        const seedPromise = (async () => {
+            setDeltaLoading(prev => new Map(prev).set(scopeKey, true));
+
+            try {
+                const session = await getSession();
+                if (!session?.user?.id) {
+                    throw new Error('No session found');
+                }
+
+                // Full listing until delta token is returned
+                let allMessages: EmailMessage[] = [];
+                let pageToken: string | undefined;
+                let deltaToken: string | undefined;
+                const timebox = Date.now() + 30000; // 30 second timebox
+
+                do {
+                    if (Date.now() > timebox) {
+                        console.warn('Seed timebox exceeded, stopping pagination');
+                        break;
+                    }
+
+                    const response = await officeApi.getEmailMessages(
+                        providers,
+                        scope.pageSize || 50,
+                        scope.labels,
+                        scope.folderId,
+                        scope.query,
+                        pageToken,
+                        true
+                    );
+
+                    if (response.data?.messages) {
+                        allMessages = [...allMessages, ...response.data.messages];
+                    }
+
+                    // Check for delta token in response
+                    if ((response.data as any)?.deltaToken) {
+                        deltaToken = (response.data as any).deltaToken;
+                        break;
+                    }
+
+                    pageToken = (response.data as any)?.nextPageToken;
+                } while (pageToken);
+
+                // Update cache with seeded data
+                setListCache(prev => {
+                    const newCache = new Map(prev);
+                    newCache.set(scopeKey, {
+                        data: allMessages,
+                        timestamp: Date.now(),
+                        ttl: LIST_TTL,
+                        hasMore: !!pageToken,
+                        pageToken
+                    });
+                    return newCache;
+                });
+
+                // Store delta token if received
+                if (deltaToken) {
+                    setDeltaTokenByScope(prev => {
+                        const newMap = new Map(prev);
+                        newMap.set(scopeKey, {
+                            token: deltaToken,
+                            lastSuccessfulSyncAt: Date.now()
+                        });
+                        return newMap;
+                    });
+                }
+
+            } catch (error) {
+                console.error('Error seeding scope:', error);
+                setListErrors(prev => {
+                    const newMap = new Map(prev);
+                    newMap.set(scopeKey, error instanceof Error ? error.message : 'Unknown error');
+                    return newMap;
+                });
+            } finally {
+                setDeltaLoading(prev => {
+                    const newMap = new Map(prev);
+                    newMap.delete(scopeKey);
+                    return newMap;
+                });
+                deltaInflightByScope.current.delete(scopeKey);
+            }
+        })();
+
+        deltaInflightByScope.current.set(scopeKey, seedPromise);
+        return seedPromise;
+    }, [createCacheKey, LIST_TTL]);
+
+    const runDelta = useCallback(async (scope: EmailScope, providers: string[]): Promise<void> => {
+        const scopeKey = createCacheKey(scope);
+
+        // Check if already running delta
+        if (deltaInflightByScope.current.has(scopeKey)) {
+            return deltaInflightByScope.current.get(scopeKey)!;
+        }
+
+        const deltaToken = deltaTokenByScope.get(scopeKey);
+        if (!deltaToken) {
+            // No token available, need to seed first
+            return seedScope(scope, providers);
+        }
+
+        const deltaPromise = (async () => {
+            setDeltaLoading(prev => new Map(prev).set(scopeKey, true));
+            const startTime = Date.now();
+
+            try {
+                const session = await getSession();
+                if (!session?.user?.id) {
+                    throw new Error('No session found');
+                }
+
+                // Call delta endpoint with stored token
+                const response = await officeApi.getEmailDelta(
+                    providers,
+                    deltaToken.token,
+                    scope.labels,
+                    scope.folderId,
+                    scope.query
+                );
+
+                if (response.data) {
+                    const { created, updated, deleted, nextToken } = response.data;
+                    const duration = Date.now() - startTime;
+
+                    // Update metrics
+                    setDeltaMetrics(prev => {
+                        const newMap = new Map(prev);
+                        const currentMetrics = newMap.get(scopeKey) || {
+                            duration: 0,
+                            createdCount: 0,
+                            updatedCount: 0,
+                            deletedCount: 0,
+                            tokenInvalidations: 0,
+                            avoidedFullFetches: 1
+                        };
+
+                        newMap.set(scopeKey, {
+                            ...currentMetrics,
+                            duration: currentMetrics.duration + duration,
+                            createdCount: currentMetrics.createdCount + created.length,
+                            updatedCount: currentMetrics.updatedCount + updated.length,
+                            deletedCount: currentMetrics.deletedCount + deleted.length,
+                            avoidedFullFetches: currentMetrics.avoidedFullFetches + 1
+                        });
+                        return newMap;
+                    });
+
+                    // Merge changes into cache
+                    setListCache(prev => {
+                        const newCache = new Map(prev);
+                        const currentEntry = newCache.get(scopeKey);
+                        if (currentEntry) {
+                            const existingMessages = currentEntry.data;
+                            const messageMap = new Map(existingMessages.map(msg => [msg.id, msg]));
+
+                            // Add/update created and updated messages
+                            [...created, ...updated].forEach(msg => {
+                                messageMap.set(msg.id, msg);
+                            });
+
+                            // Remove deleted messages
+                            deleted.forEach(msgId => {
+                                messageMap.delete(msgId);
+                            });
+
+                            // Convert back to array and sort by receivedDateTime desc
+                            const updatedMessages = Array.from(messageMap.values())
+                                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                            newCache.set(scopeKey, {
+                                ...currentEntry,
+                                data: updatedMessages,
+                                timestamp: Date.now()
+                            });
+                        }
+                        return newCache;
+                    });
+
+                    // Update delta token
+                    setDeltaTokenByScope(prev => {
+                        const newMap = new Map(prev);
+                        newMap.set(scopeKey, {
+                            token: nextToken,
+                            lastSuccessfulSyncAt: Date.now()
+                        });
+                        return newMap;
+                    });
+                }
+
+            } catch (error) {
+                console.error('Error running delta:', error);
+
+                // Check if token is invalid (410/expired)
+                if (error instanceof Error && error.message.includes('410')) {
+                    // Token invalid, need to re-seed
+                    console.log('Delta token invalid, re-seeding scope');
+
+                    // Update metrics for token invalidation
+                    setDeltaMetrics(prev => {
+                        const newMap = new Map(prev);
+                        const currentMetrics = newMap.get(scopeKey) || {
+                            duration: 0,
+                            createdCount: 0,
+                            updatedCount: 0,
+                            deletedCount: 0,
+                            tokenInvalidations: 0,
+                            avoidedFullFetches: 0
+                        };
+
+                        newMap.set(scopeKey, {
+                            ...currentMetrics,
+                            tokenInvalidations: currentMetrics.tokenInvalidations + 1
+                        });
+                        return newMap;
+                    });
+
+                    setDeltaTokenByScope(prev => {
+                        const newMap = new Map(prev);
+                        newMap.delete(scopeKey);
+                        return newMap;
+                    });
+                    return seedScope(scope, providers);
+                }
+
+                setListErrors(prev => {
+                    const newMap = new Map(prev);
+                    newMap.set(scopeKey, error instanceof Error ? error.message : 'Unknown error');
+                    return newMap;
+                });
+            } finally {
+                setDeltaLoading(prev => {
+                    const newMap = new Map(prev);
+                    newMap.delete(scopeKey);
+                    return newMap;
+                });
+                deltaInflightByScope.current.delete(scopeKey);
+            }
+        })();
+
+        deltaInflightByScope.current.set(scopeKey, deltaPromise);
+        return deltaPromise;
+    }, [createCacheKey, deltaTokenByScope, seedScope]);
+
+    const getDeltaToken = useCallback((scope: EmailScope): DeltaTokenData | null => {
+        const scopeKey = createCacheKey(scope);
+        return deltaTokenByScope.get(scopeKey) || null;
+    }, [createCacheKey, deltaTokenByScope]);
+
+    const getDeltaLoading = useCallback((scope: EmailScope): boolean => {
+        const scopeKey = createCacheKey(scope);
+        return deltaLoading.get(scopeKey) || false;
+    }, [createCacheKey, deltaLoading]);
+
+    const getDeltaMetrics = useCallback((scope: EmailScope): DeltaMetrics | null => {
+        const scopeKey = createCacheKey(scope);
+        return deltaMetrics.get(scopeKey) || null;
+    }, [createCacheKey, deltaMetrics]);
+
     // Cache management functions
     const invalidateEmailCache = useCallback((scope?: EmailScope, threadId?: string): void => {
         if (scope) {
@@ -425,7 +729,11 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setThreadCache(new Map());
         setListErrors(new Map());
         setThreadErrors(new Map());
+        setDeltaTokenByScope(new Map());
+        setDeltaLoading(new Map());
+        setDeltaMetrics(new Map());
         inflightRequests.current.clear();
+        deltaInflightByScope.current.clear();
     }, []);
 
     const value = useMemo(() => ({
@@ -450,6 +758,13 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         refreshEmailThread,
         getEmailThreadLastUpdated,
 
+        // Delta Sync
+        seedScope,
+        runDelta,
+        getDeltaToken,
+        getDeltaLoading,
+        getDeltaMetrics,
+
         // Cache Management
         invalidateEmailCache,
         clearEmailCache
@@ -469,6 +784,11 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         getEmailThreadError,
         refreshEmailThread,
         getEmailThreadLastUpdated,
+        seedScope,
+        runDelta,
+        getDeltaToken,
+        getDeltaLoading,
+        getDeltaMetrics,
         invalidateEmailCache,
         clearEmailCache
     ]);

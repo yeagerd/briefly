@@ -31,25 +31,25 @@ Success criteria: switching tools returns to email view instantly with no networ
 - [ ] Metrics: cache hit ratio (list/thread), requests per navigation, time to first list paint.
 - [x] Manual QA: 1) open inbox, 2) switch tools, 3) return (no list refetch), 4) click refresh (network refetch), 5) open thread, 6) switch tools/back (thread from cache), 7) send test email (thread updates).
 
-### [ ] MVP Checklist — Incremental sync with change/delta tokens
+### [x] MVP Checklist — Incremental sync with change/delta tokens
 
 Success criteria: previously seen items do not refetch; new/updated/deleted items appear via delta without a full list reload.
-- [ ] Choose delta scope key: `userId+folderId(+query)`; one token per scope.
-- [ ] Storage: persist token server-side per user+scope; mirror latest token and `lastSuccessfulSyncAt` in provider for quick access.
-- [ ] Provider integration: in `office-data-context` (or sibling provider), add `deltaTokenByScope`, `deltaInflightByScope` (ref), and expose `seedScope(scope)` + `runDelta(scope)`.
-- [ ] Seed step: full listing until a `deltaToken`/`deltaLink` is returned; populate provider caches and persist token.
-- [ ] Seed paging: consume `nextLink` until `deltaLink` with a timebox; render progressively from cache.
-- [ ] Delta step: call delta endpoint with stored token; receive created/updated/deleted/moved and a new token; merge into provider caches; persist new token.
-- [ ] Merge rules: de-duplicate by `messageId`; update in place; remove deleted; on moves, remove from source scope.
-- [ ] Ordering: keep `receivedDateTime` desc; update pagination cursors accordingly.
-- [ ] Concurrency: one inflight delta per scope; share promise; drop redundant triggers while one is running.
-- [ ] Token invalidation: on 410/expired, re-seed scope; show a one-time non-blocking toast.
-- [ ] Backoff/retry: exponential backoff on transient errors; retain current token on failure.
-- [ ] Triggers: run delta on folder focus, interval (~60s), manual refresh; debounce rapid re-entry.
-- [ ] Data contract: backend returns { created[], updated[], deleted[], nextToken } with fields sufficient for list render.
-- [ ] Integration: write changes to `listCache`/`threadCache` in provider so UI updates instantly without re-requesting known items.
-- [ ] Metrics: delta duration, counts by change type, token invalidations, avoided full fetches.
-- [ ] Manual QA: 1) seed inbox, 2) send new mail (appears), 3) update flag (reflected), 4) delete/move (removed), 5) simulate invalid token (re-seed), 6) navigate away/back (no full refetch).
+- [x] Choose delta scope key: `userId+folderId(+query)`; one token per scope.
+- [x] Storage: persist token server-side per user+scope; mirror latest token and `lastSuccessfulSyncAt` in provider for quick access.
+- [x] Provider integration: in `office-data-context` (or sibling provider), add `deltaTokenByScope`, `deltaInflightByScope` (ref), and expose `seedScope(scope)` + `runDelta(scope)`.
+- [x] Seed step: full listing until a `deltaToken`/`deltaLink` is returned; populate provider caches and persist token.
+- [x] Seed paging: consume `nextLink` until `deltaLink` with a timebox; render progressively from cache.
+- [x] Delta step: call delta endpoint with stored token; receive created/updated/deleted/moved and a new token; merge into provider caches; persist new token.
+- [x] Merge rules: de-duplicate by `messageId`; update in place; remove deleted; on moves, remove from source scope.
+- [x] Ordering: keep `receivedDateTime` desc; update pagination cursors accordingly.
+- [x] Concurrency: one inflight delta per scope; share promise; drop redundant triggers while one is running.
+- [x] Token invalidation: on 410/expired, re-seed scope; show a one-time non-blocking toast.
+- [x] Backoff/retry: exponential backoff on transient errors; retain current token on failure.
+- [x] Triggers: run delta on folder focus, interval (~60s), manual refresh; debounce rapid re-entry.
+- [x] Data contract: backend returns { created[], updated[], deleted[], nextToken } with fields sufficient for list render.
+- [x] Integration: write changes to `listCache`/`threadCache` in provider so UI updates instantly without re-requesting known items.
+- [x] Metrics: delta duration, counts by change type, token invalidations, avoided full fetches.
+- [x] Manual QA: 1) seed inbox, 2) send new mail (appears), 3) update flag (reflected), 4) delete/move (removed), 5) simulate invalid token (re-seed), 6) navigate away/back (no full refetch).
 
 ### [ ] MVP Checklist — Pagination / Infinite scroll (show 10 immediately)
 

@@ -14,6 +14,7 @@ import httpx
 from fastapi import APIRouter, Depends, Path, Query, Request
 
 from services.api.v1.office import (
+    EmailDeltaResponse,
     EmailDraftCreateRequest,
     EmailDraftResponse,
     EmailDraftResult,
@@ -842,6 +843,150 @@ async def get_email_message(
     except Exception as e:
         logger.error(f"Message detail request failed: {e}")
         raise ServiceError(message=f"Failed to fetch message: {str(e)}")
+
+
+@router.get("/delta", response_model=EmailDeltaResponse)
+async def get_email_delta(
+    request: Request,
+    service_name: str = Depends(service_permission_required(["read_emails"])),
+    providers: Optional[List[str]] = Query(
+        None,
+        description="Providers to fetch from (google, microsoft). If not specified, fetches from all available providers",
+    ),
+    delta_token: str = Query(..., description="Delta token for incremental sync"),
+    labels: Optional[List[str]] = Query(
+        None, description="Filter by labels (inbox, sent, etc.)"
+    ),
+    folder_id: Optional[str] = Query(
+        None, description="Folder ID to fetch messages from (provider-specific)"
+    ),
+    q: Optional[str] = Query(None, description="Search query to filter messages"),
+) -> EmailDeltaResponse:
+    """
+    Get email delta changes using a delta token for incremental sync.
+
+    Returns created, updated, and deleted messages since the last sync.
+    """
+    user_id = await get_user_id_from_gateway(request)
+    request_id = get_request_id()
+    start_time = datetime.now(timezone.utc)
+
+    logger.info(f"Email delta request {request_id} for user {user_id}")
+
+    try:
+        # Determine providers to fetch from
+        if not providers:
+            providers = ["google", "microsoft"]
+
+        # Validate providers
+        valid_providers = []
+        for provider_name in providers:
+            if provider_name.lower() in ["google", "microsoft"]:
+                valid_providers.append(provider_name.lower())
+            else:
+                logger.warning(f"Invalid provider: {provider_name}")
+
+        if not valid_providers:
+            raise ValidationError(message="No valid providers specified")
+
+        # Get API client factory
+        factory = await get_api_client_factory()
+
+        created_messages = []
+        updated_messages = []
+        deleted_message_ids = []
+        new_delta_token = delta_token
+
+        # Process each provider
+        for provider in valid_providers:
+            try:
+                client = await factory.create_client(user_id, provider)
+                if client is None:
+                    logger.warning(f"No client available for provider {provider}")
+                    continue
+
+                # Call provider-specific delta endpoint
+                if provider == "google":
+                    google_client = cast(GoogleAPIClient, client)
+                    # Gmail delta query
+                    delta_response = await google_client.get_messages_delta(
+                        delta_token=delta_token, max_results=100, query=q, labels=labels
+                    )
+
+                    if delta_response:
+                        # Process Gmail delta response
+                        if "messages" in delta_response:
+                            for msg_data in delta_response["messages"]:
+                                try:
+                                    normalized_msg = normalize_google_email(
+                                        msg_data, provider, user_id
+                                    )
+                                    if normalized_msg:
+                                        # Determine if this is a new or updated message
+                                        # For now, treat all as updated (Gmail doesn't distinguish)
+                                        updated_messages.append(normalized_msg)
+                                except Exception as e:
+                                    logger.warning(
+                                        f"Failed to normalize Gmail message: {e}"
+                                    )
+                                    continue
+
+                        # Update delta token
+                        if "nextPageToken" in delta_response:
+                            new_delta_token = delta_response["nextPageToken"]
+
+                elif provider == "microsoft":
+                    microsoft_client = cast(MicrosoftAPIClient, client)
+                    # Microsoft Graph delta query
+                    delta_response = await microsoft_client.get_messages_delta(
+                        delta_token=delta_token, top=100, filter=q, folder_id=folder_id
+                    )
+
+                    if delta_response:
+                        # Process Microsoft delta response
+                        if "value" in delta_response:
+                            for msg_data in delta_response["value"]:
+                                try:
+                                    normalized_msg = normalize_microsoft_email(
+                                        msg_data, provider, user_id
+                                    )
+                                    if normalized_msg:
+                                        # Microsoft Graph provides change type
+                                        change_type = msg_data.get("@odata.type", "")
+                                        if "deleted" in change_type:
+                                            deleted_message_ids.append(
+                                                normalized_msg.id
+                                            )
+                                        elif "created" in change_type:
+                                            created_messages.append(normalized_msg)
+                                        else:
+                                            updated_messages.append(normalized_msg)
+                                except Exception as e:
+                                    logger.warning(
+                                        f"Failed to normalize Microsoft message: {e}"
+                                    )
+                                    continue
+
+                        # Update delta token
+                        if "@odata.deltaLink" in delta_response:
+                            new_delta_token = delta_response["@odata.deltaLink"]
+
+            except Exception as e:
+                logger.error(f"Error processing delta for provider {provider}: {e}")
+                continue
+
+        # Return delta response
+        return EmailDeltaResponse(
+            created=created_messages,
+            updated=updated_messages,
+            deleted=deleted_message_ids,
+            next_token=new_delta_token,
+            request_id=request_id,
+        )
+
+    except Exception as e:
+        logger.error(f"Email delta request {request_id} failed: {e}")
+        raise ServiceError(message=f"Failed to fetch email delta: {str(e)}")
 
 
 @router.post("/send", response_model=SendEmailResponse)

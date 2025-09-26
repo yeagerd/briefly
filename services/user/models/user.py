@@ -12,12 +12,14 @@ from sqlalchemy import func
 from sqlmodel import Column, DateTime, Field, Relationship, SQLModel
 
 from services.user.models.audit import AuditLog
+from services.user.models.delta_token import DeltaToken
 from services.user.models.integration import Integration
 from services.user.models.preferences import UserPreferences
 from services.user.models.token import EncryptedToken
 
 if TYPE_CHECKING:
     from services.user.models.audit import AuditLog
+    from services.user.models.delta_token import DeltaToken
     from services.user.models.integration import Integration
     from services.user.models.preferences import UserPreferences
     from services.user.models.token import EncryptedToken
@@ -65,3 +67,4 @@ class User(SQLModel, table=True):
     integrations: list["Integration"] = Relationship(back_populates="user")
     tokens: list["EncryptedToken"] = Relationship(back_populates="user")
     audit_logs: list["AuditLog"] = Relationship(back_populates="user")
+    delta_tokens: list["DeltaToken"] = Relationship(back_populates="user")

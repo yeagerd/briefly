@@ -114,6 +114,24 @@ export class OfficeClient extends GatewayClient {
         return this.request<EmailMessageList>(`/api/v1/office/email/messages?${params.toString()}`);
     }
 
+    async getEmailDelta(
+        providers: string[],
+        deltaToken?: string,
+        labels?: string[],
+        folderId?: string,
+        q?: string
+    ): Promise<EmailDeltaResponse> {
+        const params = new URLSearchParams();
+
+        providers.forEach(provider => params.append('providers', provider));
+        if (deltaToken) params.append('delta_token', deltaToken);
+        if (labels) labels.forEach(label => params.append('labels', label));
+        if (folderId) params.append('folder_id', folderId);
+        if (q) params.append('q', q);
+
+        return this.request<EmailDeltaResponse>(`/api/v1/office/email/delta?${params.toString()}`);
+    }
+
     async getEmailMessages(
         providers: string[],
         limit?: number,
@@ -136,23 +154,6 @@ export class OfficeClient extends GatewayClient {
         return this.request<EmailMessageList>(`/api/v1/office/email/messages?${params.toString()}`);
     }
 
-    async getEmailDelta(
-        providers: string[],
-        deltaToken: string,
-        labels?: string[],
-        folderId?: string,
-        q?: string
-    ): Promise<{ data: { created: any[]; updated: any[]; deleted: string[]; nextToken: string } }> {
-        const params = new URLSearchParams();
-
-        providers.forEach(provider => params.append('providers', provider));
-        params.append('delta_token', deltaToken);
-        if (labels) labels.forEach(label => params.append('labels', label));
-        if (folderId) params.append('folder_id', folderId);
-        if (q) params.append('q', q);
-
-        return this.request<{ data: { created: any[]; updated: any[]; deleted: string[]; nextToken: string } }>(`/api/v1/office/email/delta?${params.toString()}`);
-    }
 
     async getThreads(
         providers?: string[],

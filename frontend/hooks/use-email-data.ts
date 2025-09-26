@@ -63,7 +63,8 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
         getEmailListLoading,
         getEmailListError,
         refreshEmailList,
-        getEmailListLastUpdated
+        getEmailListLastUpdated,
+        runDelta
     } = useOfficeData();
 
     const [emails, setEmails] = useState<EmailMessage[]>([]);
@@ -73,10 +74,12 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
     // Store latest function references to avoid circular dependencies
     const getEmailListRef = useRef(getEmailList);
     const refreshEmailListRef = useRef(refreshEmailList);
+    const runDeltaRef = useRef(runDelta);
 
     // Update refs when functions change
     getEmailListRef.current = getEmailList;
     refreshEmailListRef.current = refreshEmailList;
+    runDeltaRef.current = runDelta;
 
     // Create scope when user session is available
     useEffect(() => {
@@ -115,9 +118,10 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
     const refresh = useCallback(async () => {
         if (scope) {
             try {
-                await refreshEmailListRef.current(scope, providers);
-                const result = await getEmailListRef.current(scope, providers);
-                setEmails(result);
+                // Use delta sync for background refresh - no loading state
+                await runDeltaRef.current(scope, providers);
+                // runDelta automatically updates the cache, so we don't need to call getEmailList
+                // The UI will re-render automatically when the cache updates
             } catch (error) {
                 console.error('Failed to refresh emails:', error);
             }

@@ -132,7 +132,7 @@ class MicrosoftAPIClient(BaseAPIClient):
         params["$select"] = (
             "id,conversationId,subject,bodyPreview,body,from,toRecipients,"
             "ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,"
-            "hasAttachments,categories,importance"
+            "hasAttachments,categories,importance,inferenceClassification,parentFolderId"
         )
 
         if search:
@@ -178,7 +178,7 @@ class MicrosoftAPIClient(BaseAPIClient):
         params["$select"] = (
             "id,conversationId,subject,bodyPreview,body,from,toRecipients,"
             "ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,"
-            "hasAttachments,categories,importance"
+            "hasAttachments,categories,importance,inferenceClassification,parentFolderId"
         )
 
         if filter:
@@ -263,7 +263,12 @@ class MicrosoftAPIClient(BaseAPIClient):
         Returns:
             Dictionary containing mailbox list
         """
-        response = await self.get("/me/mailFolders")
+        # Include additional parameters to ensure we get all folders including Inbox
+        params = {
+            "$select": "id,displayName,parentFolderId,childFolderCount",
+            "$top": 100,  # Ensure we get all folders
+        }
+        response = await self.get("/me/mailFolders", params=params)
         return cast(Dict[str, Any], response.json())
 
     # Microsoft Calendar API methods

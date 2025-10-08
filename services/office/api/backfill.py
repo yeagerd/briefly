@@ -413,6 +413,17 @@ async def run_backfill_job(
                             )
                             continue
 
+                        # Skip emails in Junk Email folder
+                        if email.folder and email.folder.lower() in [
+                            "junk email",
+                            "junk",
+                            "spam",
+                        ]:
+                            logger.debug(
+                                f"Skipping email in junk folder: {email.id} (folder: {email.folder})"
+                            )
+                            continue
+
                         # email should now be a proper EmailMessage object, so we can access fields directly
                         # Use the pre-split unquoted field (visible content only)
                         # Prefer text over HTML for Vespa ingestion
@@ -452,6 +463,9 @@ async def run_backfill_job(
                             is_read=email.is_read,
                             is_starred=False,  # Not available in EmailMessage
                             has_attachments=email.has_attachments,
+                            is_priority=email.is_priority,
+                            derived_category=email.derived_category,
+                            folder=email.folder,
                             provider=request.provider,
                             provider_message_id=email.provider_message_id,
                             size_bytes=None,  # Not available in EmailMessage

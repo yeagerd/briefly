@@ -86,6 +86,16 @@ schema briefly_document {
             indexing: summary
         }
         
+        field is_priority type bool {
+            indexing: attribute | summary
+            attribute: fast-search
+        }
+        
+        field derived_category type string {
+            indexing: attribute | summary
+            attribute: fast-search
+        }
+        
         field embedding type tensor<float>(x[384]) {
             indexing: attribute
             attribute {

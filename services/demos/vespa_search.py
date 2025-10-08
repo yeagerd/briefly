@@ -57,6 +57,12 @@ REQUIREMENTS:
   • Python dependencies: aiohttp, asyncio
 """
 
+import os
+import sys
+
+# Add the repository root to Python path to enable imports when running from repo root
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
 import asyncio
 import json
 import logging
@@ -750,6 +756,12 @@ class VespaSearchDemo:
                                 print(f"      • {key}: (empty)")
                         else:
                             print(f"      • {key}: {value}")
+
+            # Priority and category fields (top-level fields)
+            if fields.get("is_priority") is not None:
+                print(f"    ⭐ Priority: {fields.get('is_priority')}")
+            if fields.get("derived_category"):
+                print(f"    🏷️  Category: {fields.get('derived_category')}")
 
         elif doc_type == "calendar":
             print(f"    📅 Start: {fields.get('start_time', 'Unknown')}")

@@ -218,6 +218,9 @@ def normalize_google_email(
         # Convert Gmail labels to standardized labels
         labels = _normalize_gmail_labels(label_ids)
 
+        # Set is_priority: true if NOT in CATEGORY_PROMOTIONS
+        is_priority = "CATEGORY_PROMOTIONS" not in label_ids
+
         return EmailMessage(
             id=f"gmail_{message_id}",
             thread_id=f"gmail_{thread_id}" if thread_id else None,
@@ -235,6 +238,7 @@ def normalize_google_email(
             labels=labels,
             is_read=is_read,
             has_attachments=has_attachments,
+            is_priority=is_priority,
             provider=Provider.GOOGLE,
             provider_message_id=message_id,
             account_email=account_email,
@@ -248,7 +252,10 @@ def normalize_google_email(
 
 
 def normalize_microsoft_email(
-    raw_data: Dict[str, Any], account_email: str, account_name: Optional[str] = None
+    raw_data: Dict[str, Any],
+    account_email: str,
+    account_name: Optional[str] = None,
+    folder_mapping: Optional[Dict[str, str]] = None,
 ) -> EmailMessage:
     """
     Convert a raw Microsoft Graph API message response into a unified EmailMessage model.
@@ -257,6 +264,7 @@ def normalize_microsoft_email(
         raw_data: Raw JSON response from Microsoft Graph API
         account_email: Email address of the account this message belongs to
         account_name: Display name for the account
+        folder_mapping: Optional mapping of folder IDs to folder names (e.g., {"folder_id": "Junk Email"})
 
     Returns:
         EmailMessage: Unified email message model
@@ -383,6 +391,46 @@ def normalize_microsoft_email(
         if importance == "high":
             labels.append("important")
 
+        # Extract inference classification (focused/other)
+        inference_classification = raw_data.get("inferenceClassification")
+
+        # Extract parent folder ID to determine if email is in Junk Email folder
+        parent_folder_id = raw_data.get("parentFolderId")
+
+        # Check if email is in Junk Email folder
+        # Use folder_mapping if provided, otherwise fall back to heuristic
+        is_junk_email = False
+        if parent_folder_id and folder_mapping:
+            folder_name = folder_mapping.get(parent_folder_id, "")
+            is_junk_email = folder_name.lower() in ["junk email", "junk", "spam"]
+        elif parent_folder_id:
+            # Fallback heuristic: check if folder ID contains junk indicators
+            junk_folder_indicators = ["junk", "spam", "junkemail"]
+            is_junk_email = any(
+                indicator in parent_folder_id.lower()
+                for indicator in junk_folder_indicators
+            )
+
+        # Set is_priority: true if inferenceClassification == "focused" AND not in Junk Email folder
+        is_priority = inference_classification == "focused" and not is_junk_email
+
+        # Set derived_category: CATEGORY_PERSONAL if focused, CATEGORY_OTHER if other
+        # But override to CATEGORY_OTHER if in Junk Email folder
+        derived_category = None
+        if is_junk_email:
+            derived_category = (
+                "CATEGORY_OTHER"  # Junk emails should be categorized as OTHER
+            )
+        elif inference_classification == "focused":
+            derived_category = "CATEGORY_PERSONAL"
+        elif inference_classification == "other":
+            derived_category = "CATEGORY_OTHER"
+
+        # Determine folder name from folder mapping
+        email_folder: Optional[str] = None
+        if parent_folder_id and folder_mapping:
+            email_folder = folder_mapping.get(parent_folder_id)
+
         return EmailMessage(
             id=f"outlook_{message_id}",
             thread_id=f"outlook_{conversation_id}" if conversation_id else None,
@@ -400,6 +448,9 @@ def normalize_microsoft_email(
             labels=labels,
             is_read=is_read,
             has_attachments=has_attachments,
+            is_priority=is_priority,
+            derived_category=derived_category,
+            folder=email_folder,
             provider=Provider.MICROSOFT,
             provider_message_id=message_id,
             account_email=account_email,

@@ -66,7 +66,7 @@ export function EmailFolderSelector({
                     if (activeProviders?.includes('microsoft') || activeProviders?.includes(Provider.MICROSOFT)) {
                         const hasInboxFolder = apiFolders.some(f =>
                             f.label === 'inbox' &&
-                            (f.provider === Provider.MICROSOFT || f.provider === 'microsoft')
+                            f.provider === Provider.MICROSOFT
                         );
 
                         if (!hasInboxFolder) {
@@ -211,7 +211,7 @@ export function EmailFolderSelector({
                             // Try multiple ways to find the Microsoft inbox folder
                             let inboxFolder = sortedFolders.find(f =>
                                 f.label === 'inbox' &&
-                                (f.provider === Provider.MICROSOFT || f.provider === 'microsoft')
+                                f.provider === Provider.MICROSOFT
                             );
 
                             // If not found, try to find any inbox folder if Microsoft is active

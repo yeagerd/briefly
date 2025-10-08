@@ -321,6 +321,10 @@ async def get_email_messages(
     no_cache: bool = Query(
         False, description="Bypass cache and fetch fresh data from providers"
     ),
+    priority: Optional[bool] = Query(
+        None,
+        description="Filter by priority status (true=priority only, false=non-priority only)",
+    ),
 ) -> EmailMessageList:
     """
     Get unified email messages from multiple providers.
@@ -337,6 +341,7 @@ async def get_email_messages(
         labels: Filter by message labels/categories
         q: Search query string
         page_token: Pagination token
+        priority: Filter by priority status (true=priority only, false=non-priority only)
 
     Returns:
         EmailMessageList with aggregated email messages
@@ -379,6 +384,7 @@ async def get_email_messages(
             "q": q or "",
             "page_token": page_token or "",
             "no_cache": no_cache,
+            "priority": priority,
         }
         cache_key = generate_cache_key(user_id, "unified", "messages", cache_params)
 
@@ -437,6 +443,7 @@ async def get_email_messages(
                 folder_id,
                 q,
                 page_token,
+                priority,
             )
             tasks.append(task)
 
@@ -979,6 +986,10 @@ async def get_email_threads(
     no_cache: bool = Query(
         False, description="Bypass cache and fetch fresh data from providers"
     ),
+    priority: Optional[bool] = Query(
+        None,
+        description="Filter by priority status (true=priority only, false=non-priority only)",
+    ),
 ) -> EmailThreadList:
     """
     Get email threads from multiple providers.
@@ -1014,6 +1025,7 @@ async def get_email_threads(
             folder_id=folder_id,
             q=q,
             page_token=page_token,
+            priority=priority,
         )
 
         if not no_cache:
@@ -1071,6 +1083,7 @@ async def get_email_threads(
                     folder_id,
                     q,
                     page_token,
+                    priority,
                 )
                 all_threads.extend(threads)
                 providers_used.append(provider_used)
@@ -1101,6 +1114,7 @@ async def get_email_threads(
                 "folder_id": folder_id,
                 "query": q,
                 "page_token": page_token,
+                "priority": priority,
             },
         }
 
@@ -1570,6 +1584,7 @@ async def fetch_provider_emails(
     folder_id: Optional[str],
     q: Optional[str],
     page_token: Optional[str],
+    priority: Optional[bool] = None,
 ) -> tuple[List[EmailMessage], str]:
     """
     Fetch emails from a specific provider.
@@ -1584,6 +1599,7 @@ async def fetch_provider_emails(
         folder_id: Folder ID to fetch from
         q: Search query
         page_token: Pagination token
+        priority: Filter by priority status (true=priority only, false=non-priority only)
 
     Returns:
         Tuple of (messages list, provider name)
@@ -1614,6 +1630,21 @@ async def fetch_provider_emails(
             if provider == "google":
                 google_client = cast(GoogleAPIClient, client)
 
+                # Build query with priority filter if specified
+                gmail_query = q or ""
+                if priority is not None:
+                    if priority:
+                        # Priority emails: exclude promotions
+                        priority_query = "-category:promotions"
+                    else:
+                        # Non-priority emails: only promotions
+                        priority_query = "category:promotions"
+
+                    if gmail_query:
+                        gmail_query = f"({gmail_query}) ({priority_query})"
+                    else:
+                        gmail_query = priority_query
+
                 # Fetch messages from Gmail - use label-specific endpoint if folder_id is provided
                 if folder_id:
                     messages_response = await google_client.get_messages_from_label(
@@ -1623,7 +1654,7 @@ async def fetch_provider_emails(
                     )
                 else:
                     messages_response = await google_client.get_messages(
-                        max_results=limit, page_token=page_token, query=q
+                        max_results=limit, page_token=page_token, query=gmail_query
                     )
                 messages = messages_response.get("messages", [])
 
@@ -1670,6 +1701,18 @@ async def fetch_provider_emails(
                     )
                     filter_expr = category_filter
 
+                # Add priority filter if specified
+                if priority is not None:
+                    priority_filter = (
+                        "inferenceClassification eq 'focused'"
+                        if priority
+                        else "inferenceClassification ne 'focused'"
+                    )
+                    if filter_expr:
+                        filter_expr = f"({filter_expr}) and ({priority_filter})"
+                    else:
+                        filter_expr = priority_filter
+
                 # Convert page_token to skip value
                 skip_value = 0
                 if page_token:
@@ -1698,6 +1741,19 @@ async def fetch_provider_emails(
                     )
                 messages = messages_response.get("value", [])
 
+                # Get folder mapping for Microsoft emails to identify Junk Email folder
+                folder_mapping = {}
+                try:
+                    mailboxes_response = await microsoft_client.get_mailboxes()
+                    mailboxes = mailboxes_response.get("value", [])
+                    for mailbox in mailboxes:
+                        folder_id = mailbox.get("id")
+                        folder_name = mailbox.get("displayName", "")
+                        if folder_id and folder_name:
+                            folder_mapping[folder_id] = folder_name
+                except Exception as e:
+                    logger.warning(f"Failed to get folder mapping for Microsoft: {e}")
+
                 # Normalize messages
                 normalized_messages = []
                 for msg in messages:
@@ -1711,7 +1767,7 @@ async def fetch_provider_emails(
                         account_name = f"Outlook Account ({user_id})"  # Placeholder
 
                     normalized_msg = normalize_microsoft_email(
-                        msg, account_email, account_name
+                        msg, account_email, account_name, folder_mapping
                     )
                     normalized_messages.append(normalized_msg)
 
@@ -1974,7 +2030,22 @@ async def fetch_single_message(
                     account_email = f"{user_id}@outlook.com"  # Placeholder
                     account_name = f"Outlook Account ({user_id})"  # Placeholder
 
-                return normalize_microsoft_email(message, account_email, account_name)
+                # Get folder mapping for Microsoft emails to identify Junk Email folder
+                folder_mapping = {}
+                try:
+                    mailboxes_response = await microsoft_client.get_mailboxes()
+                    mailboxes = mailboxes_response.get("value", [])
+                    for mailbox in mailboxes:
+                        folder_id = mailbox.get("id")
+                        folder_name = mailbox.get("displayName", "")
+                        if folder_id and folder_name:
+                            folder_mapping[folder_id] = folder_name
+                except Exception as e:
+                    logger.warning(f"Failed to get folder mapping for Microsoft: {e}")
+
+                return normalize_microsoft_email(
+                    message, account_email, account_name, folder_mapping
+                )
 
             else:
                 raise ValidationError(message=f"Unsupported provider: {provider}")
@@ -2121,6 +2192,7 @@ async def fetch_provider_threads(
     folder_id: Optional[str],
     q: Optional[str],
     page_token: Optional[str],
+    priority: Optional[bool] = None,
 ) -> tuple[List[EmailThread], str]:
     """
     Fetch email threads from a specific provider.
@@ -2135,6 +2207,7 @@ async def fetch_provider_threads(
         folder_id: Folder ID to fetch from
         q: Search query
         page_token: Pagination token
+        priority: Filter by priority status (true=priority only, false=non-priority only)
 
     Returns:
         Tuple of (list of EmailThread objects, provider used)
@@ -2152,10 +2225,26 @@ async def fetch_provider_threads(
         async with client:
             if provider == "google":
                 google_client = cast(GoogleAPIClient, client)
+
+                # Build query with priority filter if specified
+                gmail_query = q or ""
+                if priority is not None:
+                    if priority:
+                        # Priority threads: exclude promotions
+                        priority_query = "-category:promotions"
+                    else:
+                        # Non-priority threads: only promotions
+                        priority_query = "category:promotions"
+
+                    if gmail_query:
+                        gmail_query = f"({gmail_query}) ({priority_query})"
+                    else:
+                        gmail_query = priority_query
+
                 # For Gmail, we need to fetch threads and then get messages for each thread
                 threads_data = await google_client.get_threads(
                     max_results=limit,
-                    q=q,
+                    q=gmail_query,
                     label_ids=labels,
                 )
 
@@ -2186,10 +2275,22 @@ async def fetch_provider_threads(
 
             elif provider == "microsoft":
                 microsoft_client = cast(MicrosoftAPIClient, client)
+
+                # Build filter with priority filter if specified
+                filter_expr = ""
+                if priority is not None:
+                    priority_filter = (
+                        "inferenceClassification eq 'focused'"
+                        if priority
+                        else "inferenceClassification ne 'focused'"
+                    )
+                    filter_expr = priority_filter
+
                 # For Microsoft, get messages and group by conversationId to create threads
                 messages_response = await microsoft_client.get_messages(
                     top=limit
                     * 10,  # Get more messages to ensure we have enough threads
+                    filter=filter_expr if filter_expr else None,
                 )
                 messages = messages_response.get("value", [])
 
@@ -2914,6 +3015,10 @@ async def get_internal_email_messages(
     count_only: bool = Query(
         False, description="Return only count of messages, not the actual messages"
     ),
+    priority: Optional[bool] = Query(
+        None,
+        description="Filter by priority status (true=priority only, false=non-priority only)",
+    ),
     service_name: str = Depends(service_permission_required(["internal_access"])),
 ) -> EmailMessageList:
     """
@@ -2955,6 +3060,7 @@ async def get_internal_email_messages(
             "q": q or "",
             "page_token": page_token or "",
             "no_cache": no_cache,
+            "priority": priority,
         }
         cache_key = generate_cache_key(user_id, "unified", "messages", cache_params)
 
@@ -2970,14 +3076,11 @@ async def get_internal_email_messages(
                     request_id=request_id,
                 )
 
-        # Get API client factory
-        api_client_factory = await get_api_client_factory()
-
-        # Query each provider
+        # Query each provider with restored original behavior + priority filtering
         all_messages = []
         total_count = 0
 
-        # Build filter string if labels are provided
+        # Build filter string if labels are provided (semantic label filtering)
         filter_str = None
         if labels:
             # Convert labels to provider-specific filters
@@ -2986,6 +3089,9 @@ async def get_internal_email_messages(
             elif "sent" in labels:
                 filter_str = "from/emailAddress/address eq 'me'"
             # Add more label filters as needed
+
+        # Get API client factory
+        api_client_factory = await get_api_client_factory()
 
         for provider in valid_providers:
             try:
@@ -3014,7 +3120,24 @@ async def get_internal_email_messages(
                     f"Successfully created {provider} client for user {user_id}"
                 )
 
-                # Get messages from provider
+                # Get folder mapping for Microsoft emails to identify Junk Email folder
+                folder_mapping = {}
+                if provider == "microsoft" and isinstance(client, MicrosoftAPIClient):
+                    try:
+                        async with client:
+                            mailboxes_response = await client.get_mailboxes()
+                            mailboxes = mailboxes_response.get("value", [])
+                            for mailbox in mailboxes:
+                                folder_id = mailbox.get("id")
+                                folder_name = mailbox.get("displayName", "")
+                                if folder_id and folder_name:
+                                    folder_mapping[folder_id] = folder_name
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to get folder mapping for Microsoft: {e}"
+                        )
+
+                # Get messages from provider with priority filtering
                 async with client:
                     if provider == "microsoft" and isinstance(
                         client, MicrosoftAPIClient
@@ -3028,13 +3151,28 @@ async def get_internal_email_messages(
                             except (ValueError, TypeError):
                                 skip_value = 0
 
+                        # Build combined filter with priority filtering
+                        combined_filter = filter_str
+                        if priority is not None:
+                            priority_filter = (
+                                "inferenceClassification eq 'focused'"
+                                if priority
+                                else "inferenceClassification ne 'focused'"
+                            )
+                            if combined_filter:
+                                combined_filter = (
+                                    f"({combined_filter}) and ({priority_filter})"
+                                )
+                            else:
+                                combined_filter = priority_filter
+
                         logger.info(
-                            f"Fetching messages from Microsoft API for user {user_id} with skip={skip_value}"
+                            f"Fetching messages from Microsoft API for user {user_id} with skip={skip_value}, filter={combined_filter}"
                         )
                         messages = await client.get_messages(
                             top=limit,
                             skip=skip_value,
-                            filter=filter_str,
+                            filter=combined_filter,
                             search=q,
                             order_by="receivedDateTime desc",
                         )
@@ -3043,12 +3181,27 @@ async def get_internal_email_messages(
                         )
                     elif provider == "google" and isinstance(client, GoogleAPIClient):
                         # Google client uses max_results, query
+                        # Build query with priority filter if specified
+                        gmail_query = q or ""
+                        if priority is not None:
+                            if priority:
+                                # Priority emails: exclude promotions
+                                priority_query = "-category:promotions"
+                            else:
+                                # Non-priority emails: only promotions
+                                priority_query = "category:promotions"
+
+                            if gmail_query:
+                                gmail_query = f"({gmail_query}) ({priority_query})"
+                            else:
+                                gmail_query = priority_query
+
                         logger.info(
-                            f"Fetching messages from Google API for user {user_id}"
+                            f"Fetching messages from Google API for user {user_id} with query={gmail_query}"
                         )
                         messages = await client.get_messages(
                             max_results=limit,
-                            query=q,
+                            query=gmail_query,
                         )
                         logger.info(
                             f"Google API returned: {type(messages)} with keys: {list(messages.keys()) if isinstance(messages, dict) else 'Not a dict'}"
@@ -3059,14 +3212,16 @@ async def get_internal_email_messages(
                         )
                         continue
 
-                # Normalize messages
+                # Normalize messages using the email parameter (not user_id)
                 if provider == "microsoft":
                     # Microsoft Graph API returns emails in a 'value' array
                     email_list = (
                         messages.get("value", []) if isinstance(messages, dict) else []
                     )
+
                     normalized_messages = [
-                        normalize_microsoft_email(msg, email) for msg in email_list
+                        normalize_microsoft_email(msg, email, None, folder_mapping)
+                        for msg in email_list
                     ]
                 elif provider == "google":
                     # Gmail API returns emails in a 'messages' array

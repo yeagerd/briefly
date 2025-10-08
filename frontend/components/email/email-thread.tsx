@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { safeParseDate } from '@/lib/utils';
 import type { EmailThread as EmailThreadType } from "@/types/api/office";
-import { Archive, CalendarRange, Clock, Download, MoreHorizontal, Reply, Star, Trash2 } from 'lucide-react';
+import { Archive, CalendarRange, ChevronRight, Clock, Download, MoreHorizontal, Reply, Star, Trash2 } from 'lucide-react';
 import React, { useState } from 'react';
 import EmailThreadCard from './email-thread-card';
 // removed global draft pane wiring for thread-level drafts
@@ -15,12 +15,14 @@ interface EmailThreadProps {
     thread: EmailThreadType;
     onSelectMessage?: (messageId: string) => void;
     selectedMessageId?: string;
+    onCloseReadingPane?: () => void;
 }
 
 const EmailThread: React.FC<EmailThreadProps> = ({
     thread,
     onSelectMessage,
-    selectedMessageId
+    selectedMessageId,
+    onCloseReadingPane
 }) => {
     const router = useRouter();
     const [isStarred, setIsStarred] = useState(false);
@@ -176,7 +178,19 @@ const EmailThread: React.FC<EmailThreadProps> = ({
             <div className="space-y-4">
                 <div className="border-b pb-2 mb-4">
                     <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
+                        <div className="flex items-center gap-3 flex-1">
+                            {/* Close button moved to far left */}
+                            {onCloseReadingPane && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={onCloseReadingPane}
+                                    title="Close reading pane"
+                                >
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                            )}
                             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                                 {thread.subject || 'No Subject'}
                             </h3>

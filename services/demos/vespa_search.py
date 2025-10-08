@@ -57,6 +57,12 @@ REQUIREMENTS:
   • Python dependencies: aiohttp, asyncio
 """
 
+import os
+import sys
+
+# Add the repository root to Python path to enable imports when running from repo root
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
 import asyncio
 import json
 import logging
@@ -653,105 +659,9 @@ class VespaSearchDemo:
             print(f"\n🎯 TOP RESULTS:")
             print(f"{'─'*80}")
 
+            # Use the dump's document printing method for each result
             for i, result in enumerate(results["results"][:10], 1):
-                # Result header with rank and type
-                result_type = result.get("type", "Unknown")
-                type_emoji = self._get_type_emoji(result_type)
-                relevance = result.get("relevance_score", 0.0)
-                relevance_pct = f"{relevance * 100:.1f}%" if relevance else "N/A"
-
-                print(f"\n{i:2d}. {type_emoji} {result.get('title', 'No title')}")
-                print(f"    {'─' * 60}")
-
-                # Basic metadata
-                print(f"    📁 Type: {result_type.title()}")
-                print(f"    🎯 Relevance: {relevance_pct} (Score: {relevance:.4f})")
-                print(f"    🏷️  Provider: {result.get('provider', 'Unknown')}")
-                print(f"    🆔 ID: {result.get('id', 'N/A')}")
-
-                # Search method and confidence information
-                search_method = result.get("search_method", "Unknown")
-                match_confidence = result.get("match_confidence", "Unknown")
-                print(f"    🔍 Search Method: {search_method}")
-                print(f"    ✅ Match Confidence: {match_confidence}")
-
-                # Keyword match information
-                keyword_info = result.get("keyword_matches", {})
-                if keyword_info and keyword_info.get("count", 0) > 0:
-                    print(
-                        f"    🎯 Keyword Matches: {keyword_info['count']} words ({keyword_info.get('match_ratio', 0):.1%})"
-                    )
-                    if keyword_info.get("words"):
-                        print(
-                            f"    📝 Matched Words: {', '.join(keyword_info['words'][:5])}"
-                        )
-
-                # Vector similarity if available
-                if result.get("vector_similarity") is not None:
-                    print(
-                        f"    🧠 Vector Similarity: {result['vector_similarity']:.4f}"
-                    )
-
-                # Content metrics
-                content_len = result.get("content_length", 0)
-                search_len = result.get("search_text_length", 0)
-                if content_len > 0:
-                    print(f"    📏 Content Length: {content_len} chars")
-                if search_len > 0:
-                    print(f"    🔍 Search Text Length: {search_len} chars")
-
-                # Type-specific metadata
-                if result_type == "email":
-                    print(f"    📧 From: {result.get('sender', 'Unknown')}")
-                    print(
-                        f"    📮 To: {', '.join(result.get('recipients', ['Unknown']))}"
-                    )
-                    print(f"    📂 Folder: {result.get('folder', 'Unknown')}")
-                    print(f"    🧵 Thread: {result.get('thread_id', 'N/A')}")
-                elif result_type == "calendar":
-                    print(f"    📅 Start: {result.get('start_time', 'Unknown')}")
-                    print(f"    ⏰ End: {result.get('end_time', 'Unknown')}")
-                    print(
-                        f"    👥 Attendees: {', '.join(result.get('attendees', ['None']))}"
-                    )
-                    print(f"    📍 Location: {result.get('location', 'No location')}")
-                elif result_type == "contact":
-                    print(
-                        f"    👤 Display Name: {result.get('display_name', 'Unknown')}"
-                    )
-                    print(f"    🏢 Company: {result.get('company', 'Unknown')}")
-                    print(f"    💼 Job Title: {result.get('job_title', 'Unknown')}")
-
-                # Content and search text
-                if result.get("content"):
-                    content_preview = (
-                        result["content"][:150] + "..."
-                        if len(result["content"]) > 150
-                        else result["content"]
-                    )
-                    print(f"    📝 Content: {content_preview}")
-
-                if result.get("search_text"):
-                    search_preview = (
-                        result["search_text"][:150] + "..."
-                        if len(result["search_text"]) > 150
-                        else result["search_text"]
-                    )
-                    print(f"    🔍 Search Text: {search_preview}")
-
-                # Snippet with query highlighting
-                if result.get("snippet"):
-                    print(f"    💡 Snippet: {result['snippet']}")
-
-                # Timestamps
-                if result.get("created_at"):
-                    created = self._format_timestamp(result["created_at"])
-                    print(f"    📅 Created: {created}")
-                if result.get("updated_at"):
-                    updated = self._format_timestamp(result["updated_at"])
-                    print(f"    🔄 Updated: {updated}")
-
-                print(f"    {'─' * 60}")
+                self._print_single_document(result, index=i, show_full_content=False)
 
             # Show additional results count if there are more
             if len(results["results"]) > 10:
@@ -763,17 +673,108 @@ class VespaSearchDemo:
 
         print(f"{'='*80}")
 
-    def _get_type_emoji(self, result_type: str) -> str:
-        """Get appropriate emoji for result type"""
-        emoji_map = {
-            "email": "📧",
-            "calendar": "📅",
-            "contact": "👤",
-            "file": "📄",
-            "document": "📋",
-            "message": "💬",
-        }
-        return emoji_map.get(result_type.lower(), "📄")
+    def _print_single_document(
+        self, doc: Dict[str, Any], index: int = 1, show_full_content: bool = False
+    ) -> None:
+        """Print a single document using the same detailed formatting as dump"""
+        fields = doc.get("fields", {})
+        doc_type = fields.get("source_type", "unknown")
+        doc_id = fields.get("doc_id", "unknown")
+
+        print(f"\n{index:3d}. 📄 Document ID: {doc_id}")
+        print(f"    {'─' * 60}")
+
+        # Basic metadata
+        print(f"    🆔 Vespa ID: {doc.get('id', 'N/A')}")
+        print(f"    🏷️  Provider: {fields.get('provider', 'Unknown')}")
+        print(f"    📅 Created: {self._format_timestamp(fields.get('created_at'))}")
+        print(f"    🔄 Updated: {self._format_timestamp(fields.get('updated_at'))}")
+
+        # Title and content
+        if fields.get("title"):
+            print(f"    📝 Title: {fields.get('title')}")
+
+        # Content display
+        if fields.get("content"):
+            content = fields.get("content")
+            word_count = len(content.split()) if content else 0
+            print(f"    📄 Content ({len(content)} chars, {word_count} words):")
+
+            if len(content) > 2000 and not show_full_content:
+                preview = content[:2000]
+                last_period = preview.rfind(".")
+                last_space = preview.rfind(" ")
+                if last_period > 1600:
+                    preview = preview[: last_period + 1]
+                elif last_space > 1800:
+                    preview = preview[:last_space]
+
+                print(f"      {preview}...")
+                print(
+                    f"      [Content truncated. Full content: {len(content)} chars, {word_count} words]"
+                )
+            else:
+                print(f"      {content}")
+
+        if fields.get("search_text"):
+            search_text = fields.get("search_text")
+            search_word_count = len(search_text.split()) if search_text else 0
+            print(
+                f"    🔍 Search Text ({len(search_text)} chars, {search_word_count} words):"
+            )
+            if len(search_text) > 500 and not show_full_content:
+                print(f"      {search_text[:500]}...")
+            else:
+                print(f"      {search_text}")
+
+        # Type-specific fields
+        if doc_type == "email":
+            print(f"    📧 From: {fields.get('sender', 'Unknown')}")
+            print(f"    📮 To: {', '.join(fields.get('recipients', ['Unknown']))}")
+            print(f"    📂 Folder: {fields.get('folder', 'Unknown')}")
+            print(f"    🧵 Thread: {fields.get('thread_id', 'N/A')}")
+
+            # Email metadata
+            metadata = fields.get("metadata", {})
+            if metadata:
+                print(f"    📊 Email Metadata:")
+                important_keys = [
+                    "is_read",
+                    "is_important",
+                    "has_attachments",
+                    "labels",
+                ]
+                for key in important_keys:
+                    if key in metadata:
+                        value = metadata[key]
+                        if key == "labels" and isinstance(value, list):
+                            if value:
+                                print(
+                                    f"      • {key}: {', '.join(str(v) for v in value)}"
+                                )
+                            else:
+                                print(f"      • {key}: (empty)")
+                        else:
+                            print(f"      • {key}: {value}")
+
+            # Priority and category fields (top-level fields)
+            if fields.get("is_priority") is not None:
+                print(f"    ⭐ Priority: {fields.get('is_priority')}")
+            if fields.get("derived_category"):
+                print(f"    🏷️  Category: {fields.get('derived_category')}")
+
+        elif doc_type == "calendar":
+            print(f"    📅 Start: {fields.get('start_time', 'Unknown')}")
+            print(f"    ⏰ End: {fields.get('end_time', 'Unknown')}")
+            print(f"    👥 Attendees: {', '.join(fields.get('attendees', ['None']))}")
+            print(f"    📍 Location: {fields.get('location', 'No location')}")
+
+        elif doc_type == "contact":
+            print(f"    👤 Display Name: {fields.get('title', 'Unknown')}")
+            print(f"    🏢 Company: {fields.get('company', 'Unknown')}")
+            print(f"    💼 Job Title: {fields.get('job_title', 'Unknown')}")
+
+        print(f"    {'─' * 60}")
 
     def _format_timestamp(self, timestamp: Any) -> str:
         """Format timestamp for display"""
@@ -867,263 +868,8 @@ class VespaSearchDemo:
                 print(f"{'─'*80}")
 
                 for i, doc in enumerate(docs, 1):
-                    fields = doc.get("fields", {})
-                    # Use the correct Vespa field names that match DocumentMapper output
-                    doc_id = fields.get(
-                        "doc_id", "unknown"
-                    )  # DocumentMapper maps 'id' -> 'doc_id'
-
-                    print(f"\n{i:3d}. 📄 Document ID: {doc_id}")
-                    print(f"    {'─' * 60}")
-
-                    # Basic metadata
-                    print(f"    🆔 Vespa ID: {doc.get('id', 'N/A')}")
-                    print(f"    🏷️  Provider: {fields.get('provider', 'Unknown')}")
-                    print(
-                        f"    📅 Created: {self._format_timestamp(fields.get('created_at'))}"
-                    )
-                    print(
-                        f"    🔄 Updated: {self._format_timestamp(fields.get('updated_at'))}"
-                    )
-
-                    # Title and content
-                    if fields.get("title"):
-                        print(f"    📝 Title: {fields.get('title')}")
-
-                    if fields.get("content"):
-                        content = fields.get("content")
-                        # Calculate word count for better content understanding
-                        word_count = len(content.split()) if content else 0
-                        print(
-                            f"    📄 Content ({len(content)} chars, {word_count} words):"
-                        )
-
-                        # Show more content for emails - first 2000 chars or ~300 words
-                        if len(content) > 2000:
-                            # Find a good break point near 2000 chars
-                            preview = content[:2000]
-                            # Try to break at a sentence or word boundary
-                            last_period = preview.rfind(".")
-                            last_space = preview.rfind(" ")
-                            if (
-                                last_period > 1600
-                            ):  # If we have a sentence break in reasonable range
-                                preview = preview[: last_period + 1]
-                            elif last_space > 1800:  # Otherwise break at word boundary
-                                preview = preview[:last_space]
-
-                            print(f"      {preview}...")
-                            print(
-                                f"      [Content truncated. Full content: {len(content)} chars, {word_count} words]"
-                            )
-                        else:
-                            print(f"      {content}")
-
-                    if fields.get("search_text"):
-                        search_text = fields.get("search_text")
-                        search_word_count = (
-                            len(search_text.split()) if search_text else 0
-                        )
-                        print(
-                            f"    🔍 Search Text ({len(search_text)} chars, {search_word_count} words):"
-                        )
-                        if len(search_text) > 500:
-                            print(f"      {search_text[:500]}...")
-                        else:
-                            print(f"      {search_text}")
-
-                    # Type-specific fields
-                    if doc_type == "email":
-                        # Use the correct Vespa field names from DocumentMapper
-                        print(
-                            f"    📧 From: {fields.get('sender', 'Unknown')}"
-                        )  # DocumentMapper maps 'from' -> 'sender'
-                        print(
-                            f"    📮 To: {', '.join(fields.get('recipients', ['Unknown']))}"  # DocumentMapper maps 'to' -> 'recipients'
-                        )
-                        print(f"    📂 Folder: {fields.get('folder', 'Unknown')}")
-                        print(f"    🧵 Thread: {fields.get('thread_id', 'N/A')}")
-
-                        # Enhanced email metadata display
-                        metadata = fields.get("metadata", {})
-                        if metadata:
-                            print(f"    📊 Email Metadata:")
-                            # Show important email metadata first
-                            important_keys = [
-                                "is_read",
-                                "is_important",
-                                "has_attachments",
-                                "labels",
-                            ]
-                            for key in important_keys:
-                                if key in metadata:
-                                    value = metadata[key]
-                                    if key == "labels" and isinstance(value, list):
-                                        if value:
-                                            print(
-                                                f"      • {key}: {', '.join(str(v) for v in value)}"
-                                            )
-                                        else:
-                                            print(f"      • {key}: (empty)")
-                                    else:
-                                        print(f"      • {key}: {value}")
-
-                            # Show other metadata
-                            for key, value in metadata.items():
-                                if key not in important_keys:
-                                    if isinstance(value, (list, dict)):
-                                        if isinstance(value, list) and value:
-                                            print(
-                                                f"      • {key}: {', '.join(str(v) for v in value)}"
-                                            )
-                                        elif isinstance(value, dict) and value:
-                                            print(
-                                                f"      • {key}: {dict(list(value.items())[:3])}..."
-                                            )
-                                        else:
-                                            print(f"      • {key}: (empty)")
-                                    else:
-                                        print(f"      • {key}: {value}")
-
-                        # Display thread information
-                        if fields.get("quoted_content"):
-                            quoted_content = fields.get("quoted_content")
-                            quoted_word_count = (
-                                len(quoted_content.split()) if quoted_content else 0
-                            )
-                            print(
-                                f"    🧵 Quoted Content ({len(quoted_content)} chars, {quoted_word_count} words):"
-                            )
-                            if len(quoted_content) > 500:
-                                print(f"      {quoted_content[:500]}...")
-                                print(
-                                    f"      [Quoted content truncated. Full quoted content: {len(quoted_content)} chars, {quoted_word_count} words]"
-                                )
-                            else:
-                                print(f"      {quoted_content}")
-
-                        if fields.get("thread_summary"):
-                            thread_summary = fields.get("thread_summary", {})
-                            if thread_summary:
-                                print(f"    📊 Thread Summary:")
-                                for key, value in thread_summary.items():
-                                    if isinstance(value, (list, dict)):
-                                        if isinstance(value, list) and value:
-                                            print(
-                                                f"      • {key}: {', '.join(str(v) for v in value)}"
-                                            )
-                                        elif isinstance(value, dict) and value:
-                                            print(
-                                                f"      • {key}: {dict(list(value.items())[:3])}..."
-                                            )
-                                        else:
-                                            print(f"      • {key}: (empty)")
-                                    else:
-                                        print(f"      • {key}: {value}")
-
-                    elif doc_type == "calendar":
-                        print(f"    📅 Start: {fields.get('start_time', 'Unknown')}")
-                        print(f"    ⏰ End: {fields.get('end_time', 'Unknown')}")
-                        print(
-                            f"    👥 Attendees: {', '.join(fields.get('attendees', ['None']))}"
-                        )
-                        print(
-                            f"    📍 Location: {fields.get('location', 'No location')}"
-                        )
-                        print(f"    🌅 All Day: {fields.get('is_all_day', False)}")
-                        print(f"    🔄 Recurring: {fields.get('recurring', False)}")
-
-                    elif doc_type == "contact":
-                        print(f"    👤 Display Name: {fields.get('title', 'Unknown')}")
-                        print(f"    🏢 Company: {fields.get('company', 'Unknown')}")
-                        print(f"    💼 Job Title: {fields.get('job_title', 'Unknown')}")
-                        print(
-                            f"    📧 Emails: {', '.join(fields.get('email_addresses', ['None']))}"
-                        )
-                        print(
-                            f"    📱 Phones: {', '.join(fields.get('phone_numbers', ['None']))}"
-                        )
-                        print(f"    🏠 Address: {fields.get('address', 'No address')}")
-
-                    # Raw fields for debugging - show only the most useful ones
-                    print(f"    🔧 Raw Fields:")
-                    useful_fields = [
-                        "doc_id",
-                        "source_type",
-                        "provider",
-                        "created_at",
-                        "updated_at",
-                        "thread_id",
-                        "folder",
-                        "sender",
-                        "recipients",
-                        "title",
-                        "content",
-                        "search_text",
-                    ]
-                    for key, value in fields.items():
-                        if key in useful_fields:
-                            if isinstance(value, (list, dict)):
-                                if isinstance(value, list) and value:
-                                    if len(value) <= 3:
-                                        print(
-                                            f"      • {key}: {', '.join(str(v) for v in value)}"
-                                        )
-                                    else:
-                                        print(
-                                            f"      • {key}: {', '.join(str(v) for v in value[:3])}... (and {len(value)-3} more)"
-                                        )
-                                elif isinstance(value, dict) and value:
-                                    print(
-                                        f"      • {key}: {dict(list(value.items())[:3])}..."
-                                    )
-                                else:
-                                    print(f"      • {key}: (empty)")
-                            else:
-                                print(f"      • {key}: {value}")
-
-                    # Show a few other interesting fields that might be present
-                    other_interesting = ["search_text", "metadata"]
-                    for key in other_interesting:
-                        if key in fields and key not in useful_fields:
-                            value = fields[key]
-                            if key == "search_text":
-                                preview = str(value)[:100] if value else "(empty)"
-                                print(f"      • {key}: {preview}...")
-                            elif key == "metadata":
-                                if isinstance(value, dict) and value:
-                                    print(f"      • {key}: {len(value)} metadata items")
-                                else:
-                                    print(f"      • {key}: (empty)")
-
-                    # Debug: Show all available fields to understand document structure
-                    print(f"    🔍 All Available Fields:")
-                    for key, value in fields.items():
-                        if key not in useful_fields + other_interesting:
-                            if isinstance(value, (list, dict)):
-                                if isinstance(value, list) and value:
-                                    if len(value) <= 5:
-                                        print(
-                                            f"      • {key}: {', '.join(str(v) for v in value)}"
-                                        )
-                                    else:
-                                        print(
-                                            f"      • {key}: {', '.join(str(v) for v in value[:5])}... (and {len(value)-5} more)"
-                                        )
-                                elif isinstance(value, dict) and value:
-                                    print(
-                                        f"      • {key}: {dict(list(value.items())[:5])}..."
-                                    )
-                                else:
-                                    print(f"      • {key}: (empty)")
-                            else:
-                                # For string values, show preview if long
-                                if isinstance(value, str) and len(value) > 100:
-                                    print(f"      • {key}: {value[:100]}...")
-                                else:
-                                    print(f"      • {key}: {value}")
-
-                    print(f"    {'─' * 60}")
+                    # Use the shared document printing method
+                    self._print_single_document(doc, index=i, show_full_content=False)
 
             # Summary
             print(f"\n{'='*80}")

@@ -22,6 +22,9 @@ export type EmailMessage = {
     is_read?: boolean;
     has_attachments?: boolean;
     inference_classification?: (string | null);
+    is_priority?: boolean;
+    derived_category?: (string | null);
+    folder?: (string | null);
     provider: Provider;
     provider_message_id: string;
     account_email: string;

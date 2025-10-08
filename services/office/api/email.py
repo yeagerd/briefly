@@ -464,7 +464,6 @@ async def get_email_messages(
                     total_count=cached_result.get("total_count", len(messages_models)),
                     providers_used=cached_result.get("providers_used", []),
                     provider_errors=cached_result.get("provider_errors"),
-                    has_more=cached_result.get("has_more", False),
                     has_next=cached_result.get("has_next", False),
                     has_prev=cached_result.get("has_prev", False),
                     request_metadata=cached_result.get("request_metadata", {}),
@@ -478,7 +477,6 @@ async def get_email_messages(
                     total_count=0,
                     providers_used=cached_result.get("providers_used", []),
                     provider_errors=cached_result.get("provider_errors"),
-                    has_more=False,
                     has_next=cached_result.get("has_next", False),
                     has_prev=cached_result.get("has_prev", False),
                     request_metadata=cached_result.get("request_metadata", {}),
@@ -551,7 +549,6 @@ async def get_email_messages(
             "total_count": len(aggregated_messages),
             "providers_used": providers_used,
             "provider_errors": provider_errors if provider_errors else None,
-            "has_more": len(aggregated_messages) >= limit,  # Simple heuristic
             "request_metadata": {
                 "user_id": user_id,
                 "providers_requested": valid_providers,
@@ -598,7 +595,6 @@ async def get_email_messages(
                 total_count=len(aggregated_messages),
                 providers_used=providers_used,
                 provider_errors=provider_errors if provider_errors else None,
-                has_more=len(aggregated_messages) >= limit,
                 has_next=pagination_response["has_next"],
                 has_prev=pagination_response["has_prev"],
                 request_metadata={
@@ -874,7 +870,6 @@ async def get_email_message(
             "total_count": 1,
             "providers_used": [provider],
             "provider_errors": None,
-            "has_more": False,
             "request_metadata": {
                 "user_id": user_id,
                 "message_id": message_id,
@@ -902,7 +897,6 @@ async def get_email_message(
                 total_count=1,
                 providers_used=[provider],
                 provider_errors=None,
-                has_more=False,
                 request_metadata={
                     "user_id": user_id,
                     "message_id": message_id,
@@ -3333,7 +3327,6 @@ async def get_internal_email_messages(
                     total_count=total_count,
                     providers_used=valid_providers,
                     provider_errors=None,
-                    has_more=False,
                     request_metadata={
                         "user_id": user_id,
                         "providers_requested": valid_providers,
@@ -3365,7 +3358,6 @@ async def get_internal_email_messages(
                 total_count=total_count,
                 providers_used=valid_providers,
                 provider_errors=None,
-                has_more=False,
                 request_metadata={
                     "user_id": user_id,
                     "providers_requested": valid_providers,

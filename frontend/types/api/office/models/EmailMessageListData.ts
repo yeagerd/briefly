@@ -11,7 +11,6 @@ export type EmailMessageListData = {
     total_count: number;
     providers_used: Array<string>;
     provider_errors?: (Record<string, string> | null);
-    has_more?: boolean;
     has_next?: boolean;
     has_prev?: boolean;
     request_metadata: Record<string, any>;

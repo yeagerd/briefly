@@ -219,7 +219,6 @@ class EmailMessageListData(BaseModel):
     total_count: int
     providers_used: List[str]
     provider_errors: Optional[Dict[str, str]] = None
-    has_more: bool = False
     has_next: bool = False
     has_prev: bool = False
     request_metadata: Dict[str, Any]

@@ -280,7 +280,7 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                         data: messages,
                         timestamp: Date.now(),
                         ttl: LIST_TTL,
-                        hasMore: response.data.has_more || false,
+                        hasMore: response.data.has_next || false,
                         pageToken: response.data.next_cursor || undefined
                     };
 

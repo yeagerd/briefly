@@ -139,7 +139,10 @@ class TestEmailMessagesEndpoint:
             "total_count": 0,
             "providers_used": ["google"],
             "provider_errors": None,
-            "has_more": False,
+            "has_next": False,
+            "has_prev": False,
+            "next_cursor": None,
+            "prev_cursor": None,
             "request_metadata": {
                 "user_id": "test_user",
                 "providers_requested": ["google"],
@@ -740,7 +743,6 @@ class TestSendEmailEndpoint:
             "total_count": 1,
             "providers_used": ["google"],
             "provider_errors": None,
-            "has_more": False,
             "request_metadata": {
                 "user_id": "test_user",
                 "message_id": "gmail_test123",

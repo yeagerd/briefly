@@ -110,7 +110,6 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
     const [isInThreadView, setIsInThreadView] = useState(false);
     const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
     const [selectedClassification, setSelectedClassification] = useState<string>('focused');
-    const [refreshing, setRefreshing] = useState(false);
 
     const handleClassificationSelect = useCallback((classification: string) => {
         console.log('Classification selected:', classification);

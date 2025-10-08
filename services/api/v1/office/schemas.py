@@ -52,7 +52,9 @@ class EmailMessage(BaseModel):
     has_attachments: bool = False
     is_priority: bool = False  # Provider-agnostic priority flag
     derived_category: Optional[str] = None  # Gmail-style category for Microsoft emails
-    inference_classification: Optional[str] = None  # Microsoft inference classification (focused/other)
+    inference_classification: Optional[str] = (
+        None  # Microsoft inference classification (focused/other)
+    )
     folder: Optional[str] = (
         None  # Email folder name (e.g., "Inbox", "Junk Email", "Sent Items")
     )

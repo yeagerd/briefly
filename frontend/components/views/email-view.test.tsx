@@ -134,13 +134,13 @@ describe('EmailView - Select All Functionality', () => {
             render(<EmailView activeTool="email" />);
         });
 
-        await waitFor(() => expect(screen.getByText('Inbox')).toBeInTheDocument());
+        await waitFor(() => expect(screen.getByText('Inbox (Priority)')).toBeInTheDocument());
     });
 
     it('should handle view mode changes correctly', async () => {
         await act(async () => {
             render(<EmailView activeTool="email" />);
         });
-        await waitFor(() => expect(screen.getByText('Inbox')).toBeInTheDocument());
+        await waitFor(() => expect(screen.getByText('Inbox (Priority)')).toBeInTheDocument());
     });
 }); 

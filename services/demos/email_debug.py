@@ -21,7 +21,7 @@ import asyncio
 import json
 import sys
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, cast
 
 import structlog
 
@@ -46,7 +46,7 @@ class EmailDebugger:
 
     def __init__(self, user_email: str):
         self.user_email = user_email
-        self.user_id = None
+        self.user_id: Optional[str] = None
         self.factory = APIClientFactory()
 
     async def resolve_user_id(self) -> str:
@@ -71,7 +71,12 @@ class EmailDebugger:
                 if response.status_code == 200:
                     data = response.json()
                     if data.get("exists", False):
-                        self.user_id = data.get("user_id")
+                        user_id = data.get("user_id")
+                        if user_id is None:
+                            raise ValueError(
+                                f"No user_id found in response for email: {self.user_email}"
+                            )
+                        self.user_id = user_id
                         logger.info(
                             f"Resolved user ID: {self.user_id} for email: {self.user_email}"
                         )
@@ -101,11 +106,15 @@ class EmailDebugger:
     ) -> List[Dict[str, Any]]:
         """Get emails from Microsoft Graph API."""
         if not self.user_id:
-            await self.resolve_user_id()
+            self.user_id = await self.resolve_user_id()
 
         client = await self.factory.create_client(self.user_id, "microsoft")
+        if client is None:
+            raise ValueError(
+                f"Failed to create Microsoft client for user {self.user_id}"
+            )
         async with client:
-            microsoft_client = client
+            microsoft_client = cast(MicrosoftAPIClient, client)
 
             # Get folder mapping first
             logger.info("Fetching Microsoft folder mapping...")
@@ -220,11 +229,13 @@ class EmailDebugger:
     ) -> List[Dict[str, Any]]:
         """Get emails from Gmail API."""
         if not self.user_id:
-            await self.resolve_user_id()
+            self.user_id = await self.resolve_user_id()
 
         client = await self.factory.create_client(self.user_id, "google")
+        if client is None:
+            raise ValueError(f"Failed to create Google client for user {self.user_id}")
         async with client:
-            google_client = client
+            google_client = cast(GoogleAPIClient, client)
 
             # Build query for Gmail API
             query_parts = []
@@ -249,7 +260,7 @@ class EmailDebugger:
             # Get messages
             logger.info(f"Fetching Google emails with query: {query}")
             messages_response = await google_client.get_messages(
-                max_results=max_emails, q=query
+                max_results=max_emails, query=query
             )
 
             emails = []
@@ -377,7 +388,7 @@ class EmailDebugger:
             return
 
         # Group by provider
-        by_provider = {}
+        by_provider: Dict[str, List[Dict[str, Any]]] = {}
         for email in all_emails:
             provider = email["provider"]
             if provider not in by_provider:
@@ -416,7 +427,7 @@ class EmailDebugger:
         print(f"\n✅ Debug session completed for {self.user_email}")
 
 
-async def main():
+async def main() -> None:
     """Main entry point."""
     parser = argparse.ArgumentParser(
         description="Email Debug Script - Direct API Email Retrieval and Analysis",

@@ -22,7 +22,6 @@ export type { ContactPhone } from './models/ContactPhone';
 export type { ContactUpdateResponse } from './models/ContactUpdateResponse';
 export type { CreateCalendarEventRequest } from './models/CreateCalendarEventRequest';
 export type { EmailAddress } from './models/EmailAddress';
-export type { EmailDeltaResponse } from './models/EmailDeltaResponse';
 export type { EmailDraftCreateRequest } from './models/EmailDraftCreateRequest';
 export type { EmailDraftResponse } from './models/EmailDraftResponse';
 export type { EmailDraftResult } from './models/EmailDraftResult';
@@ -50,4 +49,3 @@ export type { TypedApiResponse_AvailabilityResponse_ } from './models/TypedApiRe
 export type { TypedApiResponse_CalendarEventResponse_ } from './models/TypedApiResponse_CalendarEventResponse_';
 export type { TypedApiResponse_List_CalendarEvent__ } from './models/TypedApiResponse_List_CalendarEvent__';
 export type { ValidationError } from './models/ValidationError';
-

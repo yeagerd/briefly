@@ -15,7 +15,7 @@ export type EmailMessageListData = {
     has_next?: boolean;
     has_prev?: boolean;
     request_metadata: Record<string, any>;
-    next_cursor?: string;
-    prev_cursor?: string;
+    next_cursor?: (string | null);
+    prev_cursor?: (string | null);
 };
 

@@ -89,14 +89,22 @@ class EmailPagination(BaseCursorPagination[EmailMessage]):
             return "ORDER BY received_date_time DESC, id DESC"
 
 
-# Initialize pagination
-pagination_config = PaginationConfig(
-    secret_key=get_settings().pagination_secret_key,
-    max_page_size=200,
-    default_page_size=50,
-    token_expiry=3600,  # 1 hour
-)
-email_pagination = EmailPagination(pagination_config)
+# Lazy initialization for pagination to avoid module-level settings access
+_email_pagination: EmailPagination | None = None
+
+
+def get_email_pagination() -> EmailPagination:
+    """Get the email pagination instance, creating it lazily when first needed."""
+    global _email_pagination
+    if _email_pagination is None:
+        pagination_config = PaginationConfig(
+            secret_key=get_settings().pagination_secret_key,
+            max_page_size=200,
+            default_page_size=50,
+            token_expiry=3600,  # 1 hour
+        )
+        _email_pagination = EmailPagination(pagination_config)
+    return _email_pagination
 
 
 def escape_odata_string_literal(value: str) -> str:
@@ -399,7 +407,7 @@ async def get_email_messages(
         # Handle pagination
         cursor_info = None
         if page_token:
-            cursor_info = email_pagination.decode_cursor(page_token)
+            cursor_info = get_email_pagination().decode_cursor(page_token)
             if not cursor_info:
                 raise ValidationError(message="Invalid pagination token")
 
@@ -576,7 +584,7 @@ async def get_email_messages(
         logger.info(f"Email messages request completed in {response_time_ms}ms")
 
         # Create pagination response
-        pagination_response = email_pagination.create_pagination_response(
+        pagination_response = get_email_pagination().create_pagination_response(
             items=aggregated_messages,
             cursor_info=cursor_info,
             has_next=len(aggregated_messages) >= limit,

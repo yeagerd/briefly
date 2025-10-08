@@ -89,6 +89,22 @@ class Settings(BaseSettings):
         default="http://localhost:8001", description="User management service URL"
     )
 
+    # Pagination settings
+    pagination_secret_key: str = Field(
+        default=...,
+        validation_alias="PAGINATION_SECRET_KEY",
+        description="Secret key for pagination token signing",
+    )
+    pagination_token_expiry: int = Field(
+        default=3600, description="Pagination token expiration time in seconds"
+    )
+    pagination_max_page_size: int = Field(
+        default=100, description="Maximum allowed page size for pagination"
+    )
+    pagination_default_page_size: int = Field(
+        default=20, description="Default page size for pagination"
+    )
+
 
 # Global settings instance
 _settings: Settings | None = None

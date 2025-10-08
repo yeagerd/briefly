@@ -215,7 +215,11 @@ class EmailMessageListData(BaseModel):
     providers_used: List[str]
     provider_errors: Optional[Dict[str, str]] = None
     has_more: bool = False
+    has_next: bool = False
+    has_prev: bool = False
     request_metadata: Dict[str, Any]
+    next_cursor: Optional[str] = None
+    prev_cursor: Optional[str] = None
 
 
 class EmailMessageList(BaseModel):

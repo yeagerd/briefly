@@ -241,13 +241,15 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                     labels = scope.labels;
                 }
 
-                const response = await officeApi.getEmails(
+                const response = await officeApi.getEmailMessages(
                     providers,
                     scope.pageSize || 50,
-                    0, // offset
-                    noCache,
                     labels,
-                    folderId
+                    folderId,
+                    undefined, // query
+                    undefined, // pageToken - no token for initial fetch
+                    "next", // direction
+                    noCache
                 );
 
                 if (response.success && response.data?.messages) {
@@ -279,7 +281,7 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                         timestamp: Date.now(),
                         ttl: LIST_TTL,
                         hasMore: response.data.has_more || false,
-                        pageToken: (response.data as any).page_token
+                        pageToken: response.data.next_cursor
                     };
 
                     setListCache(prev => {
@@ -288,6 +290,18 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                         evictLRU(newCache, MAX_LIST_CACHE_SIZE);
                         return newCache;
                     });
+
+                    // Store cursor token for future delta sync
+                    if (response.data?.next_cursor) {
+                        setDeltaTokenByScope(prev => {
+                            const newMap = new Map(prev);
+                            newMap.set(cacheKey, {
+                                token: response.data!.next_cursor!,
+                                lastSuccessfulSyncAt: Date.now()
+                            });
+                            return newMap;
+                        });
+                    }
 
                     return messages;
                 } else {
@@ -450,40 +464,25 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                     throw new Error('No session found');
                 }
 
-                // Full listing until delta token is returned
+                // Use messages endpoint for initial sync (no page token provided)
+                const response = await officeApi.getEmailMessages(
+                    providers,
+                    scope.pageSize || 50,
+                    scope.labels,
+                    scope.folderId,
+                    scope.query,
+                    undefined, // no page token for initial sync
+                    "next", // forward direction
+                    true // no cache for fresh data
+                );
+
                 let allMessages: EmailMessage[] = [];
-                let pageToken: string | undefined;
-                let deltaToken: string | undefined;
-                const timebox = Date.now() + 30000; // 30 second timebox
+                let nextCursor: string | undefined;
 
-                do {
-                    if (Date.now() > timebox) {
-                        console.warn('Seed timebox exceeded, stopping pagination');
-                        break;
-                    }
-
-                    const response = await officeApi.getEmailMessages(
-                        providers,
-                        scope.pageSize || 50,
-                        scope.labels,
-                        scope.folderId,
-                        scope.query,
-                        pageToken,
-                        true
-                    );
-
-                    if (response.data?.messages) {
-                        allMessages = [...allMessages, ...response.data.messages];
-                    }
-
-                    // Check for delta token in response
-                    if ((response.data as any)?.deltaToken) {
-                        deltaToken = (response.data as any).deltaToken;
-                        break;
-                    }
-
-                    pageToken = (response.data as any)?.nextPageToken;
-                } while (pageToken);
+                if (response.data) {
+                    allMessages = response.data.messages;
+                    nextCursor = response.data.next_cursor;
+                }
 
                 // Update cache with seeded data
                 setListCache(prev => {
@@ -492,18 +491,18 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                         data: allMessages,
                         timestamp: Date.now(),
                         ttl: LIST_TTL,
-                        hasMore: !!pageToken,
-                        pageToken
+                        hasMore: !!nextCursor,
+                        pageToken: nextCursor
                     });
                     return newCache;
                 });
 
-                // Store delta token if received
-                if (deltaToken) {
+                // Store cursor token if received
+                if (nextCursor) {
                     setDeltaTokenByScope(prev => {
                         const newMap = new Map(prev);
                         newMap.set(scopeKey, {
-                            token: deltaToken,
+                            token: nextCursor,
                             lastSuccessfulSyncAt: Date.now()
                         });
                         return newMap;
@@ -555,17 +554,20 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                     throw new Error('No session found');
                 }
 
-                // Call delta endpoint with stored token
-                const response = await officeApi.getEmailDelta(
+                // Call messages endpoint with stored cursor for incremental sync
+                const response = await officeApi.getEmailMessages(
                     providers,
-                    deltaToken.token,
+                    scope.pageSize || 50,
                     scope.labels,
                     scope.folderId,
-                    scope.query
+                    scope.query,
+                    deltaToken.token, // use stored cursor as page token
+                    "next", // forward direction
+                    true // no cache for fresh data
                 );
 
                 if (response.data) {
-                    const { created, updated, deleted, nextToken } = response.data;
+                    const { messages, next_cursor } = response.data;
                     const duration = Date.now() - startTime;
 
                     // Update metrics
@@ -583,50 +585,39 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                         newMap.set(scopeKey, {
                             ...currentMetrics,
                             duration: currentMetrics.duration + duration,
-                            createdCount: currentMetrics.createdCount + created.length,
-                            updatedCount: currentMetrics.updatedCount + updated.length,
-                            deletedCount: currentMetrics.deletedCount + deleted.length,
+                            createdCount: currentMetrics.createdCount + messages.length,
+                            updatedCount: currentMetrics.updatedCount + 0, // No separate updated count
+                            deletedCount: currentMetrics.deletedCount + 0, // No separate deleted count
                             avoidedFullFetches: currentMetrics.avoidedFullFetches + 1
                         });
                         return newMap;
                     });
 
-                    // Merge changes into cache
+                    // Update cache with new messages (replace existing data for incremental sync)
                     setListCache(prev => {
                         const newCache = new Map(prev);
                         const currentEntry = newCache.get(scopeKey);
-                        if (currentEntry) {
-                            const existingMessages = currentEntry.data;
-                            const messageMap = new Map(existingMessages.map(msg => [msg.id, msg]));
 
-                            // Add/update created and updated messages
-                            [...created, ...updated].forEach(msg => {
-                                messageMap.set(msg.id, msg);
-                            });
+                        // For incremental sync, we replace the existing data with the new messages
+                        // since the pagination endpoint returns the next set of messages
+                        const updatedMessages = messages.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-                            // Remove deleted messages
-                            deleted.forEach(msgId => {
-                                messageMap.delete(msgId);
-                            });
-
-                            // Convert back to array and sort by receivedDateTime desc
-                            const updatedMessages = Array.from(messageMap.values())
-                                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-                            newCache.set(scopeKey, {
-                                ...currentEntry,
-                                data: updatedMessages,
-                                timestamp: Date.now()
-                            });
-                        }
+                        newCache.set(scopeKey, {
+                            ...currentEntry,
+                            data: updatedMessages,
+                            timestamp: Date.now(),
+                            ttl: currentEntry?.ttl || LIST_TTL,
+                            pageToken: next_cursor,
+                            hasMore: !!next_cursor
+                        });
                         return newCache;
                     });
 
-                    // Update delta token
+                    // Update cursor token
                     setDeltaTokenByScope(prev => {
                         const newMap = new Map(prev);
                         newMap.set(scopeKey, {
-                            token: nextToken,
+                            token: next_cursor || '',
                             lastSuccessfulSyncAt: Date.now()
                         });
                         return newMap;

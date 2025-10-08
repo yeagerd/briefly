@@ -281,7 +281,7 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                         timestamp: Date.now(),
                         ttl: LIST_TTL,
                         hasMore: response.data.has_more || false,
-                        pageToken: response.data.next_cursor
+                        pageToken: response.data.next_cursor || undefined
                     };
 
                     setListCache(prev => {
@@ -481,7 +481,7 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
                 if (response.data) {
                     allMessages = response.data.messages;
-                    nextCursor = response.data.next_cursor;
+                    nextCursor = response.data.next_cursor || undefined;
                 }
 
                 // Update cache with seeded data
@@ -607,7 +607,7 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                             data: updatedMessages,
                             timestamp: Date.now(),
                             ttl: currentEntry?.ttl || LIST_TTL,
-                            pageToken: next_cursor,
+                            pageToken: next_cursor || undefined,
                             hasMore: !!next_cursor
                         });
                         return newCache;

@@ -129,6 +129,32 @@ export class OfficeClient extends GatewayClient {
         return this.request<EmailMessageList>(url);
     }
 
+
+    async getEmailMessages(
+        providers: string[],
+        limit?: number,
+        labels?: string[],
+        folderId?: string,
+        q?: string,
+        pageToken?: string,
+        direction?: string,
+        noCache?: boolean
+    ): Promise<EmailMessageList> {
+        const params = new URLSearchParams();
+
+        providers.forEach(provider => params.append('providers', provider));
+        if (limit) params.append('limit', limit.toString());
+        if (labels) labels.forEach(label => params.append('labels', label));
+        if (folderId) params.append('folder_id', folderId);
+        if (q) params.append('q', q);
+        if (pageToken) params.append('page_token', pageToken);
+        if (direction) params.append('direction', direction);
+        if (noCache) params.append('no_cache', 'true');
+
+        return this.request<EmailMessageList>(`/api/v1/office/email/messages?${params.toString()}`);
+    }
+
+
     async getThreads(
         providers?: string[],
         limit?: number,

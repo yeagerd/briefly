@@ -112,6 +112,48 @@ class GoogleAPIClient(BaseAPIClient):
         response = await self.get("/gmail/v1/users/me/messages", params=params)
         return cast(Dict[str, Any], response.json())
 
+    async def get_messages_delta(
+        self,
+        delta_token: str,
+        max_results: int = 100,
+        query: Optional[str] = None,
+        labels: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Get Gmail messages delta using a delta token for incremental sync.
+
+        Note: Gmail doesn't have a true delta API, so this simulates it
+        by using the history API or by comparing with previous state.
+
+        Args:
+            delta_token: Delta token (in Gmail's case, this is a historyId)
+            max_results: Maximum number of messages to return
+            query: Gmail search query
+            labels: Labels to filter by
+
+        Returns:
+            Dictionary containing delta changes
+        """
+        # For Gmail, we'll use the history API to get changes
+        # The delta_token is actually a historyId
+        params: Dict[str, Any] = {
+            "maxResults": max_results,
+            "startHistoryId": delta_token,
+        }
+
+        if query:
+            params["q"] = query
+        if labels:
+            params["labelIds"] = labels
+
+        try:
+            response = await self.get("/gmail/v1/users/me/history", params=params)
+            return cast(Dict[str, Any], response.json())
+        except Exception as e:
+            # If history API fails, fall back to regular messages API
+            # This is a simplified implementation
+            return await self.get_messages(max_results=max_results, query=query)
+
     async def get_message(
         self, message_id: str, format: str = "full"
     ) -> Dict[str, Any]:

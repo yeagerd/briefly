@@ -44,6 +44,8 @@ class VespaDocumentType:
     quoted_content: Optional[str] = None
     thread_summary: Optional[Dict[str, Any]] = None
     search_text: Optional[str] = None
+    is_priority: Optional[bool] = None
+    derived_category: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary format expected by Vespa"""
@@ -65,4 +67,6 @@ class VespaDocumentType:
             "quoted_content": self.quoted_content or "",
             "thread_summary": self.thread_summary or {},
             "search_text": self.search_text or "",
+            "is_priority": self.is_priority or False,
+            "derived_category": self.derived_category or "",
         }

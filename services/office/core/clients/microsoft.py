@@ -215,6 +215,38 @@ class MicrosoftAPIClient(BaseAPIClient):
         response = await self.get(f"/me/messages/{message_id}", params=params)
         return cast(Dict[str, Any], response.json())
 
+    async def get_messages_delta(
+        self,
+        delta_token: str,
+        top: int = 100,
+        filter: Optional[str] = None,
+        folder_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Get Outlook messages delta using a delta token for incremental sync.
+
+        Args:
+            delta_token: Delta token from previous sync
+            top: Maximum number of messages to return
+            filter: OData filter expression
+            folder_id: Folder ID to sync
+
+        Returns:
+            Dictionary containing delta changes
+        """
+        # Microsoft Graph delta query
+        endpoint = "/me/messages/delta"
+        if folder_id:
+            endpoint = f"/me/mailFolders/{folder_id}/messages/delta"
+
+        params: Dict[str, Any] = {"$top": top, "$deltatoken": delta_token}
+
+        if filter:
+            params["$filter"] = filter
+
+        response = await self.get(endpoint, params=params)
+        return cast(Dict[str, Any], response.json())
+
     async def send_message(self, message_data: Dict[str, Any]) -> None:
         """
         Send an Outlook message.

@@ -9,6 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
 import { useIntegrations } from '@/contexts/integrations-context';
+import { useOfficeData } from '@/contexts/office-data-context';
 import { useDraftState } from '@/hooks/use-draft-state';
 import { useEmailList, useEmailThread } from '@/hooks/use-email-data';
 import { listProviderDraftsForThread } from '@/lib/draft-utils';
@@ -108,7 +109,6 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [isInThreadView, setIsInThreadView] = useState(false);
     const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
-    const [refreshing, setRefreshing] = useState(false);
 
     const { loading: integrationsLoading, activeProviders, hasExpiredButRefreshableTokens } = useIntegrations();
     const { toast } = useToast();
@@ -162,8 +162,7 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
         emails: threads,
         loading,
         error,
-        lastUpdated,
-        refresh: refreshEmails
+        lastUpdated
     } = useEmailList({
         folderId,
         folderLabel: selectedFolder.label,
@@ -172,6 +171,8 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
         providers: activeProviders || ['google', 'microsoft'],
         autoFetch: activeTool === 'email' && !toolDataLoading && !integrationsLoading
     });
+
+    const { runDelta } = useOfficeData();
 
     const {
         thread: fullThread,
@@ -183,15 +184,29 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
     });
 
     const handleRefresh = useCallback(async () => {
-        setRefreshing(true);
+        // Background refresh - no loading state, just trigger the delta sync
         try {
-            await refreshEmails();
+            const session = await getSession();
+            if (!session?.user?.id) {
+                console.error('No user session found for refresh');
+                return;
+            }
+
+            const scope = {
+                userId: session.user.id,
+                folderId,
+                folderLabel: selectedFolder.label,
+                labels,
+                pageSize: 50,
+                query: undefined
+            };
+            await runDelta(scope, activeProviders || ['google', 'microsoft']);
             // Clear email selections after refresh
             setSelectedEmails(new Set());
-        } finally {
-            setRefreshing(false);
+        } catch (error) {
+            console.error('Background refresh failed:', error);
         }
-    }, [refreshEmails]);
+    }, [runDelta, folderId, selectedFolder.label, labels, activeProviders]);
 
     const handleFolderSelect = useCallback((folder: EmailFolder) => {
         setSelectedFolder(folder);
@@ -467,11 +482,11 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
                     <div className="flex items-center gap-2">
                         <button
                             onClick={handleRefresh}
-                            disabled={refreshing || loading}
+                            disabled={loading}
                             className="p-2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
                             title="Refresh emails"
                         >
-                            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                            <RefreshCw className="w-4 h-4" />
                         </button>
 
                         {/* Last updated timestamp */}

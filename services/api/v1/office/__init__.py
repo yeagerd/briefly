@@ -34,6 +34,7 @@ from services.api.v1.office.schemas import (  # Email Models; Calendar Models; F
     DriveFileList,
     DriveFileListApiResponse,
     EmailAddress,
+    EmailDeltaResponse,
     EmailDraftCreateRequest,
     EmailDraftResponse,
     EmailDraftResult,
@@ -86,6 +87,7 @@ __all__ = [
     "EmailFolder",
     "EmailFolderListData",
     "EmailFolderList",
+    "EmailDeltaResponse",
     # Calendar Models
     "CalendarEvent",
     "Calendar",

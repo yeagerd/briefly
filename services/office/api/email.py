@@ -32,8 +32,10 @@ from services.api.v1.office import (
     SendEmailRequest,
     SendEmailResponse,
 )
+from services.common.api.v1.schemas import PaginationConfig
 from services.common.http_errors import NotFoundError, ServiceError, ValidationError
 from services.common.logging_config import get_logger, request_id_var
+from services.common.pagination.base import BaseCursorPagination, CursorInfo
 from services.office.core.api_client_factory import APIClientFactory
 from services.office.core.auth import service_permission_required
 from services.office.core.cache_manager import (
@@ -60,6 +62,49 @@ router = APIRouter(prefix="/email", tags=["email"])
 
 # Create internal router for service-to-service communication
 internal_router = APIRouter(prefix="/internal", tags=["internal-email"])
+
+
+class EmailPagination(BaseCursorPagination[EmailMessage]):
+    """Email-specific pagination implementation."""
+
+    def build_query_filters(self, cursor_info: CursorInfo) -> Dict[str, Any]:
+        """Build query filters based on cursor information."""
+        filters = cursor_info.filters.copy()
+
+        # Add timestamp-based filtering for forward/backward pagination
+        if cursor_info.direction == "next":
+            # Forward pagination: get messages after the last timestamp
+            filters["after_timestamp"] = cursor_info.last_timestamp
+        else:
+            # Backward pagination: get messages before the last timestamp
+            filters["before_timestamp"] = cursor_info.last_timestamp
+
+        return filters
+
+    def get_ordering_clause(self, direction: str = "next") -> str:
+        """Get ordering clause for email pagination."""
+        if direction == "next":
+            return "ORDER BY received_date_time ASC, id ASC"
+        else:
+            return "ORDER BY received_date_time DESC, id DESC"
+
+
+# Lazy initialization for pagination to avoid module-level settings access
+_email_pagination: EmailPagination | None = None
+
+
+def get_email_pagination() -> EmailPagination:
+    """Get the email pagination instance, creating it lazily when first needed."""
+    global _email_pagination
+    if _email_pagination is None:
+        pagination_config = PaginationConfig(
+            secret_key=get_settings().pagination_secret_key,
+            max_page_size=200,
+            default_page_size=50,
+            token_expiry=3600,  # 1 hour
+        )
+        _email_pagination = EmailPagination(pagination_config)
+    return _email_pagination
 
 
 def escape_odata_string_literal(value: str) -> str:
@@ -318,6 +363,10 @@ async def get_email_messages(
     page_token: Optional[str] = Query(
         None, description="Pagination token for next page"
     ),
+    direction: str = Query(
+        "next",
+        description="Pagination direction: 'next' for forward, 'prev' for backward",
+    ),
     no_cache: bool = Query(
         False, description="Bypass cache and fetch fresh data from providers"
     ),
@@ -355,9 +404,12 @@ async def get_email_messages(
     )
 
     try:
-        # Query all available providers for the user
-        # This should check the user's integrations and only query active providers
-        # For now, we'll use the provided providers or default to all
+        # Handle pagination
+        cursor_info = None
+        if page_token:
+            cursor_info = get_email_pagination().decode_cursor(page_token)
+            if not cursor_info:
+                raise ValidationError(message="Invalid pagination token")
 
         # Default to all providers if not specified
         if not providers:
@@ -412,8 +464,11 @@ async def get_email_messages(
                     total_count=cached_result.get("total_count", len(messages_models)),
                     providers_used=cached_result.get("providers_used", []),
                     provider_errors=cached_result.get("provider_errors"),
-                    has_more=cached_result.get("has_more", False),
+                    has_next=cached_result.get("has_next", False),
+                    has_prev=cached_result.get("has_prev", False),
                     request_metadata=cached_result.get("request_metadata", {}),
+                    next_cursor=cached_result.get("next_cursor"),
+                    prev_cursor=cached_result.get("prev_cursor"),
                 )
             except Exception:
                 # Fallback to minimal empty response if cache format unexpected
@@ -422,8 +477,11 @@ async def get_email_messages(
                     total_count=0,
                     providers_used=cached_result.get("providers_used", []),
                     provider_errors=cached_result.get("provider_errors"),
-                    has_more=False,
+                    has_next=cached_result.get("has_next", False),
+                    has_prev=cached_result.get("has_prev", False),
                     request_metadata=cached_result.get("request_metadata", {}),
+                    next_cursor=cached_result.get("next_cursor"),
+                    prev_cursor=cached_result.get("prev_cursor"),
                 )
             return EmailMessageList(
                 success=True, data=data_obj, cache_hit=True, request_id=request_id
@@ -491,7 +549,6 @@ async def get_email_messages(
             "total_count": len(aggregated_messages),
             "providers_used": providers_used,
             "provider_errors": provider_errors if provider_errors else None,
-            "has_more": len(aggregated_messages) >= limit,  # Simple heuristic
             "request_metadata": {
                 "user_id": user_id,
                 "providers_requested": valid_providers,
@@ -523,6 +580,14 @@ async def get_email_messages(
 
         logger.info(f"Email messages request completed in {response_time_ms}ms")
 
+        # Create pagination response
+        pagination_response = get_email_pagination().create_pagination_response(
+            items=aggregated_messages,
+            cursor_info=cursor_info,
+            has_next=len(aggregated_messages) >= limit,
+            has_prev=cursor_info is not None and cursor_info.direction == "prev",
+        )
+
         return EmailMessageList(
             success=True,
             data=EmailMessageListData(
@@ -530,13 +595,16 @@ async def get_email_messages(
                 total_count=len(aggregated_messages),
                 providers_used=providers_used,
                 provider_errors=provider_errors if provider_errors else None,
-                has_more=len(aggregated_messages) >= limit,
+                has_next=pagination_response["has_next"],
+                has_prev=pagination_response["has_prev"],
                 request_metadata={
                     "user_id": user_id,
                     "providers_requested": valid_providers,
                     "limit": limit,
                     "include_body": include_body,
                 },
+                next_cursor=pagination_response.get("next_cursor"),
+                prev_cursor=pagination_response.get("prev_cursor"),
             ),
             cache_hit=False,
             provider_used=(
@@ -802,7 +870,6 @@ async def get_email_message(
             "total_count": 1,
             "providers_used": [provider],
             "provider_errors": None,
-            "has_more": False,
             "request_metadata": {
                 "user_id": user_id,
                 "message_id": message_id,
@@ -830,7 +897,6 @@ async def get_email_message(
                 total_count=1,
                 providers_used=[provider],
                 provider_errors=None,
-                has_more=False,
                 request_metadata={
                     "user_id": user_id,
                     "message_id": message_id,
@@ -3261,7 +3327,6 @@ async def get_internal_email_messages(
                     total_count=total_count,
                     providers_used=valid_providers,
                     provider_errors=None,
-                    has_more=False,
                     request_metadata={
                         "user_id": user_id,
                         "providers_requested": valid_providers,
@@ -3293,7 +3358,6 @@ async def get_internal_email_messages(
                 total_count=total_count,
                 providers_used=valid_providers,
                 provider_errors=None,
-                has_more=False,
                 request_metadata={
                     "user_id": user_id,
                     "providers_requested": valid_providers,

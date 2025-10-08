@@ -105,14 +105,15 @@ exclude = [
     ".*/test_.*",
 ]
 
-# Disable call-arg errors only for SQLModel-related issues
+# Disable call-arg and arg-type errors for SQLModel-related issues
 [[tool.mypy.overrides]]
 module = [
     "services.user.models.*",
+    "services.user.services.delta_token_service",
     "services.chat.history_manager",
     "services.office.models.*"
 ]
-disable_error_code = ["call-arg"]
+disable_error_code = ["call-arg", "arg-type"]
 
 
 

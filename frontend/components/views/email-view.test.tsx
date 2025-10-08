@@ -1,5 +1,6 @@
 import { officeApi } from '@/api';
 import { useIntegrations } from '@/contexts/integrations-context';
+import { OfficeDataProvider } from '@/contexts/office-data-context';
 import { useEmailCache, useEmailList, useEmailThread } from '@/hooks/use-email-data';
 import { EmailMessage, Provider } from "@/types/api/office";
 import { act, render, screen, waitFor } from '@testing-library/react';
@@ -131,7 +132,11 @@ describe('EmailView - Select All Functionality', () => {
 
     it('should select only latest emails in tight view mode', async () => {
         await act(async () => {
-            render(<EmailView activeTool="email" />);
+            render(
+                <OfficeDataProvider>
+                    <EmailView activeTool="email" />
+                </OfficeDataProvider>
+            );
         });
 
         await waitFor(() => expect(screen.getByText('Inbox')).toBeInTheDocument());
@@ -139,7 +144,11 @@ describe('EmailView - Select All Functionality', () => {
 
     it('should handle view mode changes correctly', async () => {
         await act(async () => {
-            render(<EmailView activeTool="email" />);
+            render(
+                <OfficeDataProvider>
+                    <EmailView activeTool="email" />
+                </OfficeDataProvider>
+            );
         });
         await waitFor(() => expect(screen.getByText('Inbox')).toBeInTheDocument());
     });

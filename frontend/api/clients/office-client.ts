@@ -23,7 +23,7 @@ export class OfficeClient extends GatewayClient {
         calendar_ids?: string[],
         q?: string,
         time_zone: string = 'UTC',
-        noCache?: boolean
+        forceRefresh?: boolean
     ) {
         const params = new URLSearchParams();
         if (providers && providers.length > 0) {
@@ -37,7 +37,7 @@ export class OfficeClient extends GatewayClient {
         }
         if (q) params.append('q', q);
         params.append('time_zone', time_zone);
-        if (noCache) params.append('no_cache', 'true');
+        if (forceRefresh) params.append('no_cache', 'true');
 
         return this.request<TypedApiResponse_List_CalendarEvent__>(`/api/v1/office/calendar/events?${params.toString()}`);
     }
@@ -97,7 +97,7 @@ export class OfficeClient extends GatewayClient {
         providers: string[],
         limit?: number,
         offset?: number,
-        noCache?: boolean,
+        forceRefresh?: boolean,
         labels?: string[],
         folderId?: string,
         classification?: string,
@@ -110,7 +110,7 @@ export class OfficeClient extends GatewayClient {
 
         if (limit) params.append('limit', limit.toString());
         if (offset) params.append('offset', offset.toString());
-        if (noCache) params.append('no_cache', 'true');
+        if (forceRefresh) params.append('no_cache', 'true');
         if (labels) labels.forEach(label => params.append('labels', label));
         if (folderId) params.append('folder_id', folderId);
         if (classification) params.append('classification', classification);
@@ -129,7 +129,7 @@ export class OfficeClient extends GatewayClient {
         q?: string,
         pageToken?: string,
         direction?: string,
-        noCache?: boolean
+        forceRefresh?: boolean
     ): Promise<EmailMessageList> {
         const params = new URLSearchParams();
 
@@ -140,7 +140,7 @@ export class OfficeClient extends GatewayClient {
         if (q) params.append('q', q);
         if (pageToken) params.append('page_token', pageToken);
         if (direction) params.append('direction', direction);
-        if (noCache) params.append('no_cache', 'true');
+        if (forceRefresh) params.append('no_cache', 'true');
 
         return this.request<EmailMessageList>(`/api/v1/office/email/messages?${params.toString()}`);
     }
@@ -154,7 +154,7 @@ export class OfficeClient extends GatewayClient {
         folderId?: string,
         q?: string,
         pageToken?: string,
-        noCache?: boolean
+        forceRefresh?: boolean
     ): Promise<EmailThreadList> {
         const params = new URLSearchParams();
 
@@ -165,7 +165,7 @@ export class OfficeClient extends GatewayClient {
         if (folderId) params.append('folder_id', folderId);
         if (q) params.append('q', q);
         if (pageToken) params.append('page_token', pageToken);
-        if (noCache) params.append('no_cache', 'true');
+        if (forceRefresh) params.append('no_cache', 'true');
 
         return this.request<EmailThreadList>(`/api/v1/office/email/threads?${params.toString()}`);
     }
@@ -173,12 +173,12 @@ export class OfficeClient extends GatewayClient {
     async getThread(
         threadId: string,
         includeBody?: boolean,
-        noCache?: boolean
+        forceRefresh?: boolean
     ): Promise<EmailThreadList> {
         const params = new URLSearchParams();
 
         if (includeBody) params.append('include_body', 'true');
-        if (noCache) params.append('no_cache', 'true');
+        if (forceRefresh) params.append('no_cache', 'true');
 
         return this.request<EmailThreadList>(`/api/v1/office/email/threads/${threadId}?${params.toString()}`);
     }
@@ -245,12 +245,12 @@ export class OfficeClient extends GatewayClient {
     async getMessageThread(
         messageId: string,
         includeBody?: boolean,
-        noCache?: boolean
+        forceRefresh?: boolean
     ): Promise<EmailThreadList> {
         const params = new URLSearchParams();
 
         if (includeBody) params.append('include_body', 'true');
-        if (noCache) params.append('no_cache', 'true');
+        if (forceRefresh) params.append('no_cache', 'true');
 
         return this.request<EmailThreadList>(`/api/v1/office/email/messages/${messageId}/thread?${params.toString()}`);
     }
@@ -284,10 +284,10 @@ export class OfficeClient extends GatewayClient {
 
     async getEmailFolders(
         providers?: string[],
-        noCache?: boolean
+        forceRefresh?: boolean
     ): Promise<EmailFolderList> {
         const params = new URLSearchParams();
-        if (noCache) params.append('no_cache', 'true');
+        if (forceRefresh) params.append('no_cache', 'true');
 
         // Add providers as a list
         if (providers && providers.length > 0) {

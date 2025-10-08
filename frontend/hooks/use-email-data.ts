@@ -1,16 +1,7 @@
-import { useOfficeData } from '@/contexts/office-data-context';
+import { useOfficeData, type EmailScope } from '@/contexts/office-data-context';
 import type { EmailMessage, EmailThread } from '@/types/api/office';
 import { getSession } from 'next-auth/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-
-interface EmailScope {
-    userId: string;
-    folderId?: string;
-    folderLabel?: string;
-    query?: string;
-    pageSize?: number;
-    labels?: string[];
-}
 
 interface UseEmailListOptions {
     folderId?: string;
@@ -19,6 +10,7 @@ interface UseEmailListOptions {
     pageSize?: number;
     labels?: string[];
     providers?: string[];
+    classification?: string;
     autoFetch?: boolean;
 }
 
@@ -55,6 +47,7 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
         pageSize = 50,
         labels,
         providers = ['google', 'microsoft'],
+        classification,
         autoFetch = true
     } = options;
 
@@ -92,21 +85,35 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
                     folderLabel,
                     query,
                     pageSize,
-                    labels
+                    labels,
+                    classification
                 };
                 setScope(newScope);
             }
         };
         createScope();
-    }, [folderId, folderLabel, query, pageSize, labels]);
+    }, [folderId, folderLabel, query, pageSize, labels, classification]);
 
-    // Fetch emails when scope changes
+    // Fetch emails when scope changes - cache first strategy
     useEffect(() => {
         if (scope && autoFetch) {
             const fetchEmails = async () => {
                 try {
-                    const result = await getEmailListRef.current(scope, providers);
-                    setEmails(result);
+                    // First, get cached data immediately (forceRefresh = false)
+                    // This will return instantly if cache exists, or fetch if no cache
+                    const cachedResult = await getEmailListRef.current(scope, providers, false);
+                    setEmails(cachedResult);
+
+                    // Always trigger background refresh to get latest data
+                    // Use a small delay to ensure UI renders cached data first
+                    setTimeout(async () => {
+                        try {
+                            const freshResult = await getEmailListRef.current(scope, providers, true);
+                            setEmails(freshResult);
+                        } catch (error) {
+                            console.error('Background refresh failed:', error);
+                        }
+                    }, 100);
                 } catch (error) {
                     console.error('Failed to fetch emails:', error);
                 }
@@ -174,8 +181,20 @@ export function useEmailThread(threadId: string | null, options: UseEmailThreadO
         if (threadId && autoFetch) {
             const fetchThread = async () => {
                 try {
-                    const result = await getEmailThreadRef.current(threadId, includeBody);
-                    setThread(result);
+                    // First, get cached data immediately (forceRefresh = false)
+                    const cachedResult = await getEmailThreadRef.current(threadId, includeBody, false);
+                    setThread(cachedResult);
+
+                    // Always trigger background refresh to get latest data
+                    // Use a small delay to ensure UI renders cached data first
+                    setTimeout(async () => {
+                        try {
+                            const freshResult = await getEmailThreadRef.current(threadId, includeBody, true);
+                            setThread(freshResult);
+                        } catch (error) {
+                            console.error('Background refresh failed:', error);
+                        }
+                    }, 100);
                 } catch (error) {
                     console.error('Failed to fetch thread:', error);
                 }

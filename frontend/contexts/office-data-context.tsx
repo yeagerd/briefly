@@ -29,6 +29,7 @@ export interface EmailScope {
     query?: string;
     pageSize?: number;
     labels?: string[];
+    classification?: string;
 }
 
 interface DeltaTokenData {
@@ -57,18 +58,18 @@ interface OfficeDataContextType {
     contacts: Contact[];
     loading: boolean;
     error: string | null;
-    refreshContacts: (providers?: string[], opts?: { q?: string; company?: string; noCache?: boolean; limit?: number }) => Promise<void>;
+    refreshContacts: (providers?: string[], opts?: { q?: string; company?: string; forceRefresh?: boolean; limit?: number }) => Promise<void>;
     detectCompanyFromEmail: (email?: string) => string | undefined;
 
     // Email Lists
-    getEmailList: (scope: EmailScope, providers: string[], noCache?: boolean) => Promise<EmailMessage[]>;
+    getEmailList: (scope: EmailScope, providers: string[], forceRefresh?: boolean) => Promise<EmailMessage[]>;
     getEmailListLoading: (scope: EmailScope) => boolean;
     getEmailListError: (scope: EmailScope) => string | null;
     refreshEmailList: (scope: EmailScope, providers: string[]) => Promise<void>;
     getEmailListLastUpdated: (scope: EmailScope) => number | null;
 
     // Email Threads
-    getEmailThread: (threadId: string, includeBody?: boolean, noCache?: boolean) => Promise<EmailThread | null>;
+    getEmailThread: (threadId: string, includeBody?: boolean, forceRefresh?: boolean) => Promise<EmailThread | null>;
     getEmailThreadLoading: (threadId: string) => boolean;
     getEmailThreadError: (threadId: string) => string | null;
     refreshEmailThread: (threadId: string, includeBody?: boolean) => Promise<void>;
@@ -126,7 +127,8 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             scope.folderLabel || '',
             scope.query || '',
             scope.pageSize?.toString() || '50',
-            (scope.labels || []).sort().join(',')
+            (scope.labels || []).sort().join(','),
+            scope.classification || 'all'
         ];
         return parts.join('|');
     };
@@ -160,7 +162,7 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return core.charAt(0).toUpperCase() + core.slice(1);
     }, []);
 
-    const refreshContacts = useCallback(async (providers?: string[], opts?: { q?: string; company?: string; noCache?: boolean; limit?: number }) => {
+    const refreshContacts = useCallback(async (providers?: string[], opts?: { q?: string; company?: string; forceRefresh?: boolean; limit?: number }) => {
         setLoading(true);
         setError(null);
         try {
@@ -200,13 +202,15 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }, []);
 
     // Email list functions
-    const getEmailList = useCallback(async (scope: EmailScope, providers: string[], noCache = false): Promise<EmailMessage[]> => {
+    const getEmailList = useCallback(async (scope: EmailScope, providers: string[], forceRefresh = false): Promise<EmailMessage[]> => {
         const cacheKey = createCacheKey(scope);
 
-        // Check cache first
-        if (!noCache) {
+        // Check cache first - return immediately if exists and forceRefresh is false
+        if (!forceRefresh) {
             const cached = listCache.get(cacheKey);
-            if (cached && isCacheValid(cached)) {
+            if (cached) {
+                // Return cached data immediately, regardless of TTL
+                // The caller can trigger a background refresh if needed
                 return cached.data;
             }
         }
@@ -241,15 +245,16 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                     labels = scope.labels;
                 }
 
-                const response = await officeApi.getEmailMessages(
+                const response = await officeApi.getEmails(
                     providers,
                     scope.pageSize || 50,
+                    undefined, // offset
+                    forceRefresh,
                     labels,
                     folderId,
-                    undefined, // query
-                    undefined, // pageToken - no token for initial fetch
-                    "next", // direction
-                    noCache
+                    scope.classification, // classification parameter
+                    undefined, // inboxOnly
+                    undefined  // importanceLevel
                 );
 
                 if (response.success && response.data?.messages) {
@@ -346,13 +351,15 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }, [listCache]);
 
     // Email thread functions
-    const getEmailThread = useCallback(async (threadId: string, includeBody = false, noCache = false): Promise<EmailThread | null> => {
+    const getEmailThread = useCallback(async (threadId: string, includeBody = false, forceRefresh = false): Promise<EmailThread | null> => {
         const cacheKey = createThreadCacheKey(threadId, includeBody);
 
-        // Check cache first
-        if (!noCache) {
+        // Check cache first - return immediately if exists and forceRefresh is false
+        if (!forceRefresh) {
             const cached = threadCache.get(cacheKey);
-            if (cached && isCacheValid(cached)) {
+            if (cached) {
+                // Return cached data immediately, regardless of TTL
+                // The caller can trigger a background refresh if needed
                 return cached.data;
             }
         }
@@ -373,7 +380,7 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             });
 
             try {
-                const response = await officeApi.getThread(threadId, includeBody, noCache);
+                const response = await officeApi.getThread(threadId, includeBody, forceRefresh);
 
                 if (response.success && response.data?.threads && response.data.threads.length > 0) {
                     const thread = response.data.threads[0];

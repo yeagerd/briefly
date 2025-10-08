@@ -80,7 +80,7 @@ class EmailDebugger:
                         logger.info(
                             f"Resolved user ID: {self.user_id} for email: {self.user_email}"
                         )
-                        return self.user_id
+                        return user_id
                     else:
                         raise ValueError(f"No user found for email: {self.user_email}")
                 else:

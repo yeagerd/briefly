@@ -29,9 +29,12 @@ import structlog
 sys.path.insert(0, ".")
 
 from services.office.core.api_client_factory import APIClientFactory
-from services.office.core.normalizer import normalize_google_email, normalize_microsoft_email
 from services.office.core.clients.google import GoogleAPIClient
 from services.office.core.clients.microsoft import MicrosoftAPIClient
+from services.office.core.normalizer import (
+    normalize_google_email,
+    normalize_microsoft_email,
+)
 from services.office.models import Provider
 
 # Configure logging
@@ -51,10 +54,12 @@ class EmailDebugger:
         try:
             # Import settings to get API keys
             from services.demos.settings_demos import get_demo_settings
+
             settings = get_demo_settings()
             api_keys = settings.get_api_keys()
-            
+
             import httpx
+
             async with httpx.AsyncClient() as client:
                 response = await client.get(
                     f"{settings.user_service_url}/v1/internal/users/exists",
@@ -62,18 +67,22 @@ class EmailDebugger:
                     headers={"X-API-Key": api_keys["user"]},
                     timeout=10.0,
                 )
-                
+
                 if response.status_code == 200:
                     data = response.json()
                     if data.get("exists", False):
                         self.user_id = data.get("user_id")
-                        logger.info(f"Resolved user ID: {self.user_id} for email: {self.user_email}")
+                        logger.info(
+                            f"Resolved user ID: {self.user_id} for email: {self.user_email}"
+                        )
                         return self.user_id
                     else:
                         raise ValueError(f"No user found for email: {self.user_email}")
                 else:
-                    raise ValueError(f"Failed to resolve email: HTTP {response.status_code}")
-                    
+                    raise ValueError(
+                        f"Failed to resolve email: HTTP {response.status_code}"
+                    )
+
         except Exception as e:
             logger.error(f"Failed to resolve user ID for {self.user_email}: {e}")
             raise ValueError(
@@ -109,14 +118,20 @@ class EmailDebugger:
                     if folder_id and folder_name:
                         folder_mapping[folder_id] = folder_name
 
-            logger.info(f"Found {len(folder_mapping)} folders: {list(folder_mapping.values())}")
+            logger.info(
+                f"Found {len(folder_mapping)} folders: {list(folder_mapping.values())}"
+            )
             logger.info(f"Full folder mapping: {folder_mapping}")
 
             # Build filter for Microsoft Graph API
             filters = []
             if thread_id:
                 # Remove 'outlook_' prefix if present for Microsoft Graph API
-                clean_thread_id = thread_id.replace('outlook_', '') if thread_id.startswith('outlook_') else thread_id
+                clean_thread_id = (
+                    thread_id.replace("outlook_", "")
+                    if thread_id.startswith("outlook_")
+                    else thread_id
+                )
                 filters.append(f"conversationId eq '{clean_thread_id}'")
             if priority is not None:
                 if priority:
@@ -140,8 +155,7 @@ class EmailDebugger:
             # Get messages
             logger.info(f"Fetching Microsoft emails with filter: {filter_str}")
             messages_response = await microsoft_client.get_messages(
-                top=max_emails,
-                filter=filter_str
+                top=max_emails, filter=filter_str
             )
 
             emails = []
@@ -153,7 +167,7 @@ class EmailDebugger:
                             raw_email,
                             self.user_email,
                             None,  # account_name
-                            folder_mapping
+                            folder_mapping,
                         )
 
                         # Convert to dict for display
@@ -162,8 +176,14 @@ class EmailDebugger:
                             "thread_id": normalized_email.thread_id,
                             "subject": normalized_email.subject,
                             "from_address": normalized_email.from_address,
-                            "to_addresses": [str(addr) for addr in normalized_email.to_addresses],
-                            "date": normalized_email.date.isoformat() if normalized_email.date else None,
+                            "to_addresses": [
+                                str(addr) for addr in normalized_email.to_addresses
+                            ],
+                            "date": (
+                                normalized_email.date.isoformat()
+                                if normalized_email.date
+                                else None
+                            ),
                             "is_read": normalized_email.is_read,
                             "has_attachments": normalized_email.has_attachments,
                             "is_priority": normalized_email.is_priority,
@@ -173,7 +193,9 @@ class EmailDebugger:
                             "labels": normalized_email.labels,
                             # Raw data for debugging
                             "raw_parent_folder_id": raw_email.get("parentFolderId"),
-                            "raw_inference_classification": raw_email.get("inferenceClassification"),
+                            "raw_inference_classification": raw_email.get(
+                                "inferenceClassification"
+                            ),
                         }
 
                         # Apply category filter if specified
@@ -208,7 +230,11 @@ class EmailDebugger:
             query_parts = []
             if thread_id:
                 # Remove 'gmail_' prefix if present for Gmail API
-                clean_thread_id = thread_id.replace('gmail_', '') if thread_id.startswith('gmail_') else thread_id
+                clean_thread_id = (
+                    thread_id.replace("gmail_", "")
+                    if thread_id.startswith("gmail_")
+                    else thread_id
+                )
                 query_parts.append(f"thread:{clean_thread_id}")
             if priority is not None:
                 if priority:
@@ -223,8 +249,7 @@ class EmailDebugger:
             # Get messages
             logger.info(f"Fetching Google emails with query: {query}")
             messages_response = await google_client.get_messages(
-                max_results=max_emails,
-                q=query
+                max_results=max_emails, q=query
             )
 
             emails = []
@@ -234,12 +259,10 @@ class EmailDebugger:
                         # Get full message details
                         message_id = message_ref["id"]
                         message_response = await google_client.get_message(message_id)
-                        
+
                         # Normalize the email
                         normalized_email = normalize_google_email(
-                            message_response,
-                            self.user_email,
-                            None  # account_name
+                            message_response, self.user_email, None  # account_name
                         )
 
                         # Convert to dict for display
@@ -248,8 +271,14 @@ class EmailDebugger:
                             "thread_id": normalized_email.thread_id,
                             "subject": normalized_email.subject,
                             "from_address": normalized_email.from_address,
-                            "to_addresses": [str(addr) for addr in normalized_email.to_addresses],
-                            "date": normalized_email.date.isoformat() if normalized_email.date else None,
+                            "to_addresses": [
+                                str(addr) for addr in normalized_email.to_addresses
+                            ],
+                            "date": (
+                                normalized_email.date.isoformat()
+                                if normalized_email.date
+                                else None
+                            ),
                             "is_read": normalized_email.is_read,
                             "has_attachments": normalized_email.has_attachments,
                             "is_priority": normalized_email.is_priority,
@@ -375,8 +404,12 @@ class EmailDebugger:
 
                 # Show raw data for debugging
                 if provider == "microsoft":
-                    print(f"     🔍 Raw parentFolderId: {email.get('raw_parent_folder_id')}")
-                    print(f"     🔍 Raw inferenceClassification: {email.get('raw_inference_classification')}")
+                    print(
+                        f"     🔍 Raw parentFolderId: {email.get('raw_parent_folder_id')}"
+                    )
+                    print(
+                        f"     🔍 Raw inferenceClassification: {email.get('raw_inference_classification')}"
+                    )
                 elif provider == "google":
                     print(f"     🔍 Raw labelIds: {email.get('raw_label_ids')}")
 
@@ -397,49 +430,50 @@ Examples:
   python -m services.demos.email_debug user@example.com --folder "Inbox"
   python -m services.demos.email_debug user@example.com --max-emails 5
   python -m services.demos.email_debug user@example.com --providers microsoft gmail
-        """
+        """,
     )
 
-    parser.add_argument(
-        "email",
-        help="Email address of the user to debug"
-    )
+    parser.add_argument("email", help="Email address of the user to debug")
 
     parser.add_argument(
         "--providers",
         nargs="+",
         choices=["microsoft", "google"],
         default=["microsoft"],
-        help="Email providers to query (default: microsoft)"
+        help="Email providers to query (default: microsoft)",
     )
 
     parser.add_argument(
         "--max-emails",
         type=int,
         default=10,
-        help="Maximum number of emails to retrieve per provider (default: 10)"
+        help="Maximum number of emails to retrieve per provider (default: 10)",
     )
 
-    parser.add_argument(
-        "--thread",
-        help="Filter by specific thread ID"
-    )
+    parser.add_argument("--thread", help="Filter by specific thread ID")
 
     parser.add_argument(
         "--category",
-        choices=["CATEGORY_PERSONAL", "CATEGORY_SOCIAL", "CATEGORY_PROMOTIONS", "CATEGORY_UPDATES", "CATEGORY_FORUMS", "CATEGORY_OTHER"],
-        help="Filter by derived category"
+        choices=[
+            "CATEGORY_PERSONAL",
+            "CATEGORY_SOCIAL",
+            "CATEGORY_PROMOTIONS",
+            "CATEGORY_UPDATES",
+            "CATEGORY_FORUMS",
+            "CATEGORY_OTHER",
+        ],
+        help="Filter by derived category",
     )
 
     parser.add_argument(
         "--priority",
         type=lambda x: x.lower() == "true",
-        help="Filter by priority status (true=priority only, false=non-priority only)"
+        help="Filter by priority status (true=priority only, false=non-priority only)",
     )
 
     parser.add_argument(
         "--folder",
-        help="Filter by folder name (e.g., 'Inbox', 'Sent Items', 'Junk Email')"
+        help="Filter by folder name (e.g., 'Inbox', 'Sent Items', 'Junk Email')",
     )
 
     args = parser.parse_args()

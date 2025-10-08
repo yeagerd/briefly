@@ -8,6 +8,10 @@ into Vespa-ready document structures for indexing.
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 from services.api.v1.vespa_query.vespa_types import VespaDocumentType
 from services.common.events.calendar_events import CalendarEvent, CalendarEventData
 from services.common.events.contact_events import ContactData, ContactEvent
@@ -56,6 +60,9 @@ class VespaDocumentFactory:
 
         # Extract chunk content for Vespa indexing
         content_chunks = [chunk.content for chunk in chunking_result.chunks]
+
+        # Debug logging for folder field
+        logger.info(f"Creating email document for {email.id}: folder='{email.folder}'")
 
         return VespaDocumentType(
             id=email.id,

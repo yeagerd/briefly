@@ -3120,6 +3120,23 @@ async def get_internal_email_messages(
                     f"Successfully created {provider} client for user {user_id}"
                 )
 
+                # Get folder mapping for Microsoft emails to identify Junk Email folder
+                folder_mapping = {}
+                if provider == "microsoft" and isinstance(client, MicrosoftAPIClient):
+                    try:
+                        async with client:
+                            mailboxes_response = await client.get_mailboxes()
+                            mailboxes = mailboxes_response.get("value", [])
+                            for mailbox in mailboxes:
+                                folder_id = mailbox.get("id")
+                                folder_name = mailbox.get("displayName", "")
+                                if folder_id and folder_name:
+                                    folder_mapping[folder_id] = folder_name
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to get folder mapping for Microsoft: {e}"
+                        )
+
                 # Get messages from provider with priority filtering
                 async with client:
                     if provider == "microsoft" and isinstance(
@@ -3201,22 +3218,6 @@ async def get_internal_email_messages(
                     email_list = (
                         messages.get("value", []) if isinstance(messages, dict) else []
                     )
-
-                    # Get folder mapping for Microsoft emails to identify Junk Email folder
-                    folder_mapping = {}
-                    try:
-                        if isinstance(client, MicrosoftAPIClient):
-                            mailboxes_response = await client.get_mailboxes()
-                            mailboxes = mailboxes_response.get("value", [])
-                            for mailbox in mailboxes:
-                                folder_id = mailbox.get("id")
-                                folder_name = mailbox.get("displayName", "")
-                                if folder_id and folder_name:
-                                    folder_mapping[folder_id] = folder_name
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to get folder mapping for Microsoft: {e}"
-                        )
 
                     normalized_messages = [
                         normalize_microsoft_email(msg, email, None, folder_mapping)

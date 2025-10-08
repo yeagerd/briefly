@@ -234,7 +234,7 @@ class MicrosoftAPIClient(BaseAPIClient):
         # Include additional parameters to ensure we get all folders including Inbox
         params = {
             "$select": "id,displayName,parentFolderId,childFolderCount",
-            "$top": 100  # Ensure we get all folders
+            "$top": 100,  # Ensure we get all folders
         }
         response = await self.get("/me/mailFolders", params=params)
         return cast(Dict[str, Any], response.json())

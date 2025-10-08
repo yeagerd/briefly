@@ -486,4 +486,31 @@ describe('useShipmentDetection', () => {
         const upsTracking = result.current.trackingNumbers.find(t => t.trackingNumber === '12345678901234567890123456');
         expect(upsTracking?.carrier).toBe('ups');
     });
+
+    it('should handle malformed email addresses without throwing errors', () => {
+        const email: EmailMessage = {
+            id: 'malformed-email-test',
+            subject: 'Test email',
+            body_text: 'This is a test email',
+            from_address: {
+                name: 'Test Sender',
+                email: 'malformed-email-without-at-symbol' // No @ symbol
+            },
+            to_addresses: [],
+            cc_addresses: [],
+            bcc_addresses: [],
+            date: new Date().toISOString(),
+            labels: [],
+            is_read: false,
+            has_attachments: false,
+            provider: Provider.GOOGLE,
+            provider_message_id: 'test-message-id',
+            account_email: 'test@example.com'
+        };
+
+        // This should not throw an error
+        const { result } = renderHook(() => useShipmentDetection(email));
+        expect(result.current.isShipmentEmail).toBe(false);
+        expect(result.current.trackingNumbers).toEqual([]);
+    });
 }); 

@@ -197,7 +197,7 @@ function isAmazonShipment(senderEmail: string, subject: string, body: string): b
     // Check sender domain
     const address = senderEmail.split('@')[0]?.toLowerCase();
     const domainParts = senderEmail.split('@')[1]?.toLowerCase().split('.');
-    if (domainParts.includes('amazon')) {
+    if (domainParts && domainParts.includes('amazon')) {
         // Check if shipping is in the address part
         if (address?.includes('shipment')) {
             return true;

@@ -69,6 +69,10 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
     const refreshEmailListRef = useRef(refreshEmailList);
     const runDeltaRef = useRef(runDelta);
 
+    // Track if we're currently fetching to prevent duplicate requests
+    const fetchingRef = useRef(false);
+    const lastScopeKeyRef = useRef<string | null>(null);
+
     // Update refs when functions change
     getEmailListRef.current = getEmailList;
     refreshEmailListRef.current = refreshEmailList;
@@ -97,25 +101,36 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
     // Fetch emails when scope changes - cache first strategy
     useEffect(() => {
         if (scope && autoFetch) {
+            // Create a unique key for this scope+providers combination
+            const scopeKey = JSON.stringify({ scope, providers });
+
+            // Skip if we're already fetching for this exact scope
+            if (fetchingRef.current && lastScopeKeyRef.current === scopeKey) {
+                return;
+            }
+
+            lastScopeKeyRef.current = scopeKey;
+            fetchingRef.current = true;
+
             const fetchEmails = async () => {
                 try {
-                    // First, get cached data immediately (forceRefresh = false)
-                    // This will return instantly if cache exists, or fetch if no cache
-                    const cachedResult = await getEmailListRef.current(scope, providers, false);
+                    // First, get cached data immediately (non-blocking)
+                    // This returns instantly with cache or empty array
+                    const cachedResult = await getEmailListRef.current(scope, providers, false, false);
                     setEmails(cachedResult);
 
-                    // Always trigger background refresh to get latest data
-                    // Use a small delay to ensure UI renders cached data first
-                    setTimeout(async () => {
-                        try {
-                            const freshResult = await getEmailListRef.current(scope, providers, true);
-                            setEmails(freshResult);
-                        } catch (error) {
-                            console.error('Background refresh failed:', error);
-                        }
-                    }, 100);
+                    // Always trigger a background refresh to get latest data
+                    // Don't await this - let it run in background
+                    getEmailListRef.current(scope, providers, true, true).then(freshResult => {
+                        setEmails(freshResult);
+                        fetchingRef.current = false;
+                    }).catch(error => {
+                        console.error('Background refresh failed:', error);
+                        fetchingRef.current = false;
+                    });
                 } catch (error) {
                     console.error('Failed to fetch emails:', error);
+                    fetchingRef.current = false;
                 }
             };
             fetchEmails();
@@ -181,20 +196,18 @@ export function useEmailThread(threadId: string | null, options: UseEmailThreadO
         if (threadId && autoFetch) {
             const fetchThread = async () => {
                 try {
-                    // First, get cached data immediately (forceRefresh = false)
-                    const cachedResult = await getEmailThreadRef.current(threadId, includeBody, false);
+                    // First, get cached data immediately (non-blocking)
+                    // This returns instantly with cache or null
+                    const cachedResult = await getEmailThreadRef.current(threadId, includeBody, false, false);
                     setThread(cachedResult);
 
                     // Always trigger background refresh to get latest data
-                    // Use a small delay to ensure UI renders cached data first
-                    setTimeout(async () => {
-                        try {
-                            const freshResult = await getEmailThreadRef.current(threadId, includeBody, true);
-                            setThread(freshResult);
-                        } catch (error) {
-                            console.error('Background refresh failed:', error);
-                        }
-                    }, 100);
+                    // Don't await this - let it run in background
+                    getEmailThreadRef.current(threadId, includeBody, true, true).then(freshResult => {
+                        setThread(freshResult);
+                    }).catch(error => {
+                        console.error('Background refresh failed:', error);
+                    });
                 } catch (error) {
                     console.error('Failed to fetch thread:', error);
                 }

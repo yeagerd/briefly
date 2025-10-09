@@ -504,7 +504,7 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
                             className="p-2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
                             title="Refresh emails"
                         >
-                            <RefreshCw className="w-4 h-4" />
+                            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                         </button>
 
                         {/* Last updated timestamp */}
@@ -686,9 +686,7 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
 
                         {/* Email List Content */}
                         <div className="flex-1 overflow-y-auto">
-                            {loading ? (
-                                <div className="p-8 text-center text-muted-foreground">Loading…</div>
-                            ) : hasExpiredButRefreshableTokens ? (
+                            {hasExpiredButRefreshableTokens ? (
                                 <div className="p-8 text-center">
                                     <div className="text-amber-600">
                                         <p className="mb-4">Your email integration token has expired and is being refreshed. Please wait or try reconnecting.</p>

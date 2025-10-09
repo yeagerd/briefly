@@ -89,7 +89,7 @@ export function EmailFolderSelector({
 
                     // Auto-select inbox folder if it exists and no folder is currently selected
                     const inboxFolder = apiFolders.find(f => f.label === 'inbox' && f.provider === activeProviders[0]);
-                    if (inboxFolder && !selectedFolder?.provider_folder_id) {
+                    if (inboxFolder && !selectedFolder) {
                         onFolderSelect(inboxFolder);
                     }
                 } else {

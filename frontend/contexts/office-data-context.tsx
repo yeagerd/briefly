@@ -279,17 +279,6 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                     labels = scope.labels;
                 }
 
-                // Debug: Log what we're sending to the API
-                console.log('[OfficeDataContext] Fetching emails with params:', {
-                    providers,
-                    pageSize: scope.pageSize || 50,
-                    forceRefresh,
-                    labels,
-                    folderId,
-                    folderLabel: scope.folderLabel,
-                    note: 'Classification filtering will be done on frontend'
-                });
-
                 const response = await officeApi.getEmails(
                     providers,
                     scope.pageSize || 50,

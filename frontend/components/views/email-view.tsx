@@ -112,7 +112,6 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
     const [selectedClassification, setSelectedClassification] = useState<string>('all');
 
     const handleClassificationSelect = useCallback((classification: string) => {
-        console.log('[EmailView] Classification selected:', classification);
         setSelectedClassification(classification);
     }, []);
     const { loading: integrationsLoading, activeProviders, hasExpiredButRefreshableTokens } = useIntegrations();
@@ -164,16 +163,6 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
     // Use provider hooks for email data
     const { labels, folderId } = getFolderParams();
 
-    // Debug: Log what we're passing to useEmailList
-    const classificationParam = selectedClassification !== 'all' ? selectedClassification : undefined;
-    console.log('[EmailView] Calling useEmailList with:', {
-        folderId,
-        folderLabel: selectedFolder.label,
-        selectedClassification,
-        classificationParam,
-        labels
-    });
-
     const {
         emails: allThreads,
         loading,
@@ -191,19 +180,13 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
 
     // Filter threads based on classification (frontend filtering)
     const threads = React.useMemo(() => {
-        console.log('[EmailView] Filtering threads:', {
-            totalThreads: allThreads.length,
-            selectedClassification,
-            folderLabel: selectedFolder.label
-        });
-
         // Only filter inbox by classification
         if (selectedFolder.label !== 'inbox' || selectedClassification === 'all') {
             return allThreads;
         }
 
         // Filter by inference_classification
-        const filtered = allThreads.filter(email => {
+        return allThreads.filter(email => {
             if (selectedClassification === 'focused') {
                 // Show only focused/priority emails
                 return email.inference_classification === 'focused';
@@ -213,14 +196,6 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
             }
             return true; // 'all' - show everything
         });
-
-        console.log('[EmailView] Filtered result:', {
-            originalCount: allThreads.length,
-            filteredCount: filtered.length,
-            classification: selectedClassification
-        });
-
-        return filtered;
     }, [allThreads, selectedClassification, selectedFolder.label]);
 
     const { runDelta } = useOfficeData();

@@ -29,6 +29,7 @@ export interface EmailScope {
     query?: string;
     pageSize?: number;
     labels?: string[];
+    classification?: string;
 }
 
 interface DeltaTokenData {
@@ -57,18 +58,18 @@ interface OfficeDataContextType {
     contacts: Contact[];
     loading: boolean;
     error: string | null;
-    refreshContacts: (providers?: string[], opts?: { q?: string; company?: string; noCache?: boolean; limit?: number }) => Promise<void>;
+    refreshContacts: (providers?: string[], opts?: { q?: string; company?: string; forceRefresh?: boolean; limit?: number }) => Promise<void>;
     detectCompanyFromEmail: (email?: string) => string | undefined;
 
     // Email Lists
-    getEmailList: (scope: EmailScope, providers: string[], noCache?: boolean) => Promise<EmailMessage[]>;
+    getEmailList: (scope: EmailScope, providers: string[], forceRefresh?: boolean, isBackground?: boolean) => Promise<EmailMessage[]>;
     getEmailListLoading: (scope: EmailScope) => boolean;
     getEmailListError: (scope: EmailScope) => string | null;
     refreshEmailList: (scope: EmailScope, providers: string[]) => Promise<void>;
     getEmailListLastUpdated: (scope: EmailScope) => number | null;
 
     // Email Threads
-    getEmailThread: (threadId: string, includeBody?: boolean, noCache?: boolean) => Promise<EmailThread | null>;
+    getEmailThread: (threadId: string, includeBody?: boolean, forceRefresh?: boolean, isBackground?: boolean) => Promise<EmailThread | null>;
     getEmailThreadLoading: (threadId: string) => boolean;
     getEmailThreadError: (threadId: string) => string | null;
     refreshEmailThread: (threadId: string, includeBody?: boolean) => Promise<void>;
@@ -95,13 +96,20 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const [error, setError] = useState<string | null>(null);
     const lastQueryRef = useRef<{ providers?: string[]; q?: string; company?: string; limit?: number }>({});
 
-    // Email cache state
+    // Email cache state - use refs to avoid stale closures
+    const listCacheRef = useRef<Map<string, EmailListCacheEntry>>(new Map());
+    const threadCacheRef = useRef<Map<string, EmailThreadCacheEntry>>(new Map());
     const [listCache, setListCache] = useState<Map<string, EmailListCacheEntry>>(new Map());
     const [threadCache, setThreadCache] = useState<Map<string, EmailThreadCacheEntry>>(new Map());
     const [listLoading, setListLoading] = useState<Map<string, boolean>>(new Map());
     const [threadLoading, setThreadLoading] = useState<Map<string, boolean>>(new Map());
     const [listErrors, setListErrors] = useState<Map<string, string>>(new Map());
     const [threadErrors, setThreadErrors] = useState<Map<string, string>>(new Map());
+    const [backgroundRefreshing, setBackgroundRefreshing] = useState<Map<string, boolean>>(new Map());
+
+    // Keep refs in sync with state
+    listCacheRef.current = listCache;
+    threadCacheRef.current = threadCache;
 
     // Delta sync state
     const [deltaTokenByScope, setDeltaTokenByScope] = useState<Map<string, DeltaTokenData>>(new Map());
@@ -119,6 +127,26 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const MAX_THREAD_CACHE_SIZE = 50;
 
     // Helper functions
+    /**
+     * Creates a unique cache key for an email list scope.
+     * 
+     * Cache Separation Strategy:
+     * Each unique combination of these parameters gets its own cache entry:
+     * - userId: Separate cache per user
+     * - folderId: Separate cache per folder (inbox, sent, etc.)
+     * - folderLabel: Additional folder identification
+     * - query: Separate cache per search query
+     * - pageSize: Separate cache per page size
+     * - labels: Separate cache per label combination
+     * 
+     * NOTE: classification is NOT part of the cache key.
+     * We cache ALL emails for a folder together and do frontend filtering based on
+     * the inference_classification field. This approach:
+     * 1. Works around Microsoft Graph API limitation (can't filter by folder AND classification)
+     * 2. Makes switching between Priority Inbox and regular Inbox instant (no API call)
+     * 3. Reduces cache complexity and prevents race conditions
+     * 4. Simplifies the caching logic
+     */
     const createCacheKey = (scope: EmailScope): string => {
         const parts = [
             scope.userId,
@@ -127,6 +155,7 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             scope.query || '',
             scope.pageSize?.toString() || '50',
             (scope.labels || []).sort().join(',')
+            // classification removed - we filter in the UI
         ];
         return parts.join('|');
     };
@@ -160,7 +189,7 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return core.charAt(0).toUpperCase() + core.slice(1);
     }, []);
 
-    const refreshContacts = useCallback(async (providers?: string[], opts?: { q?: string; company?: string; noCache?: boolean; limit?: number }) => {
+    const refreshContacts = useCallback(async (providers?: string[], opts?: { q?: string; company?: string; forceRefresh?: boolean; limit?: number }) => {
         setLoading(true);
         setError(null);
         try {
@@ -200,15 +229,19 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }, []);
 
     // Email list functions
-    const getEmailList = useCallback(async (scope: EmailScope, providers: string[], noCache = false): Promise<EmailMessage[]> => {
+    const getEmailList = useCallback(async (scope: EmailScope, providers: string[], forceRefresh = false, isBackground = false): Promise<EmailMessage[]> => {
         const cacheKey = createCacheKey(scope);
 
-        // Check cache first
-        if (!noCache) {
-            const cached = listCache.get(cacheKey);
-            if (cached && isCacheValid(cached)) {
+        // Check cache first - return immediately if exists and forceRefresh is false
+        if (!forceRefresh) {
+            const cached = listCacheRef.current.get(cacheKey);
+            if (cached) {
+                // Return cached data immediately, regardless of TTL
                 return cached.data;
             }
+            // If no cache and not forcing refresh, return empty array immediately
+            // The caller should trigger a background refresh
+            return [];
         }
 
         // Check for inflight request
@@ -219,7 +252,12 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
         // Start new request
         const requestPromise = (async () => {
-            setListLoading(prev => new Map(prev).set(cacheKey, true));
+            // Set appropriate loading state
+            if (isBackground) {
+                setBackgroundRefreshing(prev => new Map(prev).set(cacheKey, true));
+            } else {
+                setListLoading(prev => new Map(prev).set(cacheKey, true));
+            }
             setListErrors(prev => {
                 const newMap = new Map(prev);
                 newMap.delete(cacheKey);
@@ -241,15 +279,15 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                     labels = scope.labels;
                 }
 
-                const response = await officeApi.getEmailMessages(
+                const response = await officeApi.getEmails(
                     providers,
                     scope.pageSize || 50,
+                    undefined, // offset
+                    forceRefresh,
                     labels,
                     folderId,
-                    undefined, // query
-                    undefined, // pageToken - no token for initial fetch
-                    "next", // direction
-                    noCache
+                    undefined, // inboxOnly
+                    undefined  // importanceLevel
                 );
 
                 if (response.success && response.data?.messages) {
@@ -312,11 +350,20 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 setListErrors(prev => new Map(prev).set(cacheKey, errorMessage));
                 throw error;
             } finally {
-                setListLoading(prev => {
-                    const newMap = new Map(prev);
-                    newMap.delete(cacheKey);
-                    return newMap;
-                });
+                // Clear appropriate loading state
+                if (isBackground) {
+                    setBackgroundRefreshing(prev => {
+                        const newMap = new Map(prev);
+                        newMap.delete(cacheKey);
+                        return newMap;
+                    });
+                } else {
+                    setListLoading(prev => {
+                        const newMap = new Map(prev);
+                        newMap.delete(cacheKey);
+                        return newMap;
+                    });
+                }
                 inflightRequests.current.delete(inflightKey);
             }
         })();
@@ -327,8 +374,8 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const getEmailListLoading = useCallback((scope: EmailScope): boolean => {
         const cacheKey = createCacheKey(scope);
-        return listLoading.get(cacheKey) || false;
-    }, [listLoading]);
+        return listLoading.get(cacheKey) || backgroundRefreshing.get(cacheKey) || false;
+    }, [listLoading, backgroundRefreshing]);
 
     const getEmailListError = useCallback((scope: EmailScope): string | null => {
         const cacheKey = createCacheKey(scope);
@@ -346,15 +393,19 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }, [listCache]);
 
     // Email thread functions
-    const getEmailThread = useCallback(async (threadId: string, includeBody = false, noCache = false): Promise<EmailThread | null> => {
+    const getEmailThread = useCallback(async (threadId: string, includeBody = false, forceRefresh = false, isBackground = false): Promise<EmailThread | null> => {
         const cacheKey = createThreadCacheKey(threadId, includeBody);
 
-        // Check cache first
-        if (!noCache) {
-            const cached = threadCache.get(cacheKey);
-            if (cached && isCacheValid(cached)) {
+        // Check cache first - return immediately if exists and forceRefresh is false
+        if (!forceRefresh) {
+            const cached = threadCacheRef.current.get(cacheKey);
+            if (cached) {
+                // Return cached data immediately, regardless of TTL
                 return cached.data;
             }
+            // If no cache and not forcing refresh, return null immediately
+            // The caller should trigger a background refresh
+            return null;
         }
 
         // Check for inflight request
@@ -365,7 +416,10 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
         // Start new request
         const requestPromise = (async () => {
-            setThreadLoading(prev => new Map(prev).set(threadId, true));
+            // Only set loading state if not a background refresh
+            if (!isBackground) {
+                setThreadLoading(prev => new Map(prev).set(threadId, true));
+            }
             setThreadErrors(prev => {
                 const newMap = new Map(prev);
                 newMap.delete(threadId);
@@ -373,7 +427,7 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             });
 
             try {
-                const response = await officeApi.getThread(threadId, includeBody, noCache);
+                const response = await officeApi.getThread(threadId, includeBody, forceRefresh);
 
                 if (response.success && response.data?.threads && response.data.threads.length > 0) {
                     const thread = response.data.threads[0];
@@ -402,11 +456,14 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 setThreadErrors(prev => new Map(prev).set(threadId, errorMessage));
                 throw error;
             } finally {
-                setThreadLoading(prev => {
-                    const newMap = new Map(prev);
-                    newMap.delete(threadId);
-                    return newMap;
-                });
+                // Only clear loading state if it was set (not a background refresh)
+                if (!isBackground) {
+                    setThreadLoading(prev => {
+                        const newMap = new Map(prev);
+                        newMap.delete(threadId);
+                        return newMap;
+                    });
+                }
                 inflightRequests.current.delete(inflightKey);
             }
         })();

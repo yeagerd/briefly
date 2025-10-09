@@ -36,7 +36,7 @@ export const ContactsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchContacts = useCallback(async (noCache = false) => {
+    const fetchContacts = useCallback(async (forceRefresh = false) => {
         try {
             setLoading(true);
             setError(null);

@@ -259,11 +259,9 @@ export function EmailFolderSelector({
                         <DropdownMenuItem
                             onClick={() => {
                                 onFolderSelect(folder);
-                                // Only reset classification to 'all' for non-inbox folders
-                                // Preserve classification when switching to inbox
-                                if (folder.label !== 'inbox') {
-                                    onClassificationSelect?.('all');
-                                }
+                                // Reset classification to 'all' for all folders
+                                // This ensures regular inbox shows all emails, not just focused/priority
+                                onClassificationSelect?.('all');
                             }}
                             className="flex items-center gap-2 cursor-pointer"
                         >

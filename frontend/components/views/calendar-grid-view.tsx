@@ -278,7 +278,7 @@ export default function CalendarGridView({
         return grouped;
     }, [filteredEvents, days, effectiveTimezone]);
 
-    const fetchCalendarEvents = useCallback(async (noCache = false) => {
+    const fetchCalendarEvents = useCallback(async (forceRefresh = false) => {
         if (!activeProviders || activeProviders.length === 0) {
             return;
         }
@@ -304,7 +304,7 @@ export default function CalendarGridView({
                 undefined,
                 undefined,
                 effectiveTimezone,
-                noCache
+                forceRefresh
             );
 
             if (response.success && response.data) {

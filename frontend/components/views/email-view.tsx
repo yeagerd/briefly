@@ -162,8 +162,9 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
 
     // Use provider hooks for email data
     const { labels, folderId } = getFolderParams();
+
     const {
-        emails: threads,
+        emails: allThreads,
         loading,
         error,
         lastUpdated
@@ -173,8 +174,29 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
         labels,
         pageSize: 50,
         providers: activeProviders || ['google', 'microsoft'],
+        classification: undefined, // Don't pass classification - we filter on frontend
         autoFetch: activeTool === 'email' && !toolDataLoading && !integrationsLoading
     });
+
+    // Filter threads based on classification (frontend filtering)
+    const threads = React.useMemo(() => {
+        // Only filter inbox by classification
+        if (selectedFolder.label !== 'inbox' || selectedClassification === 'all') {
+            return allThreads;
+        }
+
+        // Filter by inference_classification
+        return allThreads.filter(email => {
+            if (selectedClassification === 'focused') {
+                // Show only focused/priority emails
+                return email.inference_classification === 'focused';
+            } else if (selectedClassification === 'other') {
+                // Show only non-focused emails
+                return email.inference_classification !== 'focused';
+            }
+            return true; // 'all' - show everything
+        });
+    }, [allThreads, selectedClassification, selectedFolder.label]);
 
     const { runDelta } = useOfficeData();
 
@@ -216,33 +238,15 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
         setSelectedFolder(folder);
         // Clear email selections when folder changes
         setSelectedEmails(new Set());
-        // If switching to inbox, set focused classification by default
-        // If switching to other folders, clear classification
-        if (folder.label === 'inbox') {
-            setSelectedClassification('focused');
-        } else {
-            setSelectedClassification('all');
-        }
+        // Don't automatically set classification here - let the folder selector control it
+        // via explicit onClassificationSelect calls
     }, []);
-
-    // Apply classification filtering to threads
-    const filteredThreads = React.useMemo(() => {
-        let filtered = threads;
-
-        // Apply classification filtering client-side (focused/other) to mirror Outlook behavior
-        if (selectedFolder.label === 'inbox' && selectedClassification !== 'all') {
-            const target = selectedClassification.toLowerCase();
-            filtered = threads.filter(m => (m.inference_classification || '').toLowerCase() === target);
-        }
-
-        return filtered;
-    }, [threads, selectedFolder.label, selectedClassification]);
 
     // Group emails by thread
     const groupedThreads = React.useMemo(() => {
         const threadMap = new Map<string, EmailMessage[]>();
 
-        filteredThreads.forEach(email => {
+        threads.forEach(email => {
             const threadId = email.thread_id || email.id;
             if (!threadMap.has(threadId)) {
                 threadMap.set(threadId, []);
@@ -268,7 +272,7 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
                 return dateB.getTime() - dateA.getTime();
             })
         }));
-    }, [filteredThreads]);
+    }, [threads]);
 
     // Handle email selection (independent from thread viewing)
     const handleEmailSelect = useCallback((emailId: string, isSelected: boolean) => {
@@ -516,7 +520,7 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
                             className="p-2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
                             title="Refresh emails"
                         >
-                            <RefreshCw className="w-4 h-4" />
+                            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                         </button>
 
                         {/* Last updated timestamp */}
@@ -698,9 +702,7 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
 
                         {/* Email List Content */}
                         <div className="flex-1 overflow-y-auto">
-                            {loading ? (
-                                <div className="p-8 text-center text-muted-foreground">Loading…</div>
-                            ) : hasExpiredButRefreshableTokens ? (
+                            {hasExpiredButRefreshableTokens ? (
                                 <div className="p-8 text-center">
                                     <div className="text-amber-600">
                                         <p className="mb-4">Your email integration token has expired and is being refreshed. Please wait or try reconnecting.</p>

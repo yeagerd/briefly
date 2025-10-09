@@ -20,7 +20,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ toolDataLoading = false, ac
     const { loading: integrationsLoading, activeProviders } = useIntegrations();
     const { effectiveTimezone } = useUserPreferences();
 
-    const fetchCalendarEvents = useCallback(async (noCache = false) => {
+    const fetchCalendarEvents = useCallback(async (forceRefresh = false) => {
         if (!activeProviders || activeProviders.length === 0) {
             setNoIntegrations(true);
             setLoading(false);
@@ -41,7 +41,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ toolDataLoading = false, ac
                 undefined,
                 undefined,
                 effectiveTimezone,
-                noCache
+                forceRefresh
             );
 
             if (response.success && response.data) {

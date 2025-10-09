@@ -13,7 +13,7 @@ export default function Navbar() {
             <div className="flex flex-row items-center justify-between w-full px-4 py-3">
                 <div className="flex items-center gap-2 min-w-0">
                     <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                        <ShipIcon className="h-6 w-6 text-teal-600 flex-shrink-0" />
+                        <ShipIcon className="h-8 w-8 text-teal-600 flex-shrink-0" />
                         <h1 className="text-xl font-semibold truncate">Briefly</h1>
                     </Link>
                 </div>

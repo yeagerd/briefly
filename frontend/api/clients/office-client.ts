@@ -117,16 +117,7 @@ export class OfficeClient extends GatewayClient {
         if (typeof inboxOnly === 'boolean') params.append('inbox_only', inboxOnly ? 'true' : 'false');
         if (importanceLevel) params.append('importance_level', importanceLevel);
 
-        const url = `/api/v1/office/email/messages?${params.toString()}`;
-        console.log('Office API getEmails call:', {
-            url,
-            classification,
-            providers,
-            limit,
-            folderId
-        });
-
-        return this.request<EmailMessageList>(url);
+        return this.request<EmailMessageList>(`/api/v1/office/email/messages?${params.toString()}`);
     }
 
 

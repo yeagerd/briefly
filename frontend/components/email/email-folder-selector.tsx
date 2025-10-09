@@ -70,7 +70,6 @@ export function EmailFolderSelector({
                         );
 
                         if (!hasInboxFolder) {
-                            console.log('Adding missing Microsoft inbox folder');
                             apiFolders = [
                                 {
                                     label: 'inbox',
@@ -186,13 +185,6 @@ export function EmailFolderSelector({
         // Removed 'All Inbox' since regular 'Inbox' already shows all emails
     ] : [];
 
-    // Debug logging
-    console.log('EmailFolderSelector Debug:', {
-        activeProviders,
-        hasMicrosoftProvider,
-        sortedFolders: sortedFolders.map(f => ({ label: f.label, provider: f.provider, name: f.name })),
-        microsoftInboxOptions: microsoftInboxOptions.length
-    });
 
     return (
         <DropdownMenu>
@@ -238,32 +230,11 @@ export function EmailFolderSelector({
                                     is_system: true,
                                     provider_folder_id: 'inbox'
                                 };
-                                console.log('Created virtual inbox folder for Microsoft');
                             }
-
-                            console.log('Priority/All Inbox Click:', {
-                                option,
-                                inboxFolder,
-                                hasMicrosoftProvider,
-                                sortedFolders: sortedFolders.filter(f => f.label === 'inbox'),
-                                allFolders: sortedFolders.map(f => ({ label: f.label, provider: f.provider, name: f.name })),
-                                inboxLikeFolders: sortedFolders.filter(f =>
-                                    f.name.toLowerCase().includes('inbox') ||
-                                    f.label.toLowerCase().includes('inbox')
-                                )
-                            });
 
                             if (inboxFolder) {
                                 onFolderSelect(inboxFolder);
                                 onClassificationSelect?.(option.classification);
-                            } else {
-                                console.error('No inbox folder found for Microsoft provider');
-                                console.error('Available folders:', sortedFolders.map(f => ({
-                                    label: f.label,
-                                    provider: f.provider,
-                                    name: f.name,
-                                    is_system: f.is_system
-                                })));
                             }
                         }}
                         className="flex items-center gap-2 cursor-pointer"

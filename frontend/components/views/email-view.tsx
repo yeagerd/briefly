@@ -112,7 +112,6 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
     const [selectedClassification, setSelectedClassification] = useState<string>('all');
 
     const handleClassificationSelect = useCallback((classification: string) => {
-        console.log('Classification selected:', classification);
         setSelectedClassification(classification);
     }, []);
     const { loading: integrationsLoading, activeProviders, hasExpiredButRefreshableTokens } = useIntegrations();

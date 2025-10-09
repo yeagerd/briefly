@@ -216,9 +216,11 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
         setSelectedFolder(folder);
         // Clear email selections when folder changes
         setSelectedEmails(new Set());
-        // If switching to inbox, keep current classification (focused by default)
+        // If switching to inbox, set focused classification by default
         // If switching to other folders, clear classification
-        if (folder.label !== 'inbox') {
+        if (folder.label === 'inbox') {
+            setSelectedClassification('focused');
+        } else {
             setSelectedClassification('all');
         }
     }, []);

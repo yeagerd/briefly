@@ -15,7 +15,7 @@ import { useEmailList, useEmailThread } from '@/hooks/use-email-data';
 import { listProviderDraftsForThread } from '@/lib/draft-utils';
 import { safeParseDate } from '@/lib/utils';
 import { EmailFolder, EmailMessage, Provider } from "@/types/api/office";
-import { Archive, Check, ChevronLeft, Clock, List, ListTodo, PanelLeft, RefreshCw, Settings, Square, Trash2, X } from 'lucide-react';
+import { Archive, Check, ChevronLeft, Clock, List, ListTodo, PanelLeft, RefreshCw, Settings, Square, Star, Trash2, X } from 'lucide-react';
 import { getSession } from 'next-auth/react';
 import React, { useCallback, useEffect, useState } from 'react';
 
@@ -142,10 +142,17 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
         let labels: string[] | undefined;
         let folderId: string | undefined;
 
+
         if (selectedFolder.provider === Provider.MICROSOFT) {
-            // Microsoft: use folder_id for all folders when available
-            folderId = selectedFolder.provider_folder_id || undefined;
-            labels = undefined;
+            // Microsoft: use folder_id when available, otherwise fall back to label
+            if (selectedFolder.provider_folder_id) {
+                folderId = selectedFolder.provider_folder_id;
+                labels = undefined;
+            } else {
+                // Fallback to label if folder_id is not available (e.g., on initial mount)
+                labels = [selectedFolder.label];
+                folderId = undefined;
+            }
         } else if (selectedFolder.provider === Provider.GOOGLE) {
             // Google: use folder_id for system folders, labels for user folders
             if (isSystemFolder && selectedFolder.provider_folder_id) {
@@ -161,7 +168,9 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
     }, [selectedFolder]);
 
     // Use provider hooks for email data
-    const { labels, folderId } = getFolderParams();
+    const { labels, folderId } = React.useMemo(() => getFolderParams(), [getFolderParams, selectedFolder]);
+
+    const autoFetchCondition = activeTool === 'email' && !toolDataLoading && !integrationsLoading;
 
     const {
         emails: allThreads,
@@ -175,13 +184,13 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
         pageSize: 50,
         providers: activeProviders || ['google', 'microsoft'],
         classification: undefined, // Don't pass classification - we filter on frontend
-        autoFetch: activeTool === 'email' && !toolDataLoading && !integrationsLoading
+        autoFetch: autoFetchCondition
     });
 
     // Filter threads based on classification (frontend filtering)
+    // Now applies to all folders, not just inbox
     const threads = React.useMemo(() => {
-        // Only filter inbox by classification
-        if (selectedFolder.label !== 'inbox' || selectedClassification === 'all') {
+        if (selectedClassification === 'all') {
             return allThreads;
         }
 
@@ -196,7 +205,7 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
             }
             return true; // 'all' - show everything
         });
-    }, [allThreads, selectedClassification, selectedFolder.label]);
+    }, [allThreads, selectedClassification]);
 
     const { runDelta } = useOfficeData();
 
@@ -238,8 +247,8 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
         setSelectedFolder(folder);
         // Clear email selections when folder changes
         setSelectedEmails(new Set());
-        // Don't automatically set classification here - let the folder selector control it
-        // via explicit onClassificationSelect calls
+        // Reset classification to 'all' when switching folders
+        setSelectedClassification('all');
     }, []);
 
     // Group emails by thread
@@ -475,7 +484,8 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
                 }));
             }
         }
-    }, [activeProviders, selectedFolder.provider]);
+    }, [activeProviders]); // Remove selectedFolder.provider from dependencies to prevent loop
+
 
     // Reset thread view when reading pane mode changes
     useEffect(() => {
@@ -506,9 +516,30 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
                         />
                         <h1 className="text-xl font-semibold">
                             {selectedFolder.name}
-                            {selectedClassification === 'focused' && ' (Priority)'}
-                            {selectedClassification === 'other' && ' (Other)'}
                         </h1>
+                        <div className="flex items-center border rounded-md">
+                            <button
+                                onClick={() => handleClassificationSelect('all')}
+                                className={`px-3 py-1.5 text-sm font-medium transition-colors ${selectedClassification === 'all'
+                                    ? 'bg-blue-100 text-blue-600'
+                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                                    }`}
+                                title="Show all emails"
+                            >
+                                All
+                            </button>
+                            <button
+                                onClick={() => handleClassificationSelect('focused')}
+                                className={`px-3 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${selectedClassification === 'focused'
+                                    ? 'bg-blue-100 text-blue-600'
+                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                                    }`}
+                                title="Show focused emails only"
+                            >
+                                <Star className={`h-3.5 w-3.5 ${selectedClassification === 'focused' ? 'fill-current' : ''}`} />
+                                Focused
+                            </button>
+                        </div>
                         <div className="ml-4 flex-1 max-w-md">
                             <EmailFilters filters={filters} setFilters={setFilters} />
                         </div>

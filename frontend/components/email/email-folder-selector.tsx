@@ -12,7 +12,7 @@ import {
 import { useIntegrations } from '@/contexts/integrations-context';
 import type { EmailFolder } from '@/types/api/office';
 import { Provider } from '@/types/api/office';
-import { Archive, Inbox, Mail, Menu, Send, Star, Trash2 } from 'lucide-react';
+import { Archive, Inbox, Mail, Menu, Send, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 // Fallback folders in case API fails
@@ -56,6 +56,7 @@ export function EmailFolderSelector({
 
         try {
             const response = await officeApi.getEmailFolders(activeProviders, true);
+
             if (response.success && response.data) {
                 // The response data contains the folder structure
                 const foldersData = response.data;
@@ -85,6 +86,12 @@ export function EmailFolderSelector({
                     }
 
                     setFolders(apiFolders);
+
+                    // Auto-select inbox folder if it exists and no folder is currently selected
+                    const inboxFolder = apiFolders.find(f => f.label === 'inbox' && f.provider === activeProviders[0]);
+                    if (inboxFolder && !selectedFolder?.provider_folder_id) {
+                        onFolderSelect(inboxFolder);
+                    }
                 } else {
                     console.warn('Unexpected folder data structure, using fallback:', response);
                     setFolders(FALLBACK_FOLDERS);
@@ -122,10 +129,6 @@ export function EmailFolderSelector({
                 return <Trash2 className="h-4 w-4" />;
             case 'archive':
                 return <Archive className="h-4 w-4" />;
-            case 'priority_inbox':
-                return <Star className="h-4 w-4" />;
-            case 'all_inbox':
-                return <Inbox className="h-4 w-4" />;
             default:
                 return <Mail className="h-4 w-4" />;
         }
@@ -174,18 +177,6 @@ export function EmailFolderSelector({
     const sortedFolders = sortFolders(folders);
     const systemFolderCount = sortedFolders.filter(f => f.is_system).length;
 
-    // Check if Microsoft is an active provider
-    const hasMicrosoftProvider = activeProviders?.includes('microsoft') ||
-        activeProviders?.includes(Provider.MICROSOFT) ||
-        false;
-
-    // Create special Microsoft inbox options
-    const microsoftInboxOptions = hasMicrosoftProvider ? [
-        { label: 'priority_inbox', name: 'Priority Inbox', classification: 'focused' }
-        // Removed 'All Inbox' since regular 'Inbox' already shows all emails
-    ] : [];
-
-
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -194,65 +185,6 @@ export function EmailFolderSelector({
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56">
-                {/* Microsoft Priority Inbox options */}
-                {microsoftInboxOptions.map((option) => (
-                    <DropdownMenuItem
-                        key={option.label}
-                        onClick={() => {
-                            // Select the inbox folder but with classification
-                            // Try multiple ways to find the Microsoft inbox folder
-                            let inboxFolder = sortedFolders.find(f =>
-                                f.label === 'inbox' &&
-                                f.provider === Provider.MICROSOFT
-                            );
-
-                            // If not found, try to find any inbox folder if Microsoft is active
-                            if (!inboxFolder && hasMicrosoftProvider) {
-                                inboxFolder = sortedFolders.find(f => f.label === 'inbox');
-                            }
-
-                            // If still not found, try to find any folder that might be the inbox
-                            if (!inboxFolder) {
-                                // Look for folders with inbox-like names
-                                inboxFolder = sortedFolders.find(f =>
-                                    f.name.toLowerCase().includes('inbox') ||
-                                    f.label.toLowerCase().includes('inbox')
-                                );
-                            }
-
-                            // Final fallback: create a virtual inbox folder if Microsoft is active
-                            if (!inboxFolder && hasMicrosoftProvider) {
-                                inboxFolder = {
-                                    label: 'inbox',
-                                    name: 'Inbox',
-                                    provider: Provider.MICROSOFT,
-                                    account_email: '',
-                                    is_system: true,
-                                    provider_folder_id: 'inbox'
-                                };
-                            }
-
-                            if (inboxFolder) {
-                                onFolderSelect(inboxFolder);
-                                onClassificationSelect?.(option.classification);
-                            }
-                        }}
-                        className="flex items-center gap-2 cursor-pointer"
-                    >
-                        {getFolderIcon(option.label)}
-                        <span className={`flex-1 ${selectedFolder?.label === 'inbox' &&
-                            selectedClassification === option.classification ? 'font-bold' : ''
-                            }`}>
-                            {option.name}
-                        </span>
-                    </DropdownMenuItem>
-                ))}
-
-                {/* Add separator if we have Microsoft options */}
-                {microsoftInboxOptions.length > 0 && (
-                    <DropdownMenuSeparator />
-                )}
-
                 {/* Regular folders */}
                 {sortedFolders.map((folder, index) => (
                     <div key={folder.label}>

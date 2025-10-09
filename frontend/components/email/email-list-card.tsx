@@ -188,6 +188,17 @@ const EmailListCard: React.FC<EmailListCardProps> = ({
                             <span className={`${!latestEmail.is_read ? 'font-semibold' : ''}`}>
                                 {latestEmail.subject || '(No subject)'}
                             </span>
+                            {/* Classification Label */}
+                            {latestEmail.inference_classification && (
+                                <span className={`ml-1 px-1 py-0.5 text-xs rounded-full ${latestEmail.inference_classification === 'focused'
+                                        ? 'bg-green-100 text-green-800'
+                                        : latestEmail.inference_classification === 'other'
+                                            ? 'bg-yellow-100 text-yellow-800'
+                                            : 'bg-gray-100 text-gray-800'
+                                    }`}>
+                                    {latestEmail.inference_classification}
+                                </span>
+                            )}
                             {hasMultipleEmails && (
                                 <span className="text-xs text-gray-500 bg-gray-100 px-1 rounded mx-1">
                                     {sortedEmails.length}
@@ -270,6 +281,17 @@ const EmailListCard: React.FC<EmailListCardProps> = ({
                                             </span>
                                             {email.has_attachments && (
                                                 <span className="text-gray-400 text-xs">📎</span>
+                                            )}
+                                            {/* Classification Label */}
+                                            {email.inference_classification && (
+                                                <span className={`px-2 py-1 text-xs rounded-full ${email.inference_classification === 'focused'
+                                                        ? 'bg-green-100 text-green-800'
+                                                        : email.inference_classification === 'other'
+                                                            ? 'bg-yellow-100 text-yellow-800'
+                                                            : 'bg-gray-100 text-gray-800'
+                                                    }`}>
+                                                    {email.inference_classification}
+                                                </span>
                                             )}
                                         </div>
                                         <div className={`text-sm mb-1 ${isUnread ? 'font-semibold' : ''}`}>
@@ -389,6 +411,17 @@ const EmailListCard: React.FC<EmailListCardProps> = ({
                             {/* Line 2: Subject */}
                             <div className={`text-sm mb-1 truncate ${isUnread ? 'font-semibold' : ''}`}>
                                 {email.subject || '(No subject)'}
+                                {/* Classification Label */}
+                                {email.inference_classification && (
+                                    <span className={`ml-2 px-2 py-1 text-xs rounded-full ${email.inference_classification === 'focused'
+                                            ? 'bg-green-100 text-green-800'
+                                            : email.inference_classification === 'other'
+                                                ? 'bg-yellow-100 text-yellow-800'
+                                                : 'bg-gray-100 text-gray-800'
+                                        }`}>
+                                        {email.inference_classification}
+                                    </span>
+                                )}
                             </div>
 
                             {/* Line 3: Body Preview */}

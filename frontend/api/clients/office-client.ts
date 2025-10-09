@@ -99,7 +99,10 @@ export class OfficeClient extends GatewayClient {
         offset?: number,
         noCache?: boolean,
         labels?: string[],
-        folderId?: string
+        folderId?: string,
+        classification?: string,
+        inboxOnly?: boolean,
+        importanceLevel?: string
     ): Promise<EmailMessageList> {
         const params = new URLSearchParams();
 
@@ -110,6 +113,9 @@ export class OfficeClient extends GatewayClient {
         if (noCache) params.append('no_cache', 'true');
         if (labels) labels.forEach(label => params.append('labels', label));
         if (folderId) params.append('folder_id', folderId);
+        if (classification) params.append('classification', classification);
+        if (typeof inboxOnly === 'boolean') params.append('inbox_only', inboxOnly ? 'true' : 'false');
+        if (importanceLevel) params.append('importance_level', importanceLevel);
 
         return this.request<EmailMessageList>(`/api/v1/office/email/messages?${params.toString()}`);
     }

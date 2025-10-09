@@ -239,6 +239,9 @@ def normalize_google_email(
             is_read=is_read,
             has_attachments=has_attachments,
             is_priority=is_priority,
+            derived_category=None,  # Google doesn't use derived_category
+            inference_classification=None,  # Google doesn't have inference classification
+            folder=None,  # Google uses labels instead of folders
             provider=Provider.GOOGLE,
             provider_message_id=message_id,
             account_email=account_email,
@@ -450,6 +453,7 @@ def normalize_microsoft_email(
             has_attachments=has_attachments,
             is_priority=is_priority,
             derived_category=derived_category,
+            inference_classification=inference_classification,
             folder=email_folder,
             provider=Provider.MICROSOFT,
             provider_message_id=message_id,

@@ -109,7 +109,11 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [isInThreadView, setIsInThreadView] = useState(false);
     const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
+    const [selectedClassification, setSelectedClassification] = useState<string>('all');
 
+    const handleClassificationSelect = useCallback((classification: string) => {
+        setSelectedClassification(classification);
+    }, []);
     const { loading: integrationsLoading, activeProviders, hasExpiredButRefreshableTokens } = useIntegrations();
     const { toast } = useToast();
     const { setCurrentDraft, updateDraft, createNewDraft } = useDraftState();
@@ -212,13 +216,33 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
         setSelectedFolder(folder);
         // Clear email selections when folder changes
         setSelectedEmails(new Set());
+        // If switching to inbox, set focused classification by default
+        // If switching to other folders, clear classification
+        if (folder.label === 'inbox') {
+            setSelectedClassification('focused');
+        } else {
+            setSelectedClassification('all');
+        }
     }, []);
+
+    // Apply classification filtering to threads
+    const filteredThreads = React.useMemo(() => {
+        let filtered = threads;
+
+        // Apply classification filtering client-side (focused/other) to mirror Outlook behavior
+        if (selectedFolder.label === 'inbox' && selectedClassification !== 'all') {
+            const target = selectedClassification.toLowerCase();
+            filtered = threads.filter(m => (m.inference_classification || '').toLowerCase() === target);
+        }
+
+        return filtered;
+    }, [threads, selectedFolder.label, selectedClassification]);
 
     // Group emails by thread
     const groupedThreads = React.useMemo(() => {
         const threadMap = new Map<string, EmailMessage[]>();
 
-        threads.forEach(email => {
+        filteredThreads.forEach(email => {
             const threadId = email.thread_id || email.id;
             if (!threadMap.has(threadId)) {
                 threadMap.set(threadId, []);
@@ -244,7 +268,7 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
                 return dateB.getTime() - dateA.getTime();
             })
         }));
-    }, [threads]);
+    }, [filteredThreads]);
 
     // Handle email selection (independent from thread viewing)
     const handleEmailSelect = useCallback((emailId: string, isSelected: boolean) => {
@@ -473,8 +497,14 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
                         <EmailFolderSelector
                             onFolderSelect={handleFolderSelect}
                             selectedFolder={selectedFolder}
+                            selectedClassification={selectedClassification}
+                            onClassificationSelect={handleClassificationSelect}
                         />
-                        <h1 className="text-xl font-semibold">{selectedFolder.name}</h1>
+                        <h1 className="text-xl font-semibold">
+                            {selectedFolder.name}
+                            {selectedClassification === 'focused' && ' (Priority)'}
+                            {selectedClassification === 'other' && ' (Other)'}
+                        </h1>
                         <div className="ml-4 flex-1 max-w-md">
                             <EmailFilters filters={filters} setFilters={setFilters} />
                         </div>

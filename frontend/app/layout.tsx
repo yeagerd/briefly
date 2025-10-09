@@ -1,16 +1,19 @@
 import AuthSessionProvider from '@/components/auth/session-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { ChatPanelProvider } from '@/contexts/chat-panel-context';
+import { ContactsProvider } from '@/contexts/contacts-context';
 import { IntegrationsProvider } from '@/contexts/integrations-context';
 import { OfficeDataProvider } from '@/contexts/office-data-context';
 import { UserPreferencesProvider } from '@/contexts/settings-context';
-import { ContactsProvider } from '@/contexts/contacts-context';
 import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
     title: 'Briefly',
-    description: 'Calendar Intelligence'
+    description: 'Calendar Intelligence',
+    icons: {
+        icon: '/favicon.svg',
+    }
 }
 
 export default function RootLayout({

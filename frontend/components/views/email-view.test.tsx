@@ -139,7 +139,7 @@ describe('EmailView - Select All Functionality', () => {
             );
         });
 
-        await waitFor(() => expect(screen.getByText('Inbox (Priority)')).toBeInTheDocument());
+        await waitFor(() => expect(screen.getByText('Inbox')).toBeInTheDocument());
     });
 
     it('should handle view mode changes correctly', async () => {
@@ -150,6 +150,6 @@ describe('EmailView - Select All Functionality', () => {
                 </OfficeDataProvider>
             );
         });
-        await waitFor(() => expect(screen.getByText('Inbox (Priority)')).toBeInTheDocument());
+        await waitFor(() => expect(screen.getByText('Inbox')).toBeInTheDocument());
     });
 }); 

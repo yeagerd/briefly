@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     title: 'Briefly',
     description: 'Calendar Intelligence',
     icons: {
-        icon: '/favicon.svg?v=2',
+        icon: '/favicon.svg?v=3',
     }
 }
 

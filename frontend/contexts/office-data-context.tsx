@@ -127,6 +127,26 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const MAX_THREAD_CACHE_SIZE = 50;
 
     // Helper functions
+    /**
+     * Creates a unique cache key for an email list scope.
+     * 
+     * Cache Separation Strategy:
+     * Each unique combination of these parameters gets its own cache entry:
+     * - userId: Separate cache per user
+     * - folderId: Separate cache per folder (inbox, sent, etc.)
+     * - folderLabel: Additional folder identification
+     * - query: Separate cache per search query
+     * - pageSize: Separate cache per page size
+     * - labels: Separate cache per label combination
+     * 
+     * NOTE: classification is NOT part of the cache key.
+     * We cache ALL emails for a folder together and do frontend filtering based on
+     * the inference_classification field. This approach:
+     * 1. Works around Microsoft Graph API limitation (can't filter by folder AND classification)
+     * 2. Makes switching between Priority Inbox and regular Inbox instant (no API call)
+     * 3. Reduces cache complexity and prevents race conditions
+     * 4. Simplifies the caching logic
+     */
     const createCacheKey = (scope: EmailScope): string => {
         const parts = [
             scope.userId,
@@ -134,8 +154,8 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             scope.folderLabel || '',
             scope.query || '',
             scope.pageSize?.toString() || '50',
-            (scope.labels || []).sort().join(','),
-            scope.classification || 'all'
+            (scope.labels || []).sort().join(',')
+            // classification removed - we filter in the UI
         ];
         return parts.join('|');
     };
@@ -259,6 +279,17 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                     labels = scope.labels;
                 }
 
+                // Debug: Log what we're sending to the API
+                console.log('[OfficeDataContext] Fetching emails with params:', {
+                    providers,
+                    pageSize: scope.pageSize || 50,
+                    forceRefresh,
+                    labels,
+                    folderId,
+                    folderLabel: scope.folderLabel,
+                    note: 'Classification filtering will be done on frontend'
+                });
+
                 const response = await officeApi.getEmails(
                     providers,
                     scope.pageSize || 50,
@@ -266,7 +297,6 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                     forceRefresh,
                     labels,
                     folderId,
-                    scope.classification, // classification parameter
                     undefined, // inboxOnly
                     undefined  // importanceLevel
                 );

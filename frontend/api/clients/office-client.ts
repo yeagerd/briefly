@@ -100,7 +100,6 @@ export class OfficeClient extends GatewayClient {
         forceRefresh?: boolean,
         labels?: string[],
         folderId?: string,
-        classification?: string,
         inboxOnly?: boolean,
         importanceLevel?: string
     ): Promise<EmailMessageList> {
@@ -113,7 +112,6 @@ export class OfficeClient extends GatewayClient {
         if (forceRefresh) params.append('no_cache', 'true');
         if (labels) labels.forEach(label => params.append('labels', label));
         if (folderId) params.append('folder_id', folderId);
-        if (classification) params.append('classification', classification);
         if (typeof inboxOnly === 'boolean') params.append('inbox_only', inboxOnly ? 'true' : 'false');
         if (importanceLevel) params.append('importance_level', importanceLevel);
 

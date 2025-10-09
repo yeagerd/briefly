@@ -233,6 +233,7 @@ export function EmailFolderSelector({
                             }
 
                             if (inboxFolder) {
+                                console.log('[EmailFolderSelector] Priority Inbox selected, setting classification to:', option.classification);
                                 onFolderSelect(inboxFolder);
                                 onClassificationSelect?.(option.classification);
                             }
@@ -258,12 +259,11 @@ export function EmailFolderSelector({
                     <div key={folder.label}>
                         <DropdownMenuItem
                             onClick={() => {
+                                console.log('[EmailFolderSelector] Regular folder selected:', folder.label, 'setting classification to: all');
                                 onFolderSelect(folder);
-                                // Only reset classification to 'all' for non-inbox folders
-                                // Preserve classification when switching to inbox
-                                if (folder.label !== 'inbox') {
-                                    onClassificationSelect?.('all');
-                                }
+                                // Reset classification to 'all' for all folders
+                                // This ensures regular inbox shows all emails, not just focused/priority
+                                onClassificationSelect?.('all');
                             }}
                             className="flex items-center gap-2 cursor-pointer"
                         >

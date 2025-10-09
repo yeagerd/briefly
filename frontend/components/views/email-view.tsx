@@ -112,6 +112,7 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
     const [selectedClassification, setSelectedClassification] = useState<string>('all');
 
     const handleClassificationSelect = useCallback((classification: string) => {
+        console.log('[EmailView] Classification selected:', classification);
         setSelectedClassification(classification);
     }, []);
     const { loading: integrationsLoading, activeProviders, hasExpiredButRefreshableTokens } = useIntegrations();
@@ -162,8 +163,19 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
 
     // Use provider hooks for email data
     const { labels, folderId } = getFolderParams();
+
+    // Debug: Log what we're passing to useEmailList
+    const classificationParam = selectedClassification !== 'all' ? selectedClassification : undefined;
+    console.log('[EmailView] Calling useEmailList with:', {
+        folderId,
+        folderLabel: selectedFolder.label,
+        selectedClassification,
+        classificationParam,
+        labels
+    });
+
     const {
-        emails: threads,
+        emails: allThreads,
         loading,
         error,
         lastUpdated
@@ -173,9 +185,43 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
         labels,
         pageSize: 50,
         providers: activeProviders || ['google', 'microsoft'],
-        classification: selectedClassification !== 'all' ? selectedClassification : undefined,
+        classification: undefined, // Don't pass classification - we filter on frontend
         autoFetch: activeTool === 'email' && !toolDataLoading && !integrationsLoading
     });
+
+    // Filter threads based on classification (frontend filtering)
+    const threads = React.useMemo(() => {
+        console.log('[EmailView] Filtering threads:', {
+            totalThreads: allThreads.length,
+            selectedClassification,
+            folderLabel: selectedFolder.label
+        });
+
+        // Only filter inbox by classification
+        if (selectedFolder.label !== 'inbox' || selectedClassification === 'all') {
+            return allThreads;
+        }
+
+        // Filter by inference_classification
+        const filtered = allThreads.filter(email => {
+            if (selectedClassification === 'focused') {
+                // Show only focused/priority emails
+                return email.inference_classification === 'focused';
+            } else if (selectedClassification === 'other') {
+                // Show only non-focused emails
+                return email.inference_classification !== 'focused';
+            }
+            return true; // 'all' - show everything
+        });
+
+        console.log('[EmailView] Filtered result:', {
+            originalCount: allThreads.length,
+            filteredCount: filtered.length,
+            classification: selectedClassification
+        });
+
+        return filtered;
+    }, [allThreads, selectedClassification, selectedFolder.label]);
 
     const { runDelta } = useOfficeData();
 
@@ -217,13 +263,8 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
         setSelectedFolder(folder);
         // Clear email selections when folder changes
         setSelectedEmails(new Set());
-        // If switching to inbox, set focused classification by default
-        // If switching to other folders, clear classification
-        if (folder.label === 'inbox') {
-            setSelectedClassification('focused');
-        } else {
-            setSelectedClassification('all');
-        }
+        // Don't automatically set classification here - let the folder selector control it
+        // via explicit onClassificationSelect calls
     }, []);
 
     // Group emails by thread

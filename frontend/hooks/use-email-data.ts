@@ -38,6 +38,26 @@ interface UseEmailThreadReturn {
 
 /**
  * Hook for accessing email list data with caching
+ * 
+ * Cache Separation Strategy:
+ * - The underlying cache (in office-data-context) separates data by:
+ *   - userId: Each user has their own cache
+ *   - folderId/folderLabel: Each folder is cached separately
+ *   - query: Different search queries are cached separately
+ *   - pageSize: Different page sizes are cached separately
+ *   - labels: Different label combinations are cached separately
+ * 
+ * NOTE: classification is NOT part of the cache key. All emails for a folder
+ * are cached together, and filtering by classification (focused/other/all) is
+ * done in the email-view component based on the inference_classification field.
+ * This works around Microsoft Graph API limitations and makes switching between
+ * Priority Inbox and regular Inbox instant.
+ * 
+ * Race Condition Prevention:
+ * - Uses cleanup functions to prevent stale background refreshes from
+ *   overwriting current data when the scope changes
+ * - Checks both the isActive flag (effect cleanup) and lastScopeKeyRef
+ *   (scope hasn't changed) before updating state
  */
 export function useEmailList(options: UseEmailListOptions = {}): UseEmailListReturn {
     const {
@@ -109,31 +129,58 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
                 return;
             }
 
+            // Note: We don't clear emails here anymore since classification filtering
+            // happens in the email-view component. The cache contains all emails for
+            // a folder and we filter on the frontend for instant switching.
+
             lastScopeKeyRef.current = scopeKey;
             fetchingRef.current = true;
+
+            // Track if this effect is still active to prevent stale updates
+            let isActive = true;
 
             const fetchEmails = async () => {
                 try {
                     // First, get cached data immediately (non-blocking)
                     // This returns instantly with cache or empty array
                     const cachedResult = await getEmailListRef.current(scope, providers, false, false);
-                    setEmails(cachedResult);
+
+                    // Only update state if this effect is still active
+                    if (isActive) {
+                        setEmails(cachedResult);
+                    }
 
                     // Always trigger a background refresh to get latest data
                     // Don't await this - let it run in background
                     getEmailListRef.current(scope, providers, true, true).then(freshResult => {
-                        setEmails(freshResult);
-                        fetchingRef.current = false;
+                        // Only update state if this effect is still active and scope hasn't changed
+                        if (isActive && lastScopeKeyRef.current === scopeKey) {
+                            setEmails(freshResult);
+                        }
+                        // Only reset fetching flag if this is still the current scope
+                        if (lastScopeKeyRef.current === scopeKey) {
+                            fetchingRef.current = false;
+                        }
                     }).catch(error => {
                         console.error('Background refresh failed:', error);
-                        fetchingRef.current = false;
+                        // Only reset fetching flag if this is still the current scope
+                        if (lastScopeKeyRef.current === scopeKey) {
+                            fetchingRef.current = false;
+                        }
                     });
                 } catch (error) {
                     console.error('Failed to fetch emails:', error);
-                    fetchingRef.current = false;
+                    if (lastScopeKeyRef.current === scopeKey) {
+                        fetchingRef.current = false;
+                    }
                 }
             };
             fetchEmails();
+
+            // Cleanup function to prevent stale updates when scope changes
+            return () => {
+                isActive = false;
+            };
         }
     }, [scope, providers, autoFetch]);
 
@@ -166,6 +213,15 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
 
 /**
  * Hook for accessing individual email thread data with caching
+ * 
+ * Cache Separation Strategy:
+ * - Threads are cached separately by threadId and includeBody flag
+ * - This ensures that requests with/without body content don't interfere
+ * 
+ * Race Condition Prevention:
+ * - Uses cleanup functions to prevent stale background refreshes from
+ *   overwriting current data when the threadId or includeBody changes
+ * - Only updates state if the effect is still active (not cleaned up)
  */
 export function useEmailThread(threadId: string | null, options: UseEmailThreadOptions = {}): UseEmailThreadReturn {
     const {
@@ -194,17 +250,30 @@ export function useEmailThread(threadId: string | null, options: UseEmailThreadO
     // Fetch thread when threadId changes
     useEffect(() => {
         if (threadId && autoFetch) {
+            // Create a unique key for this thread request
+            const requestKey = `${threadId}|${includeBody}`;
+
+            // Track if this effect is still active to prevent stale updates
+            let isActive = true;
+
             const fetchThread = async () => {
                 try {
                     // First, get cached data immediately (non-blocking)
                     // This returns instantly with cache or null
                     const cachedResult = await getEmailThreadRef.current(threadId, includeBody, false, false);
-                    setThread(cachedResult);
+
+                    // Only update state if this effect is still active
+                    if (isActive) {
+                        setThread(cachedResult);
+                    }
 
                     // Always trigger background refresh to get latest data
                     // Don't await this - let it run in background
                     getEmailThreadRef.current(threadId, includeBody, true, true).then(freshResult => {
-                        setThread(freshResult);
+                        // Only update state if this effect is still active
+                        if (isActive) {
+                            setThread(freshResult);
+                        }
                     }).catch(error => {
                         console.error('Background refresh failed:', error);
                     });
@@ -213,6 +282,11 @@ export function useEmailThread(threadId: string | null, options: UseEmailThreadO
                 }
             };
             fetchThread();
+
+            // Cleanup function to prevent stale updates when threadId or includeBody changes
+            return () => {
+                isActive = false;
+            };
         }
     }, [threadId, includeBody, autoFetch]);
 

@@ -7,14 +7,24 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useDraftContext } from '@/contexts/draft-context';
+import { DraftContext } from '@/contexts/draft-context';
 import { DraftType } from '@/types/draft';
 import { Calendar, FileText, Mail, Plus } from 'lucide-react';
 import { useSession } from 'next-auth/react';
+import { useContext } from 'react';
 
 export function NavbarActionMenu() {
     const { data: session } = useSession();
-    const { createNewDraft } = useDraftContext();
+
+    // Check if we're within a DraftProvider context
+    const draftContext = useContext(DraftContext);
+
+    // If not in DraftProvider context, don't render the menu
+    if (!draftContext) {
+        return null;
+    }
+
+    const { createNewDraft } = draftContext;
 
     const handleCreateDraft = (type: DraftType) => {
         if (session?.user?.email) {

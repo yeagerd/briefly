@@ -91,7 +91,7 @@ interface DraftContextType {
     createNewDraft: (type: DraftType, userId: string) => Draft;
 }
 
-const DraftContext = createContext<DraftContextType | undefined>(undefined);
+export const DraftContext = createContext<DraftContextType | undefined>(undefined);
 
 export function DraftProvider({ children }: { children: ReactNode }) {
     const [state, dispatch] = useReducer(draftReducer, initialState);

@@ -164,7 +164,9 @@ export function IntegrationsContent() {
             // setPreferredProvider(config.provider); // This line was removed
 
             // Redirect to OAuth provider
-            window.location.href = response.authorization_url;
+            if (typeof window !== 'undefined' && window.location) {
+                window.location.href = response.authorization_url;
+            }
         } catch (error: unknown) {
             console.error('Failed to start OAuth flow:', error);
             // error is now handled by the global context

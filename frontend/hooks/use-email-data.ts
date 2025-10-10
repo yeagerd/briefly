@@ -145,7 +145,6 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
                     if (cachedEmails.length > 0) {
                         // We have cached data, use incremental delta sync
                         // This will fetch the latest messages and merge with cache
-                        console.log(`[EmailLoader] Using delta sync for ${scope.folderLabel || 'folder'} (${cachedEmails.length} cached emails)`);
                         runDeltaRef.current(scope, providers).then(() => {
                             if (lastScopeKeyRef.current === scopeKey) {
                                 fetchingRef.current = false;
@@ -158,7 +157,6 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
                         });
                     } else {
                         // No cache, do a full fetch
-                        console.log(`[EmailLoader] Full fetch for ${scope.folderLabel || 'folder'} (no cached emails)`);
                         getEmailListRef.current(scope, providers, true, true).then(() => {
                             if (lastScopeKeyRef.current === scopeKey) {
                                 fetchingRef.current = false;

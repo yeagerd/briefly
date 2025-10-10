@@ -293,12 +293,11 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 const maxPages = 10; // Safety limit to prevent infinite loops
 
                 if (isInbox) {
-                    console.log(`[EmailLoader] Starting inbox load - target: ${targetFocusedCount} focused emails`);
+                    // Starting inbox load - target: focused emails
                 }
 
                 // Keep fetching pages until we have enough focused emails (for inbox only)
                 while (hasMore && pagesFetched < maxPages) {
-                    console.log(`[EmailLoader] Fetching page ${pagesFetched + 1} for ${scope.folderLabel || 'folder'} (folderId: ${folderId || 'none'}, labels: ${labels?.join(',') || 'none'})`);
 
                     const response = await officeApi.getEmailMessages(
                         providers,
@@ -341,7 +340,6 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                         // Preserve prevCursor from FIRST page only (for delta sync to check for newer emails)
                         if (pagesFetched === 0) {
                             prevCursorFromFirstPage = response.data.prev_cursor || undefined;
-                            console.log(`[EmailLoader] Stored prevCursor from first page: ${prevCursorFromFirstPage || 'null (at newest)'}`);
                         }
 
                         hasMore = !!nextCursor;
@@ -349,8 +347,6 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
                         const focusedInPage = messages.filter(msg => msg.inference_classification === 'focused').length;
                         const totalFocused = allMessages.filter(msg => msg.inference_classification === 'focused').length;
-
-                        console.log(`[EmailLoader] Page ${pagesFetched} loaded: ${originalCount} messages (${messages.length} after filtering), ${focusedInPage} focused in page, ${totalFocused} total focused, hasMore: ${hasMore}`);
 
                         // Find the newest email date for efficient delta checks
                         const newestEmailDate = allMessages.length > 0
@@ -382,15 +378,12 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                         // For inbox, check if we have enough focused emails
                         if (isInbox) {
                             if (totalFocused >= targetFocusedCount) {
-                                console.log(`[EmailLoader] ✓ Target reached: ${totalFocused}/${targetFocusedCount} focused emails after ${pagesFetched} pages`);
                                 break;
                             } else if (!hasMore) {
-                                console.log(`[EmailLoader] ⚠ No more pages available. Got ${totalFocused}/${targetFocusedCount} focused emails after ${pagesFetched} pages`);
                                 break;
                             }
                         } else {
                             // For non-inbox folders, just load one page
-                            console.log(`[EmailLoader] Non-inbox folder - stopping after first page`);
                             break;
                         }
                     } else {
@@ -400,7 +393,7 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
                 if (pagesFetched >= maxPages) {
                     const totalFocused = allMessages.filter(msg => msg.inference_classification === 'focused').length;
-                    console.log(`[EmailLoader] ⚠ Max pages limit reached (${maxPages}). Got ${totalFocused}/${targetFocusedCount} focused emails`);
+                    // Max pages limit reached
                 }
 
                 // Store cursor token for future delta sync
@@ -696,7 +689,6 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const timeSinceLastFetch = Date.now() - currentCache.timestamp;
         const MIN_DELTA_INTERVAL = 10 * 1000; // 10 seconds
         if (timeSinceLastFetch < MIN_DELTA_INTERVAL) {
-            console.log(`[Delta] ⏭️ Skipping delta check - last fetched ${Math.floor(timeSinceLastFetch / 1000)}s ago (min interval: ${MIN_DELTA_INTERVAL / 1000}s)`);
             return Promise.resolve();
         }
 
@@ -716,14 +708,10 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
                 if (prevCursor) {
                     // We have a prevCursor - use it to go backwards (to newer emails)
-                    console.log(`[Delta] ✓ Using prevCursor to fetch emails newer than cache (cursor-based delta)`);
                 } else {
                     // No prevCursor - we started from the newest page (cursor_info was null initially)
                     // Backend only returns prev_cursor if we've paginated forward first
                     // Use after_date to fetch only emails newer than our cache
-                    console.log(`[Delta] ℹ️ No prevCursor from backend (first page fetch) - using after_date filter`, {
-                        newestCached: cachedNewestDate ? new Date(cachedNewestDate).toISOString() : 'none'
-                    });
                 }
 
                 const response = await officeApi.getEmailMessages(
@@ -814,11 +802,9 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                             : undefined;
 
                         if (actuallyNewCount > 0) {
-                            console.log(`[Delta] ✓ Found ${actuallyNewCount} new messages (fetched ${messages.length}, had ${existingMessages.length} cached). Total: ${mergedMessages.length}`, {
-                                newestDate: newestEmailDate ? new Date(newestEmailDate).toISOString() : 'none'
-                            });
+                            // Found new messages
                         } else {
-                            console.log(`[Delta] ✓ No new messages (fetched ${messages.length}, all already cached). Total: ${mergedMessages.length}`);
+                            // No new messages
                         }
 
                         // Update cursors appropriately
@@ -856,7 +842,6 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 // Check if token is invalid (410/expired)
                 if (error instanceof Error && error.message.includes('410')) {
                     // Token invalid, need to re-seed
-                    console.log('Delta token invalid, re-seeding scope');
 
                     // Update metrics for token invalidation
                     setDeltaMetrics(prev => {

@@ -32,7 +32,6 @@ export function CalendarTest() {
 
             if (response.success && response.data) {
                 setEvents(response.data || [])
-                console.log('Calendar test response:', response)
             } else {
                 setError('API call failed')
             }

@@ -68,18 +68,12 @@ export const authOptions: NextAuthOptions = {
             }
 
             // Debug logging
-            console.log('BFF Debug - Environment variables:', {
-                userServiceBase,
-                hasApiKey: !!apiKey,
-                provider,
-                email
-            });
 
             try {
                 // 1. Check if user exists using the new endpoint (no 404 errors)
                 let backendUser = null;
                 const existsUrl = `${userServiceBase}/v1/internal/users/exists?email=${encodeURIComponent(email)}&provider=${encodeURIComponent(provider)}`;
-                console.log('BFF Debug - EXISTS URL:', existsUrl);
+                // Debug EXISTS URL
 
                 const existsRes = await fetch(existsUrl, {
                     method: 'GET',
@@ -89,11 +83,11 @@ export const authOptions: NextAuthOptions = {
                     },
                 });
 
-                console.log('BFF Debug - EXISTS response:', existsRes.status);
+                // Debug EXISTS response
 
                 if (existsRes.ok) {
                     const existsData = await existsRes.json();
-                    console.log('BFF Debug - User exists check:', existsData);
+                    // Debug user exists check
 
                     if (existsData.exists) {
                         // User exists, get full user data using the original endpoint
@@ -108,7 +102,7 @@ export const authOptions: NextAuthOptions = {
 
                         if (getRes.ok) {
                             backendUser = await getRes.json();
-                            console.log('BFF Debug - Found user:', { id: backendUser.id, email: backendUser.email });
+                            // Debug found user
                         } else {
                             const errorText = await getRes.text();
                             throw new Error(`Failed to fetch user from user service: ${getRes.status} ${errorText}`);
@@ -125,7 +119,7 @@ export const authOptions: NextAuthOptions = {
                             last_name: user.name?.split(' ').slice(1).join(' ') || '',
                             profile_image_url: user.image || null,
                         };
-                        console.log('BFF Debug - Creating user:', userData);
+                        // Debug creating user
 
                         const postRes = await fetch(postUrl, {
                             method: 'POST',
@@ -136,12 +130,12 @@ export const authOptions: NextAuthOptions = {
                             body: JSON.stringify(userData),
                         });
 
-                        console.log('BFF Debug - POST response:', postRes.status);
+                        // Debug POST response
 
                         if (postRes.ok) {
                             const response = await postRes.json();
                             backendUser = response.user; // Extract user from the new response format
-                            console.log('BFF Debug - Created user:', { id: backendUser.id, email: backendUser.email });
+                            // Debug created user
                         } else {
                             const errorText = await postRes.text();
                             throw new Error(`Failed to create user in user service: ${postRes.status} ${errorText}`);
@@ -158,7 +152,7 @@ export const authOptions: NextAuthOptions = {
                 }
 
                 user.id = backendUser.external_auth_id;
-                console.log('BFF Debug - Set user.id to:', user.id);
+                // Debug set user.id
 
             } catch (error) {
                 console.error('Error in user-service user lookup/creation:', error);

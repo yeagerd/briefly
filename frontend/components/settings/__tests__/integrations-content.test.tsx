@@ -239,6 +239,9 @@ describe('IntegrationsContent', () => {
 
     describe('Scope Loading and State Management', () => {
         it('should handle API errors gracefully when loading scopes', async () => {
+            // Suppress console.error for this test since we're intentionally testing error handling
+            const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
+
             (userApi.getProviderScopes as jest.Mock).mockRejectedValue(new Error('API Error'));
 
             render(<IntegrationsContent />);
@@ -253,6 +256,9 @@ describe('IntegrationsContent', () => {
 
             // Scope selector should render with empty scopes array
             expect(screen.getByText('Selected Permissions')).toBeInTheDocument();
+
+            // Restore console.error
+            consoleSpy.mockRestore();
         });
 
         it('should convert read-only scopes to read-write scopes', async () => {

@@ -48,7 +48,7 @@ export function DraftPane({ className, draft, onUpdate, onMetadataChange, onType
             onActionComplete(action, success);
         }
         if (success) {
-            console.log(`${action} completed successfully`);
+            // Action completed successfully
             // TODO: Handle successful actions (e.g., close draft, show success message)
         } else {
             console.error(`${action} failed`);

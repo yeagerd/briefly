@@ -142,7 +142,7 @@ export function CalendarGridEvent({ event, day, effectiveTimezone }: CalendarGri
             onClick={(e) => {
                 e.stopPropagation();
                 // Future: Open event details modal
-                console.log('Event clicked:', event.title);
+                // Event clicked
             }}
             title={`${event.title} - ${formatEventTime()}`}
         >

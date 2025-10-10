@@ -935,7 +935,7 @@ class TestFetchProviderEmails:
             "req_123", "test_user", "google", 10, False, None, None, None, None
         )
 
-        messages, provider = result
+        messages, provider, has_more = result
         assert len(messages) == 1
         assert provider == "google"
         assert messages[0] == mock_email_message
@@ -966,7 +966,7 @@ class TestFetchProviderEmails:
             "req_123", "test_user", "microsoft", 10, False, None, None, None, None
         )
 
-        messages, provider = result
+        messages, provider, has_more = result
         assert len(messages) == 1
         assert provider == "microsoft"
         assert messages[0] == mock_email_message

@@ -1,10 +1,10 @@
 "use client";
 
+import type { BookingLink } from "@/api";
+import { bookingsApi } from "@/api";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { bookingsApi } from "@/api";
-import type { BookingLink } from "@/api";
 import { CheckCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -760,7 +760,7 @@ export default function BookingsPage() {
 
     const toggleLinkStatus = async (linkId: string) => {
         try {
-            console.log('Toggling link status for:', linkId);
+            // Toggling link status
 
             // Optimistically update the UI for better user experience
             setExistingLinks(prev => prev.map(link =>
@@ -769,8 +769,8 @@ export default function BookingsPage() {
                     : link
             ));
 
-            const result = await bookingsApi.toggleBookingLink(linkId);
-            console.log('Toggle API response:', result);
+            await bookingsApi.toggleBookingLink(linkId);
+            // Toggle API response
 
             // Refresh the links list to ensure consistency with backend
             await fetchLinks();

@@ -346,7 +346,7 @@ const ContactAnalyticsDashboard: React.FC<ContactAnalyticsProps> = ({ onClose, c
                 <Button
                     onClick={() => {
                         // Export analytics data
-                        console.log('Exporting analytics data...');
+                        // Exporting analytics data
                     }}
                 >
                     Export Data

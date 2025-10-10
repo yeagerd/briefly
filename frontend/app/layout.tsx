@@ -13,9 +13,9 @@ export const metadata: Metadata = {
     description: 'Calendar Intelligence',
     icons: {
         icon: [
-            { url: '/favicon.svg?v=8', type: 'image/svg+xml', media: '(prefers-color-scheme: light)' },
-            { url: '/favicon-dark.svg?v=8', type: 'image/svg+xml', media: '(prefers-color-scheme: dark)' },
-            { url: '/favicon.svg?v=8', type: 'image/svg+xml' }
+            { url: '/favicon.svg?v=9', type: 'image/svg+xml', media: '(prefers-color-scheme: light)' },
+            { url: '/favicon-dark.svg?v=9', type: 'image/svg+xml', media: '(prefers-color-scheme: dark)' },
+            { url: '/favicon.svg?v=9', type: 'image/svg+xml' }
         ],
     }
 }

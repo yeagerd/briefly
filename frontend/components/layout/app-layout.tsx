@@ -131,9 +131,8 @@ export function AppLayout({ sidebar, main, draft, draftPane, hasActiveDraft = fa
                                     <ResizablePanel
                                         id="chat-panel"
                                         order={2}
-                                        minSize={20}
+                                        minSize={25}
                                         defaultSize={chatSize}
-                                        collapsible
                                         className="h-full border-l bg-card"
                                     >
                                         <div className="h-full overflow-auto" ref={chatPaneRef}>

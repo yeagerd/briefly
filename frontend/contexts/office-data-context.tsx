@@ -15,7 +15,9 @@ interface CacheEntry<T> {
 
 interface EmailListCacheEntry extends CacheEntry<EmailMessage[]> {
     hasMore: boolean;
-    pageToken?: string;
+    nextCursor?: string;  // For loading older emails
+    prevCursor?: string;  // For loading newer emails (delta sync) - only exists if we've paginated
+    newestEmailDate?: string;  // Date of newest email in cache - for efficient delta checks
 }
 
 interface EmailThreadCacheEntry extends CacheEntry<EmailThread> {
@@ -63,6 +65,7 @@ interface OfficeDataContextType {
 
     // Email Lists
     getEmailList: (scope: EmailScope, providers: string[], forceRefresh?: boolean, isBackground?: boolean) => Promise<EmailMessage[]>;
+    getEmailListCached: (scope: EmailScope) => EmailMessage[];
     getEmailListLoading: (scope: EmailScope) => boolean;
     getEmailListError: (scope: EmailScope) => string | null;
     refreshEmailList: (scope: EmailScope, providers: string[]) => Promise<void>;
@@ -279,72 +282,140 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                     labels = scope.labels;
                 }
 
-                const response = await officeApi.getEmails(
-                    providers,
-                    scope.pageSize || 50,
-                    undefined, // offset
-                    forceRefresh,
-                    labels,
-                    folderId,
-                    undefined, // inboxOnly
-                    undefined  // importanceLevel
-                );
+                // For inbox, we need to load enough pages to get 50 focused emails
+                const isInbox = scope.folderLabel === 'inbox';
+                const targetFocusedCount = 50;
+                let allMessages: EmailMessage[] = [];
+                let nextCursor: string | undefined;
+                let prevCursorFromFirstPage: string | undefined; // Preserve from first page only!
+                let hasMore = true;
+                let pagesFetched = 0;
+                const maxPages = 10; // Safety limit to prevent infinite loops
 
-                if (response.success && response.data?.messages) {
-                    let messages = response.data.messages;
-
-                    // Apply client-side filtering for inbox and sent folders
-                    if (scope.folderLabel === 'inbox' || scope.folderLabel === 'sent') {
-                        const userEmail = session.user.email;
-                        if (userEmail) {
-                            messages = messages.filter(msg => {
-                                if (scope.folderLabel === 'inbox') {
-                                    // For inbox: show messages where user is recipient (in "to" field, not "from")
-                                    const isInToField = msg.to_addresses?.some(addr => addr.email === userEmail) || false;
-                                    const isFromUser = msg.from_address?.email === userEmail;
-                                    return isInToField && !isFromUser;
-                                } else if (scope.folderLabel === 'sent') {
-                                    // For sent: show messages where user is sender (in "from" field)
-                                    const isFromUser = msg.from_address?.email === userEmail;
-                                    return isFromUser;
-                                }
-                                return true;
-                            });
-                        }
-                    }
-
-                    // Update cache
-                    const cacheEntry: EmailListCacheEntry = {
-                        data: messages,
-                        timestamp: Date.now(),
-                        ttl: LIST_TTL,
-                        hasMore: response.data.has_next || false,
-                        pageToken: response.data.next_cursor || undefined
-                    };
-
-                    setListCache(prev => {
-                        const newCache = new Map(prev);
-                        newCache.set(cacheKey, cacheEntry);
-                        evictLRU(newCache, MAX_LIST_CACHE_SIZE);
-                        return newCache;
-                    });
-
-                    // Store cursor token for future delta sync
-                    if (response.data?.next_cursor) {
-                        setDeltaTokenByScope(prev => {
-                            const newMap = new Map(prev);
-                            newMap.set(cacheKey, {
-                                token: response.data!.next_cursor!,
-                                lastSuccessfulSyncAt: Date.now()
-                            });
-                            return newMap;
-                        });
-                    }
-
-                    return messages;
-                } else {
-                    throw new Error('Failed to fetch email list');
+                if (isInbox) {
+                    console.log(`[EmailLoader] Starting inbox load - target: ${targetFocusedCount} focused emails`);
                 }
+
+                // Keep fetching pages until we have enough focused emails (for inbox only)
+                while (hasMore && pagesFetched < maxPages) {
+                    console.log(`[EmailLoader] Fetching page ${pagesFetched + 1} for ${scope.folderLabel || 'folder'} (folderId: ${folderId || 'none'}, labels: ${labels?.join(',') || 'none'})`);
+
+                    const response = await officeApi.getEmailMessages(
+                        providers,
+                        scope.pageSize || 50,
+                        labels,
+                        folderId,
+                        undefined, // query
+                        nextCursor, // page token
+                        'next', // direction
+                        forceRefresh
+                    );
+
+                    if (response.success && response.data?.messages) {
+                        let messages = response.data.messages;
+                        const originalCount = messages.length;
+
+                        // Apply client-side filtering for inbox and sent folders
+                        if (scope.folderLabel === 'inbox' || scope.folderLabel === 'sent') {
+                            const userEmail = session.user.email;
+                            if (userEmail) {
+                                messages = messages.filter(msg => {
+                                    if (scope.folderLabel === 'inbox') {
+                                        // For inbox: show messages where user is recipient (in "to" field, not "from")
+                                        const isInToField = msg.to_addresses?.some(addr => addr.email === userEmail) || false;
+                                        const isFromUser = msg.from_address?.email === userEmail;
+                                        return isInToField && !isFromUser;
+                                    } else if (scope.folderLabel === 'sent') {
+                                        // For sent: show messages where user is sender (in "from" field)
+                                        const isFromUser = msg.from_address?.email === userEmail;
+                                        return isFromUser;
+                                    }
+                                    return true;
+                                });
+                            }
+                        }
+
+                        allMessages.push(...messages);
+                        nextCursor = response.data.next_cursor || undefined;
+
+                        // Preserve prevCursor from FIRST page only (for delta sync to check for newer emails)
+                        if (pagesFetched === 0) {
+                            prevCursorFromFirstPage = response.data.prev_cursor || undefined;
+                            console.log(`[EmailLoader] Stored prevCursor from first page: ${prevCursorFromFirstPage || 'null (at newest)'}`);
+                        }
+
+                        hasMore = !!nextCursor;
+                        pagesFetched++;
+
+                        const focusedInPage = messages.filter(msg => msg.inference_classification === 'focused').length;
+                        const totalFocused = allMessages.filter(msg => msg.inference_classification === 'focused').length;
+
+                        console.log(`[EmailLoader] Page ${pagesFetched} loaded: ${originalCount} messages (${messages.length} after filtering), ${focusedInPage} focused in page, ${totalFocused} total focused, hasMore: ${hasMore}`);
+
+                        // Find the newest email date for efficient delta checks
+                        const newestEmailDate = allMessages.length > 0
+                            ? allMessages.reduce((newest, msg) => {
+                                const msgDate = new Date(msg.date);
+                                const newestDate = new Date(newest);
+                                return msgDate > newestDate ? msg.date : newest;
+                            }, allMessages[0].date)
+                            : undefined;
+
+                        // Update cache with current progress after each page
+                        const cacheEntry: EmailListCacheEntry = {
+                            data: [...allMessages], // Create a copy to avoid reference issues
+                            timestamp: Date.now(),
+                            ttl: LIST_TTL,
+                            hasMore: hasMore,
+                            nextCursor: nextCursor,  // For loading older emails (updated with each page)
+                            prevCursor: prevCursorFromFirstPage,  // For loading newer emails (preserved from first page)
+                            newestEmailDate: newestEmailDate  // For detecting which emails are truly new
+                        };
+
+                        setListCache(prev => {
+                            const newCache = new Map(prev);
+                            newCache.set(cacheKey, cacheEntry);
+                            evictLRU(newCache, MAX_LIST_CACHE_SIZE);
+                            return newCache;
+                        });
+
+                        // For inbox, check if we have enough focused emails
+                        if (isInbox) {
+                            if (totalFocused >= targetFocusedCount) {
+                                console.log(`[EmailLoader] ✓ Target reached: ${totalFocused}/${targetFocusedCount} focused emails after ${pagesFetched} pages`);
+                                break;
+                            } else if (!hasMore) {
+                                console.log(`[EmailLoader] ⚠ No more pages available. Got ${totalFocused}/${targetFocusedCount} focused emails after ${pagesFetched} pages`);
+                                break;
+                            }
+                        } else {
+                            // For non-inbox folders, just load one page
+                            console.log(`[EmailLoader] Non-inbox folder - stopping after first page`);
+                            break;
+                        }
+                    } else {
+                        throw new Error('Failed to fetch email list');
+                    }
+                }
+
+                if (pagesFetched >= maxPages) {
+                    const totalFocused = allMessages.filter(msg => msg.inference_classification === 'focused').length;
+                    console.log(`[EmailLoader] ⚠ Max pages limit reached (${maxPages}). Got ${totalFocused}/${targetFocusedCount} focused emails`);
+                }
+
+                // Store cursor token for future delta sync
+                if (nextCursor) {
+                    setDeltaTokenByScope(prev => {
+                        const newMap = new Map(prev);
+                        newMap.set(cacheKey, {
+                            token: nextCursor,
+                            lastSuccessfulSyncAt: Date.now()
+                        });
+                        return newMap;
+                    });
+                }
+
+                return allMessages;
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : 'Failed to fetch email list';
                 setListErrors(prev => new Map(prev).set(cacheKey, errorMessage));
@@ -371,6 +442,12 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         inflightRequests.current.set(inflightKey, requestPromise);
         return requestPromise;
     }, []);
+
+    const getEmailListCached = useCallback((scope: EmailScope): EmailMessage[] => {
+        const cacheKey = createCacheKey(scope);
+        const cached = listCache.get(cacheKey);
+        return cached?.data || [];
+    }, [listCache]);
 
     const getEmailListLoading = useCallback((scope: EmailScope): boolean => {
         const cacheKey = createCacheKey(scope);
@@ -535,11 +612,22 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
                 let allMessages: EmailMessage[] = [];
                 let nextCursor: string | undefined;
+                let prevCursor: string | undefined;
 
                 if (response.data) {
                     allMessages = response.data.messages;
                     nextCursor = response.data.next_cursor || undefined;
+                    prevCursor = response.data.prev_cursor || undefined;
                 }
+
+                // Find the newest email date
+                const newestEmailDate = allMessages.length > 0
+                    ? allMessages.reduce((newest, msg) => {
+                        const msgDate = new Date(msg.date);
+                        const newestDate = new Date(newest);
+                        return msgDate > newestDate ? msg.date : newest;
+                    }, allMessages[0].date)
+                    : undefined;
 
                 // Update cache with seeded data
                 setListCache(prev => {
@@ -549,7 +637,9 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                         timestamp: Date.now(),
                         ttl: LIST_TTL,
                         hasMore: !!nextCursor,
-                        pageToken: nextCursor
+                        nextCursor: nextCursor,
+                        prevCursor: prevCursor,
+                        newestEmailDate: newestEmailDate
                     });
                     return newCache;
                 });
@@ -595,10 +685,19 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             return deltaInflightByScope.current.get(scopeKey)!;
         }
 
-        const deltaToken = deltaTokenByScope.get(scopeKey);
-        if (!deltaToken) {
-            // No token available, need to seed first
+        // Check if we have cached data - if not, do a full fetch instead
+        const currentCache = listCacheRef.current.get(scopeKey);
+        if (!currentCache || currentCache.data.length === 0) {
+            // No cache, need to seed first
             return seedScope(scope, providers);
+        }
+
+        // Skip delta check if we fetched very recently (within last 10 seconds)
+        const timeSinceLastFetch = Date.now() - currentCache.timestamp;
+        const MIN_DELTA_INTERVAL = 10 * 1000; // 10 seconds
+        if (timeSinceLastFetch < MIN_DELTA_INTERVAL) {
+            console.log(`[Delta] ⏭️ Skipping delta check - last fetched ${Math.floor(timeSinceLastFetch / 1000)}s ago (min interval: ${MIN_DELTA_INTERVAL / 1000}s)`);
+            return Promise.resolve();
         }
 
         const deltaPromise = (async () => {
@@ -611,23 +710,52 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                     throw new Error('No session found');
                 }
 
-                // Call messages endpoint with stored cursor for incremental sync
+                // Use prevCursor if available to fetch newer emails, otherwise fetch latest page
+                const prevCursor = currentCache.prevCursor;
+                const cachedNewestDate = currentCache.newestEmailDate;
+
+                if (prevCursor) {
+                    // We have a prevCursor - use it to go backwards (to newer emails)
+                    console.log(`[Delta] ✓ Using prevCursor to fetch emails newer than cache (cursor-based delta)`);
+                } else {
+                    // No prevCursor - we started from the newest page (cursor_info was null initially)
+                    // Backend only returns prev_cursor if we've paginated forward first
+                    // Use after_date to fetch only emails newer than our cache
+                    console.log(`[Delta] ℹ️ No prevCursor from backend (first page fetch) - using after_date filter`, {
+                        newestCached: cachedNewestDate ? new Date(cachedNewestDate).toISOString() : 'none'
+                    });
+                }
+
                 const response = await officeApi.getEmailMessages(
                     providers,
                     scope.pageSize || 50,
                     scope.labels,
                     scope.folderId,
                     scope.query,
-                    deltaToken.token, // use stored cursor as page token
-                    "next", // forward direction
-                    true // no cache for fresh data
+                    prevCursor, // Use prevCursor if available, undefined to get latest page
+                    prevCursor ? "previous" : "next", // Use "previous" direction if we have a cursor
+                    true, // no cache for fresh data
+                    prevCursor ? undefined : cachedNewestDate // Use after_date only when no cursor
                 );
 
                 if (response.data) {
-                    const { messages, next_cursor } = response.data;
+                    const { messages, next_cursor, prev_cursor } = response.data;
                     const duration = Date.now() - startTime;
 
-                    // Update metrics
+                    // First, check which messages are truly new by comparing with cache
+                    const currentEntry = listCacheRef.current.get(scopeKey);
+                    const existingMessages = currentEntry?.data || [];
+                    const existingById = new Map(existingMessages.map(msg => [msg.id, msg]));
+
+                    // Track which messages are truly new (not already in cache)
+                    let actuallyNewCount = 0;
+                    messages.forEach(msg => {
+                        if (!existingById.has(msg.id)) {
+                            actuallyNewCount++;
+                        }
+                    });
+
+                    // Update metrics with actual new count
                     setDeltaMetrics(prev => {
                         const newMap = new Map(prev);
                         const currentMetrics = newMap.get(scopeKey) || {
@@ -642,31 +770,72 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                         newMap.set(scopeKey, {
                             ...currentMetrics,
                             duration: currentMetrics.duration + duration,
-                            createdCount: currentMetrics.createdCount + messages.length,
-                            updatedCount: currentMetrics.updatedCount + 0, // No separate updated count
-                            deletedCount: currentMetrics.deletedCount + 0, // No separate deleted count
+                            createdCount: currentMetrics.createdCount + actuallyNewCount,
+                            updatedCount: currentMetrics.updatedCount + (messages.length - actuallyNewCount), // Messages we already had
+                            deletedCount: currentMetrics.deletedCount + 0,
+                            tokenInvalidations: currentMetrics.tokenInvalidations,
                             avoidedFullFetches: currentMetrics.avoidedFullFetches + 1
                         });
                         return newMap;
                     });
 
-                    // Update cache with new messages (replace existing data for incremental sync)
+                    // Update cache with new messages (merge/prepend new messages to existing cache)
                     setListCache(prev => {
                         const newCache = new Map(prev);
                         const currentEntry = newCache.get(scopeKey);
+                        const existingMessages = currentEntry?.data || [];
 
-                        // For incremental sync, we replace the existing data with the new messages
-                        // since the pagination endpoint returns the next set of messages
-                        const updatedMessages = messages.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                        // Create a map of existing messages by ID for deduplication
+                        const existingById = new Map(existingMessages.map(msg => [msg.id, msg]));
 
-                        newCache.set(scopeKey, {
+                        // Track which messages are truly new (not already in cache)
+                        let actuallyNewCount = 0;
+
+                        // Add or update messages from the delta response
+                        messages.forEach(msg => {
+                            const isNew = !existingById.has(msg.id);
+                            if (isNew) {
+                                actuallyNewCount++;
+                            }
+                            existingById.set(msg.id, msg);
+                        });
+
+                        // Convert back to array and sort by date (newest first)
+                        const mergedMessages = Array.from(existingById.values())
+                            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                        // Update newest email date
+                        const newestEmailDate = mergedMessages.length > 0
+                            ? mergedMessages.reduce((newest, msg) => {
+                                const msgDate = new Date(msg.date);
+                                const newestDate = new Date(newest);
+                                return msgDate > newestDate ? msg.date : newest;
+                            }, mergedMessages[0].date)
+                            : undefined;
+
+                        if (actuallyNewCount > 0) {
+                            console.log(`[Delta] ✓ Found ${actuallyNewCount} new messages (fetched ${messages.length}, had ${existingMessages.length} cached). Total: ${mergedMessages.length}`, {
+                                newestDate: newestEmailDate ? new Date(newestEmailDate).toISOString() : 'none'
+                            });
+                        } else {
+                            console.log(`[Delta] ✓ No new messages (fetched ${messages.length}, all already cached). Total: ${mergedMessages.length}`);
+                        }
+
+                        // Update cursors appropriately
+                        // If we fetched newer emails (used prevCursor), update prevCursor
+                        // Otherwise, preserve existing cursors and update from response
+                        const updatedEntry: EmailListCacheEntry = {
                             ...currentEntry,
-                            data: updatedMessages,
+                            data: mergedMessages,
                             timestamp: Date.now(),
                             ttl: currentEntry?.ttl || LIST_TTL,
-                            pageToken: next_cursor || undefined,
-                            hasMore: !!next_cursor
-                        });
+                            hasMore: !!next_cursor,
+                            nextCursor: next_cursor || currentEntry?.nextCursor,
+                            prevCursor: prev_cursor || undefined, // Update prevCursor to check for even newer emails next time
+                            newestEmailDate: newestEmailDate
+                        };
+
+                        newCache.set(scopeKey, updatedEntry);
                         return newCache;
                     });
 
@@ -794,6 +963,7 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
         // Email Lists
         getEmailList,
+        getEmailListCached,
         getEmailListLoading,
         getEmailListError,
         refreshEmailList,
@@ -823,6 +993,7 @@ export const OfficeDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         refreshContacts,
         detectCompanyFromEmail,
         getEmailList,
+        getEmailListCached,
         getEmailListLoading,
         getEmailListError,
         refreshEmailList,

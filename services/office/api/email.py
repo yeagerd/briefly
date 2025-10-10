@@ -88,6 +88,29 @@ class EmailPagination(BaseCursorPagination[EmailMessage]):
         else:
             return "ORDER BY received_date_time DESC, id DESC"
 
+    def get_microsoft_graph_skip(self, cursor_info: CursorInfo) -> int:
+        """Convert cursor info to Microsoft Graph skip value."""
+        # For Microsoft Graph, we need to translate our cursor-based pagination
+        # to skip-based pagination. We'll use the last_id as the skip value.
+        try:
+            skip_value = int(cursor_info.last_id)
+            return max(0, skip_value)  # Ensure non-negative
+        except (ValueError, TypeError):
+            return 0
+
+    def create_microsoft_graph_cursor(self, current_skip: int, limit: int) -> str:
+        """Create a cursor token for Microsoft Graph pagination."""
+        # Create cursor info with skip value as last_id
+        cursor_info = CursorInfo(
+            last_id=str(current_skip),
+            last_timestamp=datetime.now(timezone.utc).isoformat(),
+            filters={},
+            direction="next",
+            limit=limit,
+            created_at=datetime.now(timezone.utc).isoformat(),
+        )
+        return self.encode_cursor(cursor_info)
+
 
 # Lazy initialization for pagination to avoid module-level settings access
 _email_pagination: EmailPagination | None = None
@@ -374,6 +397,10 @@ async def get_email_messages(
         None,
         description="Filter by priority status (true=priority only, false=non-priority only)",
     ),
+    after_date: Optional[str] = Query(
+        None,
+        description="Only return messages received after this ISO datetime (for delta sync)",
+    ),
 ) -> EmailMessageList:
     """
     Get unified email messages from multiple providers.
@@ -502,6 +529,8 @@ async def get_email_messages(
                 q,
                 page_token,
                 priority,
+                cursor_info,
+                after_date,
             )
             tasks.append(task)
 
@@ -517,6 +546,7 @@ async def get_email_messages(
         provider_errors = {}
         providers_used = []
 
+        provider_has_more = {}
         for i, result in enumerate(provider_results):
             provider_name = valid_providers[i]
 
@@ -525,12 +555,13 @@ async def get_email_messages(
                 provider_errors[provider_name] = str(result)
             elif result is not None and not isinstance(result, BaseException):
                 try:
-                    # Type narrowing: result should be tuple[List[EmailMessage], str]
-                    messages, provider_name = result
+                    # Type narrowing: result should be tuple[List[EmailMessage], str, bool]
+                    messages, provider_name, has_more = result
                     aggregated_messages.extend(messages)
                     providers_used.append(provider_name)
+                    provider_has_more[provider_name] = has_more
                     logger.info(
-                        f"Provider {provider_name} returned {len(messages)} messages"
+                        f"Provider {provider_name} returned {len(messages)} messages, has_more: {has_more}"
                     )
                 except (TypeError, ValueError) as e:
                     logger.error(f"Invalid result format from {provider_name}: {e}")
@@ -580,13 +611,36 @@ async def get_email_messages(
 
         logger.info(f"Email messages request completed in {response_time_ms}ms")
 
+        # Determine if there are more pages based on provider responses
+        # If any provider has more pages, we consider there to be more pages
+        overall_has_more = (
+            any(provider_has_more.values()) if provider_has_more else False
+        )
+
         # Create pagination response
         pagination_response = get_email_pagination().create_pagination_response(
             items=aggregated_messages,
             cursor_info=cursor_info,
-            has_next=len(aggregated_messages) >= limit,
+            has_next=overall_has_more,
             has_prev=cursor_info is not None and cursor_info.direction == "prev",
         )
+
+        # For Microsoft Graph, generate proper cursor for next page
+        if overall_has_more:
+            current_skip = 0
+            if cursor_info:
+                current_skip = get_email_pagination().get_microsoft_graph_skip(
+                    cursor_info
+                )
+
+            next_skip = current_skip + limit
+            next_cursor = get_email_pagination().create_microsoft_graph_cursor(
+                next_skip, limit
+            )
+            pagination_response["next_cursor"] = next_cursor
+            logger.info(
+                f"Generated Microsoft Graph cursor: {next_cursor} (skip={next_skip})"
+            )
 
         return EmailMessageList(
             success=True,
@@ -1651,7 +1705,9 @@ async def fetch_provider_emails(
     q: Optional[str],
     page_token: Optional[str],
     priority: Optional[bool] = None,
-) -> tuple[List[EmailMessage], str]:
+    cursor_info: Optional[CursorInfo] = None,
+    after_date: Optional[str] = None,
+) -> tuple[List[EmailMessage], str, bool]:
     """
     Fetch emails from a specific provider.
 
@@ -1666,9 +1722,10 @@ async def fetch_provider_emails(
         q: Search query
         page_token: Pagination token
         priority: Filter by priority status (true=priority only, false=non-priority only)
+        after_date: Only return messages received after this ISO datetime (for delta sync)
 
     Returns:
-        Tuple of (messages list, provider name)
+        Tuple of (messages list, provider name, has_more)
     """
     try:
         logger.info(
@@ -1723,6 +1780,16 @@ async def fetch_provider_emails(
                         max_results=limit, page_token=page_token, query=gmail_query
                     )
                 messages = messages_response.get("messages", [])
+
+                # Check if there are more pages using nextPageToken
+                has_more = "nextPageToken" in messages_response
+
+                # Alternative check: if we got exactly the limit, there might be more
+                if not has_more and len(messages) == limit:
+                    logger.info(
+                        f"Google: Got exactly {limit} messages, assuming more pages available"
+                    )
+                    has_more = True
 
                 # Normalize messages
                 normalized_messages = []
@@ -1779,13 +1846,32 @@ async def fetch_provider_emails(
                     else:
                         filter_expr = priority_filter
 
-                # Convert page_token to skip value
+                # Add after_date filter for delta sync
+                if after_date:
+                    # Microsoft Graph expects DateTimeOffset without quotes
+                    # Format: receivedDateTime gt 2025-10-10T16:03:08Z
+                    after_date_filter = f"receivedDateTime gt {after_date}"
+                    if filter_expr:
+                        filter_expr = f"({filter_expr}) and ({after_date_filter})"
+                    else:
+                        filter_expr = after_date_filter
+                    logger.info(
+                        f"Microsoft Graph after_date filter: receivedDateTime gt {after_date}"
+                    )
+
+                # Convert cursor to skip value for Microsoft Graph pagination
                 skip_value = 0
-                if page_token:
-                    try:
-                        skip_value = int(page_token)
-                    except (ValueError, TypeError):
-                        skip_value = 0
+                if cursor_info:
+                    skip_value = get_email_pagination().get_microsoft_graph_skip(
+                        cursor_info
+                    )
+                    logger.info(
+                        f"Microsoft Graph pagination: cursor_info={cursor_info.last_id}, skip={skip_value}, top={limit}"
+                    )
+                else:
+                    logger.info(
+                        f"Microsoft Graph pagination: no cursor, skip={skip_value}, top={limit}"
+                    )
 
                 # Fetch messages from Outlook - use folder-specific endpoint if folder_id is provided
                 if folder_id:
@@ -1806,6 +1892,33 @@ async def fetch_provider_emails(
                         order_by="receivedDateTime desc",
                     )
                 messages = messages_response.get("value", [])
+
+                # Debug: Log the Microsoft Graph response structure
+                logger.info(
+                    f"Microsoft Graph response keys: {list(messages_response.keys())}"
+                )
+                if "@odata.nextLink" in messages_response:
+                    logger.info(
+                        f"Microsoft Graph @odata.nextLink: {messages_response['@odata.nextLink']}"
+                    )
+
+                # Check if there are more pages using @odata.nextLink
+                has_more = "@odata.nextLink" in messages_response
+                logger.info(f"Microsoft Graph has_more: {has_more}")
+
+                # Alternative check: if we got exactly the limit, there might be more
+                if not has_more and len(messages) == limit:
+                    logger.info(
+                        f"Microsoft Graph: Got exactly {limit} messages, assuming more pages available"
+                    )
+                    has_more = True
+
+                # Store the next skip value for pagination
+                next_skip_value = skip_value + limit if has_more else None
+                if next_skip_value is not None:
+                    logger.info(
+                        f"Microsoft Graph: Next skip value would be {next_skip_value}"
+                    )
 
                 # Get folder mapping for Microsoft emails to identify Junk Email folder
                 folder_mapping = {}
@@ -1843,7 +1956,7 @@ async def fetch_provider_emails(
             logger.info(
                 f"Successfully fetched {len(normalized_messages)} messages from {provider}"
             )
-            return normalized_messages, provider
+            return normalized_messages, provider, has_more
 
     except Exception as e:
         logger.error(f"Error fetching emails from {provider}: {e}")

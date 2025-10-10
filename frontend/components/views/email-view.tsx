@@ -15,7 +15,7 @@ import { useEmailList, useEmailThread } from '@/hooks/use-email-data';
 import { listProviderDraftsForThread } from '@/lib/draft-utils';
 import { safeParseDate } from '@/lib/utils';
 import { EmailFolder, EmailMessage, Provider } from "@/types/api/office";
-import { Archive, Check, ChevronLeft, Clock, List, ListTodo, PanelLeft, RefreshCw, Settings, Square, Star, Trash2, X } from 'lucide-react';
+import { Archive, Check, ChevronLeft, Clock, List, ListTodo, PanelLeft, Proportions, RefreshCw, Square, Star, Trash2, X } from 'lucide-react';
 import { getSession } from 'next-auth/react';
 import React, { useCallback, useEffect, useState } from 'react';
 
@@ -570,7 +570,7 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
                                     className="p-2 text-muted-foreground hover:text-foreground transition-colors"
                                     title="Settings"
                                 >
-                                    <Settings className="w-4 h-4" />
+                                    <Proportions className="w-4 h-4" />
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-64">

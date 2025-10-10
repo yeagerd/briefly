@@ -87,9 +87,14 @@ export function EmailFolderSelector({
 
                     setFolders(apiFolders);
 
-                    // Auto-select inbox folder if it exists and no folder is currently selected
+                    // Auto-select inbox folder if it exists and we're using the default folder
+                    // Check if selectedFolder is the default inbox folder (no provider_folder_id)
+                    const isDefaultFolder = selectedFolder &&
+                        selectedFolder.label === 'inbox' &&
+                        !selectedFolder.provider_folder_id;
+
                     const inboxFolder = apiFolders.find(f => f.label === 'inbox' && f.provider === activeProviders[0]);
-                    if (inboxFolder && !selectedFolder) {
+                    if (inboxFolder && isDefaultFolder) {
                         onFolderSelect(inboxFolder);
                     }
                 } else {
@@ -109,7 +114,7 @@ export function EmailFolderSelector({
             setError('Failed to load folders');
             setFolders(FALLBACK_FOLDERS);
         }
-    }, [activeProviders]);
+    }, [activeProviders, onFolderSelect, selectedFolder]);
 
     useEffect(() => {
         fetchFolders();

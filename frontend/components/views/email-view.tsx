@@ -168,7 +168,7 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
     }, [selectedFolder]);
 
     // Use provider hooks for email data
-    const { labels, folderId } = React.useMemo(() => getFolderParams(), [getFolderParams, selectedFolder]);
+    const { labels, folderId } = React.useMemo(() => getFolderParams(), [getFolderParams]);
 
     const autoFetchCondition = activeTool === 'email' && !toolDataLoading && !integrationsLoading;
 
@@ -484,7 +484,7 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
                 }));
             }
         }
-    }, [activeProviders]); // Remove selectedFolder.provider from dependencies to prevent loop
+    }, [activeProviders]); // eslint-disable-line react-hooks/exhaustive-deps -- selectedFolder.provider intentionally omitted to prevent infinite loop
 
 
     // Reset thread view when reading pane mode changes

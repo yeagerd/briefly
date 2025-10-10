@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" style="background: transparent;" fill="none">
-  <g transform="translate(0,32) scale(0.01,-0.01)" fill="#5eead4" stroke="none">
+  <g transform="translate(0,32) scale(0.01,-0.01)" fill="#5eead4" stroke="#5eead4" stroke-width="20">
     <!-- Mast -->
     <path d="M1525 2940 c-4 -7 -7 -49 -6 -94 10 -690 22 -1432 27 -1626 l7 -245
 20 45 c19 44 19 54 8 535 -22 989 -34 1380 -41 1388 -4 5 -11 3 -15 -3z"/>

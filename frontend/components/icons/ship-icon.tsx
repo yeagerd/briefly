@@ -10,7 +10,7 @@ export function ShipIcon({ className = "h-6 w-6" }: ShipIconProps) {
             fill="none"
             className={className}
         >
-            <g transform="translate(0,32) scale(0.01,-0.01)" fill="currentColor" stroke="none">
+            <g transform="translate(0,32) scale(0.01,-0.01)" fill="currentColor" stroke="currentColor" strokeWidth="20">
                 {/* Mast */}
                 <path d="M1525 2940 c-4 -7 -7 -49 -6 -94 10 -690 22 -1432 27 -1626 l7 -245
 20 45 c19 44 19 54 8 535 -22 989 -34 1380 -41 1388 -4 5 -11 3 -15 -3z"/>

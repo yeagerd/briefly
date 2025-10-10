@@ -1,11 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" style="background: transparent;" fill="none">
   <!-- Simplified sailboat icon optimized for favicon size - dark mode version -->
+  <g id="background">
   <!-- Main sail (triangle) -->
   <path d="M16 8 L16 24 L8 24 Z" fill="#5eead4"/>
   <!-- Secondary sail -->
   <path d="M16 12 L16 24 L22 24 Z" fill="#99f6e4"/>
   <!-- Hull (boat bottom) -->
   <path d="M6 24 L16 28 L26 24 L24 24 L16 26 L8 24 Z" fill="#5eead4"/>
-  <!-- Waterline -->
-  <rect x="4" y="27" width="24" height="2" fill="#5eead4" opacity="0.5"/>
+  </g>
+  <g id="foreground">
+    <!-- Waterline -->
+    <rect x="4" y="27" width="24" height="2" fill="#0f766e"/>
+  </g>
 </svg>

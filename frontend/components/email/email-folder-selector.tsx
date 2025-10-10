@@ -98,11 +98,15 @@ export function EmailFolderSelector({
                         onFolderSelect(inboxFolder);
                     }
                 } else {
-                    console.warn('Unexpected folder data structure, using fallback:', response);
+                    if (process.env.NODE_ENV !== 'test') {
+                        console.warn('Unexpected folder data structure, using fallback:', response);
+                    }
                     setFolders(FALLBACK_FOLDERS);
                 }
             } else {
-                console.warn('Failed to fetch folders, using fallback:', response);
+                if (process.env.NODE_ENV !== 'test') {
+                    console.warn('Failed to fetch folders, using fallback:', response);
+                }
                 setFolders(FALLBACK_FOLDERS);
             }
         } catch (err) {

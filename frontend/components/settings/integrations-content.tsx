@@ -58,7 +58,7 @@ export function IntegrationsContent() {
             // ProviderScopesResponse has scopes array and default_scopes array
             if (response && response.scopes && Array.isArray(response.scopes)) {
                 const scopes = response.scopes;
-                console.log(`Loaded scopes for ${provider}:`, scopes.map((s: IntegrationScopeResponse) => s.name));
+                // Loaded scopes for provider
 
                 // Store the scopes in providerScopes state
                 setProviderScopes(prev => ({
@@ -153,7 +153,7 @@ export function IntegrationsContent() {
                 }
             }
 
-            console.log(`Starting OAuth flow for ${config.provider} with scopes:`, scopesToUse);
+            // Starting OAuth flow
 
             const response = await userApi.startOAuthFlow(
                 config.provider as IntegrationProvider,
@@ -175,20 +175,20 @@ export function IntegrationsContent() {
     const handleDisconnect = async (provider: string) => {
         try {
             // error is now handled by the global context
-            console.log(`Disconnecting ${provider} integration...`);
+            // Disconnecting integration
             await userApi.disconnectIntegration(provider as IntegrationProvider);
-            console.log('Integration disconnected, clearing frontend cache...');
+            // Integration disconnected, clearing frontend cache
 
             // Clear frontend calendar cache for this user
             if (session?.user?.id) {
                 const { calendarCache } = await import('../../lib/calendar-cache');
                 calendarCache.invalidate(session.user.id);
-                console.log('Frontend calendar cache cleared');
+                // Frontend calendar cache cleared
             }
 
-            console.log('Reloading integrations...');
+            // Reloading integrations
             await refreshIntegrations(); // No arguments
-            console.log('Integrations reloaded');
+            // Integrations reloaded
         } catch (error: unknown) {
             console.error('Failed to disconnect integration:', error);
             // error is now handled by the global context

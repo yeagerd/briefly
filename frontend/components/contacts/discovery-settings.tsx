@@ -206,7 +206,7 @@ const ContactDiscoverySettings: React.FC<DiscoverySettingsProps> = ({ onClose })
                 <Button
                     onClick={() => {
                         // Save configuration
-                        console.log('Saving discovery configuration:', config);
+                        // Saving discovery configuration
                         onClose();
                     }}
                 >

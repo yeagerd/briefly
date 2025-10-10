@@ -364,9 +364,9 @@ const EmailThreadCard: React.FC<EmailThreadCardProps> = ({
                 email_message_id: email.id,
             };
 
-            const createdPackage = await shipmentsApi.createPackage(packageDataWithEmail);
+            await shipmentsApi.createPackage(packageDataWithEmail);
 
-            console.log('Package created successfully:', createdPackage);
+            // Package created successfully
 
             toast.success(`Successfully started tracking package ${packageData.tracking_number}`);
 

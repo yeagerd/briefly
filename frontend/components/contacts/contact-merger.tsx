@@ -228,7 +228,7 @@ const ContactMerger: React.FC<ContactMergerProps> = ({ onClose, onMerge }) => {
                 <Button
                     onClick={() => {
                         // Simulate finding new duplicates
-                        console.log('Scanning for duplicates...');
+                        // Scanning for duplicates
                     }}
                     variant="outline"
                     size="sm"

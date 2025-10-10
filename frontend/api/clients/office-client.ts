@@ -127,7 +127,8 @@ export class OfficeClient extends GatewayClient {
         q?: string,
         pageToken?: string,
         direction?: string,
-        forceRefresh?: boolean
+        forceRefresh?: boolean,
+        afterDate?: string
     ): Promise<EmailMessageList> {
         const params = new URLSearchParams();
 
@@ -139,6 +140,7 @@ export class OfficeClient extends GatewayClient {
         if (pageToken) params.append('page_token', pageToken);
         if (direction) params.append('direction', direction);
         if (forceRefresh) params.append('no_cache', 'true');
+        if (afterDate) params.append('after_date', afterDate);
 
         return this.request<EmailMessageList>(`/api/v1/office/email/messages?${params.toString()}`);
     }

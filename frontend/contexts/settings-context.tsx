@@ -156,7 +156,7 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
         const tz = (updated.timezone_mode === TimezoneMode.MANUAL && updated.manual_timezone)
             ? updated.manual_timezone
             : getUserTimezone();
-        console.log(`[UserPreferences] Updating timezone to: ${tz}`);
+        // Updating timezone
         setEffectiveTimezone(tz);
     };
 

@@ -73,6 +73,7 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
 
     const {
         getEmailList,
+        getEmailListCached,
         getEmailListLoading,
         getEmailListError,
         refreshEmailList,
@@ -80,12 +81,12 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
         runDelta
     } = useOfficeData();
 
-    const [emails, setEmails] = useState<EmailMessage[]>([]);
     const [hasMore, setHasMore] = useState(false);
     const [scope, setScope] = useState<EmailScope | null>(null);
 
     // Store latest function references to avoid circular dependencies
     const getEmailListRef = useRef(getEmailList);
+    const getEmailListCachedRef = useRef(getEmailListCached);
     const refreshEmailListRef = useRef(refreshEmailList);
     const runDeltaRef = useRef(runDelta);
 
@@ -95,8 +96,12 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
 
     // Update refs when functions change
     getEmailListRef.current = getEmailList;
+    getEmailListCachedRef.current = getEmailListCached;
     refreshEmailListRef.current = refreshEmailList;
     runDeltaRef.current = runDelta;
+
+    // Subscribe directly to cache - this will update as cache updates incrementally
+    const emails = scope ? getEmailListCached(scope) : [];
 
     // Create scope when user session is available
     useEffect(() => {
@@ -118,7 +123,7 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
         createScope();
     }, [folderId, folderLabel, query, pageSize, labels, classification]);
 
-    // Fetch emails when scope changes - cache first strategy
+    // Fetch emails when scope changes - cache first strategy with delta sync
     useEffect(() => {
         if (scope && autoFetch) {
             // Create a unique key for this scope+providers combination
@@ -129,45 +134,40 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
                 return;
             }
 
-            // Note: We don't clear emails here anymore since classification filtering
-            // happens in the email-view component. The cache contains all emails for
-            // a folder and we filter on the frontend for instant switching.
-
             lastScopeKeyRef.current = scopeKey;
             fetchingRef.current = true;
 
-            // Track if this effect is still active to prevent stale updates
-            let isActive = true;
-
             const fetchEmails = async () => {
                 try {
-                    // First, get cached data immediately (non-blocking)
-                    // This returns instantly with cache or empty array
-                    const cachedResult = await getEmailListRef.current(scope, providers, false, false);
+                    // Check if we have cached data
+                    const cachedEmails = getEmailListCachedRef.current(scope);
 
-                    // Only update state if this effect is still active
-                    if (isActive) {
-                        setEmails(cachedResult);
+                    if (cachedEmails.length > 0) {
+                        // We have cached data, use incremental delta sync
+                        // This will fetch the latest messages and merge with cache
+                        runDeltaRef.current(scope, providers).then(() => {
+                            if (lastScopeKeyRef.current === scopeKey) {
+                                fetchingRef.current = false;
+                            }
+                        }).catch(error => {
+                            console.error('Delta sync failed:', error);
+                            if (lastScopeKeyRef.current === scopeKey) {
+                                fetchingRef.current = false;
+                            }
+                        });
+                    } else {
+                        // No cache, do a full fetch
+                        getEmailListRef.current(scope, providers, true, true).then(() => {
+                            if (lastScopeKeyRef.current === scopeKey) {
+                                fetchingRef.current = false;
+                            }
+                        }).catch(error => {
+                            console.error('Full fetch failed:', error);
+                            if (lastScopeKeyRef.current === scopeKey) {
+                                fetchingRef.current = false;
+                            }
+                        });
                     }
-
-                    // Always trigger a background refresh to get latest data
-                    // Don't await this - let it run in background
-                    getEmailListRef.current(scope, providers, true, true).then(freshResult => {
-                        // Only update state if this effect is still active and scope hasn't changed
-                        if (isActive && lastScopeKeyRef.current === scopeKey) {
-                            setEmails(freshResult);
-                        }
-                        // Only reset fetching flag if this is still the current scope
-                        if (lastScopeKeyRef.current === scopeKey) {
-                            fetchingRef.current = false;
-                        }
-                    }).catch(error => {
-                        console.error('Background refresh failed:', error);
-                        // Only reset fetching flag if this is still the current scope
-                        if (lastScopeKeyRef.current === scopeKey) {
-                            fetchingRef.current = false;
-                        }
-                    });
                 } catch (error) {
                     console.error('Failed to fetch emails:', error);
                     if (lastScopeKeyRef.current === scopeKey) {
@@ -176,11 +176,6 @@ export function useEmailList(options: UseEmailListOptions = {}): UseEmailListRet
                 }
             };
             fetchEmails();
-
-            // Cleanup function to prevent stale updates when scope changes
-            return () => {
-                isActive = false;
-            };
         }
     }, [scope, providers, autoFetch]);
 

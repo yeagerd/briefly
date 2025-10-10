@@ -107,8 +107,8 @@ class TestEmailMessagesEndpoint:
         """Test successful email messages retrieval."""
         # Mock fetch_provider_emails to return test data
         mock_fetch_provider_emails.side_effect = [
-            ([mock_email_message], "google"),
-            ([mock_email_message], "microsoft"),
+            ([mock_email_message], "google", False),
+            ([mock_email_message], "microsoft", False),
         ]
 
         response = client.get("/v1/email/messages?limit=10", headers=auth_headers)
@@ -178,7 +178,7 @@ class TestEmailMessagesEndpoint:
         # Mock one provider success, one failure
         mock_fetch_provider_emails.side_effect = [
             Exception("Provider failed"),
-            ([], "microsoft"),
+            ([], "microsoft", False),
         ]
 
         response = client.get("/v1/email/messages?limit=10", headers=auth_headers)
@@ -266,8 +266,8 @@ class TestEmailMessagesEndpoint:
         """Test that no_cache parameter bypasses cache."""
         # Mock fetch_provider_emails to return test data for both providers
         mock_fetch_provider_emails.side_effect = [
-            ([mock_email_message], "google"),
-            ([mock_email_message], "microsoft"),
+            ([mock_email_message], "google", False),
+            ([mock_email_message], "microsoft", False),
         ]
 
         # Mock cache to return None (cache miss)
@@ -935,7 +935,7 @@ class TestFetchProviderEmails:
             "req_123", "test_user", "google", 10, False, None, None, None, None
         )
 
-        messages, provider = result
+        messages, provider, has_more = result
         assert len(messages) == 1
         assert provider == "google"
         assert messages[0] == mock_email_message
@@ -966,7 +966,7 @@ class TestFetchProviderEmails:
             "req_123", "test_user", "microsoft", 10, False, None, None, None, None
         )
 
-        messages, provider = result
+        messages, provider, has_more = result
         assert len(messages) == 1
         assert provider == "microsoft"
         assert messages[0] == mock_email_message

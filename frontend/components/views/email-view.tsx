@@ -549,17 +549,18 @@ const EmailView: React.FC<EmailViewProps> = ({ toolDataLoading = false, activeTo
                             onClick={handleRefresh}
                             disabled={loading}
                             className="p-2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                            onMouseEnter={(e) => {
+                                if (lastUpdated) {
+                                    const secondsAgo = Math.floor((Date.now() - lastUpdated) / 1000);
+                                    e.currentTarget.title = `Updated ${secondsAgo}s ago`;
+                                } else {
+                                    e.currentTarget.title = "Refresh emails";
+                                }
+                            }}
                             title="Refresh emails"
                         >
                             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                         </button>
-
-                        {/* Last updated timestamp */}
-                        {lastUpdated && (
-                            <span className="text-xs text-muted-foreground">
-                                Updated {Math.floor((Date.now() - lastUpdated) / 1000)}s ago
-                            </span>
-                        )}
 
                         {/* Settings dropdown */}
                         <DropdownMenu open={settingsOpen} onOpenChange={setSettingsOpen}>

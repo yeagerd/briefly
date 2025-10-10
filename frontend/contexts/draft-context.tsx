@@ -109,8 +109,9 @@ export function DraftProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const updateDraftMetadata = useCallback((metadata: Partial<DraftMetadata>) => {
-        dispatch({ type: 'UPDATE_DRAFT', payload: { metadata: { ...state.currentDraft?.metadata, ...metadata } } });
-    }, [state.currentDraft?.metadata]);
+        if (!state.currentDraft) return;
+        dispatch({ type: 'UPDATE_DRAFT', payload: { metadata: { ...state.currentDraft.metadata, ...metadata } } });
+    }, [state.currentDraft]);
 
     const clearDraft = useCallback(() => {
         dispatch({ type: 'CLEAR_DRAFT' });

@@ -1,5 +1,6 @@
 import UserMenu from "@/components/auth/user-menu";
 import { ShipIcon } from "@/components/icons/ship-icon";
+import { NavbarActionMenu } from "@/components/navbar-action-menu";
 import { Button } from "@/components/ui/button";
 import { useChatPanelState } from "@/contexts/chat-panel-context";
 import { MessageSquare, MessageSquareOff, Settings } from "lucide-react";
@@ -18,6 +19,7 @@ export default function Navbar() {
                     </Link>
                 </div>
                 <div className="flex items-center gap-4 min-w-0">
+                    <NavbarActionMenu />
                     <Button
                         variant={isOpen ? "default" : "outline"}
                         size="sm"

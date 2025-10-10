@@ -506,7 +506,16 @@ export async function discardDraft(draftId: string, provider?: 'google' | 'micro
                 console.warn('Failed to delete provider draft:', e);
             }
         }
-        await deleteDraft(draftId);
+
+        // Check if this is a local draft (string ID) or a backend draft (integer ID)
+        if (/^\d+$/.test(draftId)) {
+            // Backend draft - delete via API
+            await deleteDraft(draftId);
+        } else {
+            // Local draft - no backend deletion needed, just return success
+            console.log('Local draft discarded (no backend deletion needed)');
+        }
+
         return true;
     } catch (error) {
         console.error('Failed to discard draft:', error);

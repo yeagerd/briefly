@@ -5,8 +5,8 @@ import { DraftPane } from '@/components/draft/draft-pane';
 import AppLayout from '@/components/layout/app-layout';
 import Sidebar from '@/components/layout/sidebar';
 import { ToolContent } from '@/components/tool-content';
+import { DraftProvider, useDraftContext } from '@/contexts/draft-context';
 import { ToolProvider } from '@/contexts/tool-context';
-import { useDraftState } from '@/hooks/use-draft-state';
 import { convertDraftDataToDraft } from '@/lib/draft-utils';
 import { DraftType } from '@/types/draft';
 import { useSession } from 'next-auth/react';
@@ -14,7 +14,7 @@ import { Suspense } from 'react';
 
 function DashboardContent() {
     const { data: session, status } = useSession();
-    const { state: draftState, setCurrentDraft, updateDraft, updateDraftMetadata, createNewDraft, clearDraft } = useDraftState();
+    const { state: draftState, setCurrentDraft, updateDraft, updateDraftMetadata, createNewDraft, clearDraft } = useDraftContext();
 
     const handleDraftReceived = (draftData: DraftData) => {
         if (session?.user?.email) {
@@ -57,34 +57,36 @@ function DashboardContent() {
     }
 
     return (
-        <AppLayout
-            sidebar={<Sidebar />}
-            main={
-                <div className="h-full flex flex-col">
-                    {/* Tool Content - Main portion */}
-                    <div className="flex-1 overflow-auto">
-                        <ToolContent />
+        <>
+            <AppLayout
+                sidebar={<Sidebar />}
+                main={
+                    <div className="h-full flex flex-col">
+                        {/* Tool Content - Main portion */}
+                        <div className="flex-1 overflow-auto">
+                            <ToolContent />
+                        </div>
                     </div>
-                </div>
-            }
-            draft={<ChatInterface onDraftReceived={handleDraftReceived} />}
-            draftPane={
-                <div className="h-full flex flex-col bg-card border-l">
-                    <div className="flex-1 overflow-auto">
-                        <DraftPane
-                            draft={draftState.currentDraft}
-                            onUpdate={updateDraft}
-                            onMetadataChange={updateDraftMetadata}
-                            onTypeChange={handleTypeChange}
-                            isLoading={draftState.isLoading}
-                            error={draftState.error}
-                            onActionComplete={handleDraftActionComplete}
-                        />
+                }
+                draft={<ChatInterface onDraftReceived={handleDraftReceived} />}
+                draftPane={draftState.currentDraft ? (
+                    <div className="h-full flex flex-col bg-card border-l">
+                        <div className="flex-1 overflow-auto">
+                            <DraftPane
+                                draft={draftState.currentDraft}
+                                onUpdate={updateDraft}
+                                onMetadataChange={updateDraftMetadata}
+                                onTypeChange={handleTypeChange}
+                                isLoading={draftState.isLoading}
+                                error={draftState.error}
+                                onActionComplete={handleDraftActionComplete}
+                            />
+                        </div>
                     </div>
-                </div>
-            }
-            hasActiveDraft={!!draftState.currentDraft}
-        />
+                ) : null}
+                hasActiveDraft={!!draftState.currentDraft}
+            />
+        </>
     );
 }
 
@@ -92,7 +94,9 @@ export default function DashboardPage() {
     return (
         <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
             <ToolProvider>
-                <DashboardContent />
+                <DraftProvider>
+                    <DashboardContent />
+                </DraftProvider>
             </ToolProvider>
         </Suspense>
     );

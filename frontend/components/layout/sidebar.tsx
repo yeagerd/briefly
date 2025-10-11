@@ -12,10 +12,11 @@ import {
 import { useToolStateUtils } from "@/hooks/use-tool-state";
 import { getToolBadge, isToolAvailable } from "@/lib/tool-routing";
 import { NavigationItem, Tool } from "@/types/navigation";
-import { BarChart3, BookOpen, Calendar, CalendarRange, Clock, Copy, FileText, ListChecks, Mail, Package, TrendingUp, Users } from "lucide-react";
+import { BarChart3, BookOpen, Calendar, CalendarRange, Clock, Copy, FileText, ListChecks, Mail, Package, ShipWheel, TrendingUp, Users } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 const navigationItems: NavigationItem[] = [
+    { id: "dashboard", title: "Dashboard", icon: ShipWheel, path: "/dashboard?tool=dashboard", enabled: true },
     { id: "calendar", title: "Calendar", icon: Calendar, path: "/dashboard?tool=calendar", enabled: true },
     { id: "email", title: "Email", icon: Mail, path: "/dashboard?tool=email", enabled: true },
     { id: "contacts", title: "Contacts", icon: Users, path: "/dashboard?tool=contacts", enabled: true },

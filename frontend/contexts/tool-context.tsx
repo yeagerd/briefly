@@ -6,6 +6,7 @@ import { createContext, ReactNode, useContext, useEffect, useMemo, useReducer, u
 
 // Initial tool settings
 const defaultToolSettings: Record<Tool, ToolSettings> = {
+    dashboard: { id: 'dashboard', enabled: true, preferences: {} },
     calendar: { id: 'calendar', enabled: true, preferences: { view: 'month', showWeekends: true } },
     email: { id: 'email', enabled: true, preferences: { view: 'inbox', sortBy: 'date' } },
     contacts: { id: 'contacts', enabled: true, preferences: {} },
@@ -22,9 +23,10 @@ const defaultToolSettings: Record<Tool, ToolSettings> = {
 
 // Initial state
 const initialState: ToolState = {
-    activeTool: 'calendar',
+    activeTool: 'dashboard',
     toolSettings: defaultToolSettings,
     lastVisited: {
+        dashboard: '/dashboard?tool=dashboard',
         calendar: '/dashboard?tool=calendar',
         email: '/dashboard?tool=email',
         contacts: '/dashboard?tool=contacts',
@@ -39,6 +41,7 @@ const initialState: ToolState = {
         bookings: '/dashboard?tool=bookings',
     },
     visitTimestamps: {
+        dashboard: 0,
         calendar: 0,
         email: 0,
         contacts: 0,

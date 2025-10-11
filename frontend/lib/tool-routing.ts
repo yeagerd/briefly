@@ -2,6 +2,7 @@ import { Tool } from '@/types/navigation';
 
 // Tool route mapping
 export const TOOL_ROUTES: Record<Tool, string> = {
+    dashboard: '/dashboard?tool=dashboard',
     calendar: '/dashboard?tool=calendar',
     email: '/dashboard?tool=email',
     contacts: '/dashboard?tool=contacts',
@@ -18,6 +19,7 @@ export const TOOL_ROUTES: Record<Tool, string> = {
 
 // Tool display names
 export const TOOL_NAMES: Record<Tool, string> = {
+    dashboard: 'Dashboard',
     calendar: 'Calendar',
     email: 'Email',
     contacts: 'Contacts',
@@ -34,6 +36,7 @@ export const TOOL_NAMES: Record<Tool, string> = {
 
 // Tool descriptions
 export const TOOL_DESCRIPTIONS: Record<Tool, string> = {
+    dashboard: 'Your personal command center',
     calendar: 'View and manage your calendar events',
     email: 'Read and send emails',
     contacts: 'View and manage your contacts',
@@ -94,6 +97,7 @@ export function getToolFromPathname(pathname: string): Tool | null {
 
     // Map pathname to tool
     const pathToTool: Record<string, Tool> = {
+        'dashboard': 'dashboard',
         'calendar': 'calendar',
         'email': 'email',
         'contacts': 'contacts',
@@ -124,6 +128,7 @@ export function getAvailableTools(): Tool[] {
 // Get tool icon name (for dynamic imports)
 export function getToolIconName(tool: Tool): string {
     const iconMap: Record<Tool, string> = {
+        dashboard: 'ShipWheel',
         calendar: 'Calendar',
         email: 'Mail',
         contacts: 'Users',
@@ -143,6 +148,7 @@ export function getToolIconName(tool: Tool): string {
 // Get tool color (for theming)
 export function getToolColor(tool: Tool): string {
     const colorMap: Record<Tool, string> = {
+        dashboard: 'teal',
         calendar: 'blue',
         email: 'green',
         contacts: 'emerald',
@@ -162,6 +168,7 @@ export function getToolColor(tool: Tool): string {
 // Get tool badge (for "Soon" features)
 export function getToolBadge(tool: Tool): string | null {
     const badgeMap: Record<Tool, string | null> = {
+        dashboard: null,
         calendar: null,
         email: null,
         contacts: null,

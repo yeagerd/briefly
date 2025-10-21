@@ -15,6 +15,7 @@ import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import CalendarView from './views/calendar-view';
 import ContactsView from './views/contacts-view';
+import { DashboardView } from './views/dashboard-view';
 import EmailView from './views/email-view';
 
 // Import generated types from OpenAPI schema
@@ -77,6 +78,8 @@ export function ToolContent() {
 
     const renderToolContent = () => {
         switch (activeTool) {
+            case 'dashboard':
+                return <DashboardView toolDataLoading={toolDataLoading} activeTool={activeTool} />;
             case 'calendar':
                 return <CalendarView toolDataLoading={toolDataLoading} activeTool={activeTool} />;
             case 'email':

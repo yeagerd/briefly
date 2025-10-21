@@ -1,4 +1,5 @@
 export type Tool =
+    | 'dashboard'
     | 'calendar'
     | 'email'
     | 'contacts'
